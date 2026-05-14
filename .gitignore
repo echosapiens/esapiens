@@ -1,0 +1,66 @@
+# ─── Secrets & Environment ───
+.env
+.env.*
+!.env.example
+
+# ─── Databases ───
+*.db
+*.sqlite3
+*.sqlite
+
+# ─── Python ───
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# ─── Node / Frontend ───
+node_modules/
+frontend/dist/
+frontend/node_modules/
+online-generated-ui/node_modules/
+online-generated-ui/dist/
+
+# ─── IDE / OS ───
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ─── Data directories ───
+backend/data/
+esapiens-data/
+*.db-journal
+*.db-wal
+
+# ─── Logs ───
+*.log
+logs/
+
+# ─── Temporary / Build ───
+tmp/
+temp/
+*.tmp
+
+# ─── Misc ───
+image.png
+final/
+bioSkills copy
+online-generated-ui/
+
+# ─── Backend runtime artifacts ───
+backend/*.html
+backend/*.txt
+backend/*.gz
+backend/*.wig
+backend/*.png
+backend/*.pdf
+backend/.test_data/
