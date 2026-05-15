@@ -8,6 +8,7 @@ services:
     environment:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - ESAPIENS_DATA_DIR=/root/persistent
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000,https://esapiens.yourdomain.com
     volumes:
       - esapiens-data:/root/persistent
     restart: unless-stopped
