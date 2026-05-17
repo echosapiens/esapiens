@@ -6,9 +6,12 @@ Defines Modal container images and remote functions for heavy compute tasks
 the `run_modal_job` tool in tools.py dispatches to.
 
 The agent can also dynamically create new Modal tasks via `create_modal_tool`.
+
+Authentication: On headless VPS (Hostinger), set MODAL_TOKEN_ID and
+MODAL_TOKEN_SECRET in .env — _init_modal_client() reads these at import
+time and creates a persistent Modal client. No browser needed.
 """
 
-import json
 import os
 import traceback
 from typing import Any
@@ -22,324 +25,51 @@ except ImportError:
 
 
 # =============================================================================
-# Container Images — shared dependency layers
+# Modal Authentication — support headless/VPS deployment
 # =============================================================================
 
-# Base image with common bioinformatics system packages
-_bio_base_image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .apt_install(
-        "wget", "curl", "git", "build-essential", "zlib1g-dev",
-        "libbz2-dev", "liblzma-dev", "libncurses5-dev",
-    )
-)
+def _init_modal_client():
+    """Initialize Modal client from environment variables.
 
-# STAR aligner image
-_star_image = (
-    _bio_base_image
-    .run_commands(
-        "wget -q https://github.com/alexdobin/STAR/archive/2.7.11b.tar.gz -O /tmp/star.tar.gz",
-        "cd /tmp && tar xzf star.tar.gz",
-        "cd STAR-2.7.11b/source && make -j$(nproc) STAR",
-        "cp /tmp/STAR-2.7.11b/source/STAR /usr/local/bin/",
-        "rm -rf /tmp/star.tar.gz /tmp/STAR-*",
-    )
-    .pip_install("pysam")
-)
+    On a headless VPS (Hostinger), there's no browser for `modal setup`.
+    Instead, set MODAL_TOKEN_ID and MODAL_TOKEN_SECRET in .env or
+    environment. This function creates a persistent Modal client that
+    all subsequent Modal calls will use.
 
-# SRA toolkit image (fasterq-dump + prefetch)
-_sra_image = (
-    _bio_base_image
-    .run_commands(
-        "wget -q https://ftp-trace.ncbi.nlm.nih.gov/sra/sdk/3.1.1/sratoolkit.3.1.1-ubuntu64.tar.gz -O /tmp/sra.tar.gz",
-        "cd /tmp && tar xzf sra.tar.gz",
-        "cp /tmp/sratoolkit.3.1.1-ubuntu64/bin/fasterq-dump /usr/local/bin/",
-        "cp /tmp/sratoolkit.3.1.1-ubuntu64/bin/prefetch /usr/local/bin/",
-        "cp /tmp/sratoolkit.3.1.1-ubuntu64/bin/vdb-config /usr/local/bin/",
-        "rm -rf /tmp/sra.tar.gz /tmp/sratoolkit*",
-    )
-    .pip_install("pysam")
-)
-
-# DESeq2 R image
-_deseq2_image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .apt_install("r-base", "r-base-dev", "libcurl4-openssl-dev", "libxml2-dev")
-    .run_commands(
-        'Rscript -e \'install.packages(c("BiocManager"), repos="https://cloud.r-project.org")\'',
-        'Rscript -e \'BiocManager::install("DESeq2")\'',
-    )
-    .pip_install("pandas", "numpy", "httpx")
-)
-
-# General GPU image for ML tasks
-_gpu_image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .pip_install("torch", "transformers", "scanpy", "anndata")
-)
-
-
-# =============================================================================
-# Modal App Definitions
-# =============================================================================
-
-_star_app = modal.App("esapiens-star-aligner", image=_star_image)
-_sra_app = modal.App("esapiens-sra-download", image=_sra_image)
-_deseq2_app = modal.App("esapiens-deseq2", image=_deseq2_image)
-_gpu_app = modal.App("esapiens-gpu-worker", image=_gpu_image)
-
-
-# =============================================================================
-# Remote Function Definitions
-# =============================================================================
-
-# Shared volume for data persistence between tasks
-_data_volume = modal.Volume.from_name("esapiens-data", create_if_missing=True)
-
-
-@_star_app.function(
-    cpu=16,
-    memory=128 * 1024,  # 128 GB RAM
-    timeout=7200,        # 2-hour max
-    volumes={"/data": _data_volume},
-)
-def run_star_alignment(
-    sra_accession: str,
-    gencode_version: str = "v44",
-    star_index_path: str | None = None,
-) -> dict[str, Any]:
-    """Run STAR alignment on a remote Modal container.
-
-    Downloads FASTQ from SRA, aligns with STAR, returns gene counts.
+    Returns the client if tokens were found, else None (falls back to
+    default credential chain which works on local dev machines).
     """
-    import subprocess
-    import os
+    if not MODAL_AVAILABLE:
+        return None
 
-    work_dir = f"/data/star_jobs/{sra_accession}"
-    os.makedirs(work_dir, exist_ok=True)
+    token_id = os.environ.get("MODAL_TOKEN_ID", "").strip()
+    token_secret = os.environ.get("MODAL_TOKEN_SECRET", "").strip()
 
-    output_dir = os.path.join(work_dir, "output")
-    os.makedirs(output_dir, exist_ok=True)
+    if token_id and token_secret:
+        # Authenticate with explicit tokens (headless/VPS mode)
+        client = modal.Client.from_credentials(token_id, token_secret)
+        # Store as the default client so all Modal calls use it
+        modal.Client.set_default(client)
+        return client
 
-    try:
-        # Step 1: Download FASTQ
-        print(f"[STAR] Downloading {sra_accession}...")
-        dl_result = subprocess.run(
-            ["fasterq-dump", "--split-files", "--threads", "4", sra_accession, "--outdir", work_dir],
-            capture_output=True, text=True, timeout=3600,
-        )
-        if dl_result.returncode != 0:
-            return {"error": f"fasterq-dump failed: {dl_result.stderr[-2000:]}"}
-
-        # Find downloaded FASTQ files
-        fastq_files = [f for f in os.listdir(work_dir) if f.endswith(".fastq") or f.endswith(".fastq.gz")]
-        if not fastq_files:
-            return {"error": f"No FASTQ files found after download of {sra_accession}"}
-
-        # Step 2: Build STAR command
-        read_files_param = " ".join([os.path.join(work_dir, f) for f in sorted(fastq_files)])
-
-        if star_index_path:
-            index_param = f"--genomeDir {star_index_path}"
-        else:
-            # Default: use a pre-built index if available
-            index_param = f"--genomeDir /data/star_indexes/{gencode_version}"
-
-        star_cmd = (
-            f"STAR --runThreadN 16 {index_param} "
-            f"--readFilesIn {read_files_param} "
-            f"--outFileNamePrefix {output_dir}/ "
-            f"--outSAMtype BAM SortedByCoordinate "
-            f"--quantMode GeneCounts "
-            f"--outSAMattrRGline ID:{sra_accession} SM:{sra_accession} PL:ILLUMINA"
-        )
-
-        print(f"[STAR] Running alignment for {sra_accession}...")
-        star_result = subprocess.run(
-            star_cmd, shell=True, capture_output=True, text=True, timeout=7200,
-        )
-
-        # Parse outputs
-        gene_counts_file = os.path.join(output_dir, "ReadsPerGene.out.tab")
-        aligned_bam = os.path.join(output_dir, "Aligned.sortedByCoord.out.bam")
-
-        result = {
-            "sra_accession": sra_accession,
-            "gencode_version": gencode_version,
-            "star_exit_code": star_result.returncode,
-            "output_dir": output_dir,
-        }
-
-        if os.path.exists(gene_counts_file):
-            with open(gene_counts_file) as f:
-                result["gene_counts_preview"] = f.read()[:2000]
-
-        if os.path.exists(aligned_bam):
-            result["bam_path"] = aligned_bam
-
-        # Read STAR log for alignment stats
-        log_file = os.path.join(output_dir, "Log.final.out")
-        if os.path.exists(log_file):
-            with open(log_file) as f:
-                result["alignment_log"] = f.read()[:3000]
-
-        return result
-
-    except subprocess.TimeoutExpired:
-        return {"error": f"STAR alignment timed out for {sra_accession}"}
-    except Exception as e:
-        return {"error": f"STAR alignment failed: {traceback.format_exc()[-3000:]}"}
+    # Fall back to default credential chain (~/.modal, modal setup, etc.)
+    # This works on local dev machines where `modal setup` was run
+    return None
 
 
-@_sra_app.function(
-    cpu=4,
-    memory=16 * 1024,  # 16 GB
-    timeout=3600,       # 1-hour max
-    volumes={"/data": _data_volume},
-)
-def download_sra(
-    sra_accession: str,
-    format: str = "fastq",
-) -> dict[str, Any]:
-    """Download data from NCBI SRA via fasterq-dump or prefetch.
-
-    Args:
-        sra_accession: SRA run accession (e.g., SRR23642046)
-        format: 'fastq' for FASTQ, 'sra' for raw SRA
-    """
-    import subprocess
-    import os
-
-    out_dir = f"/data/sra_downloads/{sra_accession}"
-    os.makedirs(out_dir, exist_ok=True)
-
-    try:
-        if format == "fastq":
-            result = subprocess.run(
-                ["fasterq-dump", "--split-files", "--threads", "4", sra_accession, "--outdir", out_dir],
-                capture_output=True, text=True, timeout=3600,
-            )
-        else:
-            result = subprocess.run(
-                ["prefetch", sra_accession, "--max-size", "100G", "-o", out_dir],
-                capture_output=True, text=True, timeout=3600,
-            )
-
-        files = os.listdir(out_dir) if os.path.exists(out_dir) else []
-
-        return {
-            "sra_accession": sra_accession,
-            "format": format,
-            "exit_code": result.returncode,
-            "output_dir": out_dir,
-            "files": files,
-            "stderr": result.stderr[-2000:] if result.stderr else "",
-        }
-
-    except subprocess.TimeoutExpired:
-        return {"error": f"Download timed out for {sra_accession}"}
-    except Exception as e:
-        return {"error": f"Download failed: {traceback.format_exc()[-3000:]}"}
-
-
-@_deseq2_app.function(
-    cpu=4,
-    memory=16 * 1024,
-    timeout=3600,
-    volumes={"/data": _data_volume},
-)
-def run_deseq2(
-    count_matrix_path: str,
-    design_formula: str = "~ condition",
-    contrast: list[str] | None = None,
-) -> dict[str, Any]:
-    """Run DESeq2 differential expression analysis on a count matrix.
-
-    Args:
-        count_matrix_path: Path to CSV count matrix (genes x samples) in /data volume
-        design_formula: R design formula string
-        contrast: [numerator, denominator] comparison, e.g. ["treated", "control"]
-    """
-    import subprocess
-    import os
-
-    work_dir = os.path.dirname(count_matrix_path)
-    output_path = os.path.join(work_dir, "deseq2_results.csv")
-
-    r_script = f"""
-library(DESeq2)
-counts <- read.csv("{count_matrix_path}", row.names=1)
-coldata <- read.csv("{count_matrix_path.replace('.csv', '_metadata.csv')}", row.names=1)
-dds <- DESeqDataSetFromMatrix(countData=round(counts), colData=coldata, design={design_formula})
-dds <- DESeq(dds)
-res <- results(dds, contrast=c("{contrast[0] if contrast else 'condition'}", "{contrast[1] if contrast and len(contrast) > 1 else 'reference'}"))
-res <- res[order(res$padj),]
-write.csv(as.data.frame(res), "{output_path}")
-cat("DESeq2 completed\\n")
-"""
-
-    r_script_path = os.path.join(work_dir, "deseq2_analysis.R")
-    with open(r_script_path, "w") as f:
-        f.write(r_script)
-
-    try:
-        result = subprocess.run(
-            ["Rscript", r_script_path],
-            capture_output=True, text=True, timeout=3600,
-        )
-
-        output_exists = os.path.exists(output_path)
-        results_preview = ""
-        if output_exists:
-            with open(output_path) as f:
-                results_preview = f.read()[:5000]
-
-        return {
-            "exit_code": result.returncode,
-            "output_path": output_path if output_exists else None,
-            "results_preview": results_preview,
-            "stdout": result.stdout[-2000:] if result.stdout else "",
-            "stderr": result.stderr[-2000:] if result.stderr else "",
-        }
-
-    except subprocess.TimeoutExpired:
-        return {"error": "DESeq2 analysis timed out"}
-    except Exception as e:
-        return {"error": f"DESeq2 failed: {traceback.format_exc()[-3000:]}"}
-
-
-@_gpu_app.function(
-    gpu="T4",
-    cpu=4,
-    memory=16 * 1024,
-    timeout=3600,
-)
-def run_gpu_task(
-    task_type: str,
-    params: dict[str, Any],
-) -> dict[str, Any]:
-    """Generic GPU worker for ML tasks.
-
-    Args:
-        task_type: Type of task — 'embedding', 'inference', 'training'
-        params: Task-specific parameters
-    """
-    # This is a placeholder for dynamic GPU tasks
-    # The agent will create specific modal tools as needed
-    return {
-        "status": "not_implemented",
-        "message": f"GPU task type '{task_type}' is not yet pre-defined. Use create_modal_tool to define custom GPU tasks.",
-    }
+# Initialize Modal authentication on import
+# (dotenv is already loaded by main.py before tools.py imports modal_tasks)
+_modal_client = _init_modal_client()
 
 
 # =============================================================================
-# Task Registry — maps job_type to (app, function, default_params)
+# Pre-defined task schemas (always available, even without Modal SDK)
 # =============================================================================
 
 BIO_TASKS: dict[str, dict[str, Any]] = {
     "star_alignment": {
-        "app": _star_app,
-        "function": run_star_alignment,
+        "app": None,
+        "function": None,
         "description": "Run STAR alignment on SRA data (32 cores, 128GB RAM). Returns gene counts and alignment stats.",
         "parameters": {
             "type": "object",
@@ -362,8 +92,8 @@ BIO_TASKS: dict[str, dict[str, Any]] = {
         },
     },
     "download_sra": {
-        "app": _sra_app,
-        "function": download_sra,
+        "app": None,
+        "function": None,
         "description": "Download FASTQ or SRA files from NCBI. Returns file list and paths.",
         "parameters": {
             "type": "object",
@@ -383,8 +113,8 @@ BIO_TASKS: dict[str, dict[str, Any]] = {
         },
     },
     "deseq2": {
-        "app": _deseq2_app,
-        "function": run_deseq2,
+        "app": None,
+        "function": None,
         "description": "Run DESeq2 differential expression. Requires count matrix + metadata CSV in the /data volume.",
         "parameters": {
             "type": "object",
@@ -408,6 +138,291 @@ BIO_TASKS: dict[str, dict[str, Any]] = {
         },
     },
 }
+
+
+# =============================================================================
+# Modal-dependent definitions — only instantiated when SDK is available
+# =============================================================================
+
+if MODAL_AVAILABLE:
+    # ---- Container Images ----
+
+    _bio_base_image = (
+        modal.Image.debian_slim(python_version="3.11")
+        .apt_install(
+            "wget", "curl", "git", "build-essential", "zlib1g-dev",
+            "libbz2-dev", "liblzma-dev", "libncurses5-dev",
+        )
+    )
+
+    # STAR aligner image
+    _star_image = (
+        _bio_base_image
+        .run_commands(
+            "wget -q https://github.com/alexdobin/STAR/archive/2.7.11b.tar.gz -O /tmp/star.tar.gz",
+            "cd /tmp && tar xzf star.tar.gz",
+            "cd STAR-2.7.11b/source && make -j$(nproc) STAR",
+            "cp /tmp/STAR-2.7.11b/source/STAR /usr/local/bin/",
+            "rm -rf /tmp/star.tar.gz /tmp/STAR-*",
+        )
+        .pip_install("pysam")
+    )
+
+    # SRA toolkit image (fasterq-dump + prefetch)
+    _sra_image = (
+        _bio_base_image
+        .run_commands(
+            "wget -q https://ftp-trace.ncbi.nlm.nih.gov/sra/sdk/3.1.1/sratoolkit.3.1.1-ubuntu64.tar.gz -O /tmp/sra.tar.gz",
+            "cd /tmp && tar xzf sra.tar.gz",
+            "cp /tmp/sratoolkit.3.1.1-ubuntu64/bin/fasterq-dump /usr/local/bin/",
+            "cp /tmp/sratoolkit.3.1.1-ubuntu64/bin/prefetch /usr/local/bin/",
+            "cp /tmp/sratoolkit.3.1.1-ubuntu64/bin/vdb-config /usr/local/bin/",
+            "rm -rf /tmp/sra.tar.gz /tmp/sratoolkit*",
+        )
+        .pip_install("pysam")
+    )
+
+    # DESeq2 R image
+    _deseq2_image = (
+        modal.Image.debian_slim(python_version="3.11")
+        .apt_install("r-base", "r-base-dev", "libcurl4-openssl-dev", "libxml2-dev")
+        .run_commands(
+            'Rscript -e \'install.packages(c("BiocManager"), repos="https://cloud.r-project.org")\'',
+            'Rscript -e \'BiocManager::install("DESeq2")\'',
+        )
+        .pip_install("pandas", "numpy", "httpx")
+    )
+
+    # General GPU image for ML tasks
+    _gpu_image = (
+        modal.Image.debian_slim(python_version="3.11")
+        .pip_install("torch", "transformers", "scanpy", "anndata")
+    )
+
+    # ---- Modal App Definitions ----
+
+    _star_app = modal.App("esapiens-star-aligner", image=_star_image)
+    _sra_app = modal.App("esapiens-sra-download", image=_sra_image)
+    _deseq2_app = modal.App("esapiens-deseq2", image=_deseq2_image)
+    _gpu_app = modal.App("esapiens-gpu-worker", image=_gpu_image)
+
+    # ---- Shared Volume ----
+
+    _data_volume = modal.Volume.from_name("esapiens-data", create_if_missing=True)
+
+    # ---- Remote Function Definitions ----
+
+    @_star_app.function(
+        cpu=16,
+        memory=128 * 1024,  # 128 GB RAM
+        timeout=7200,        # 2-hour max
+        volumes={"/data": _data_volume},
+    )
+    def run_star_alignment(
+        sra_accession: str,
+        gencode_version: str = "v44",
+        star_index_path: str | None = None,
+    ) -> dict[str, Any]:
+        """Run STAR alignment on a remote Modal container."""
+        import subprocess
+        import os
+
+        work_dir = f"/data/star_jobs/{sra_accession}"
+        os.makedirs(work_dir, exist_ok=True)
+        output_dir = os.path.join(work_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+
+        try:
+            # Step 1: Download FASTQ
+            print(f"[STAR] Downloading {sra_accession}...")
+            dl_result = subprocess.run(
+                ["fasterq-dump", "--split-files", "--threads", "4", sra_accession, "--outdir", work_dir],
+                capture_output=True, text=True, timeout=3600,
+            )
+            if dl_result.returncode != 0:
+                return {"error": f"fasterq-dump failed: {dl_result.stderr[-2000:]}"}
+
+            fastq_files = [f for f in os.listdir(work_dir) if f.endswith(".fastq") or f.endswith(".fastq.gz")]
+            if not fastq_files:
+                return {"error": f"No FASTQ files found after download of {sra_accession}"}
+
+            # Step 2: Build STAR command
+            read_files_param = " ".join([os.path.join(work_dir, f) for f in sorted(fastq_files)])
+            if star_index_path:
+                index_param = f"--genomeDir {star_index_path}"
+            else:
+                index_param = f"--genomeDir /data/star_indexes/{gencode_version}"
+
+            star_cmd = (
+                f"STAR --runThreadN 16 {index_param} "
+                f"--readFilesIn {read_files_param} "
+                f"--outFileNamePrefix {output_dir}/ "
+                f"--outSAMtype BAM SortedByCoordinate "
+                f"--quantMode GeneCounts "
+                f"--outSAMattrRGline ID:{sra_accession} SM:{sra_accession} PL:ILLUMINA"
+            )
+
+            print(f"[STAR] Running alignment for {sra_accession}...")
+            star_result = subprocess.run(
+                star_cmd, shell=True, capture_output=True, text=True, timeout=7200,
+            )
+
+            result = {
+                "sra_accession": sra_accession,
+                "gencode_version": gencode_version,
+                "star_exit_code": star_result.returncode,
+                "output_dir": output_dir,
+            }
+
+            gene_counts_file = os.path.join(output_dir, "ReadsPerGene.out.tab")
+            aligned_bam = os.path.join(output_dir, "Aligned.sortedByCoord.out.bam")
+
+            if os.path.exists(gene_counts_file):
+                with open(gene_counts_file) as f:
+                    result["gene_counts_preview"] = f.read()[:2000]
+
+            if os.path.exists(aligned_bam):
+                result["bam_path"] = aligned_bam
+
+            log_file = os.path.join(output_dir, "Log.final.out")
+            if os.path.exists(log_file):
+                with open(log_file) as f:
+                    result["alignment_log"] = f.read()[:3000]
+
+            return result
+
+        except subprocess.TimeoutExpired:
+            return {"error": f"STAR alignment timed out for {sra_accession}"}
+        except Exception:
+            return {"error": f"STAR alignment failed: {traceback.format_exc()[-3000:]}"}
+
+    @_sra_app.function(
+        cpu=4,
+        memory=16 * 1024,
+        timeout=3600,
+        volumes={"/data": _data_volume},
+    )
+    def download_sra(
+        sra_accession: str,
+        format: str = "fastq",
+    ) -> dict[str, Any]:
+        """Download data from NCBI SRA via fasterq-dump or prefetch."""
+        import subprocess
+        import os
+
+        out_dir = f"/data/sra_downloads/{sra_accession}"
+        os.makedirs(out_dir, exist_ok=True)
+
+        try:
+            if format == "fastq":
+                result = subprocess.run(
+                    ["fasterq-dump", "--split-files", "--threads", "4", sra_accession, "--outdir", out_dir],
+                    capture_output=True, text=True, timeout=3600,
+                )
+            else:
+                result = subprocess.run(
+                    ["prefetch", sra_accession, "--max-size", "100G", "-o", out_dir],
+                    capture_output=True, text=True, timeout=3600,
+                )
+
+            files = os.listdir(out_dir) if os.path.exists(out_dir) else []
+
+            return {
+                "sra_accession": sra_accession,
+                "format": format,
+                "exit_code": result.returncode,
+                "output_dir": out_dir,
+                "files": files,
+                "stderr": result.stderr[-2000:] if result.stderr else "",
+            }
+
+        except subprocess.TimeoutExpired:
+            return {"error": f"Download timed out for {sra_accession}"}
+        except Exception:
+            return {"error": f"Download failed: {traceback.format_exc()[-3000:]}"}
+
+    @_deseq2_app.function(
+        cpu=4,
+        memory=16 * 1024,
+        timeout=3600,
+        volumes={"/data": _data_volume},
+    )
+    def run_deseq2(
+        count_matrix_path: str,
+        design_formula: str = "~ condition",
+        contrast: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Run DESeq2 differential expression analysis on a count matrix."""
+        import subprocess
+        import os
+
+        work_dir = os.path.dirname(count_matrix_path)
+        output_path = os.path.join(work_dir, "deseq2_results.csv")
+
+        r_script = f"""
+library(DESeq2)
+counts <- read.csv("{count_matrix_path}", row.names=1)
+coldata <- read.csv("{count_matrix_path.replace('.csv', '_metadata.csv')}", row.names=1)
+dds <- DESeqDataSetFromMatrix(countData=round(counts), colData=coldata, design={design_formula})
+dds <- DESeq(dds)
+res <- results(dds, contrast=c("{contrast[0] if contrast else 'condition'}", "{contrast[1] if contrast and len(contrast) > 1 else 'reference'}"))
+res <- res[order(res$padj),]
+write.csv(as.data.frame(res), "{output_path}")
+cat("DESeq2 completed\\n")
+"""
+
+        r_script_path = os.path.join(work_dir, "deseq2_analysis.R")
+        with open(r_script_path, "w") as f:
+            f.write(r_script)
+
+        try:
+            result = subprocess.run(
+                ["Rscript", r_script_path],
+                capture_output=True, text=True, timeout=3600,
+            )
+
+            output_exists = os.path.exists(output_path)
+            results_preview = ""
+            if output_exists:
+                with open(output_path) as f:
+                    results_preview = f.read()[:5000]
+
+            return {
+                "exit_code": result.returncode,
+                "output_path": output_path if output_exists else None,
+                "results_preview": results_preview,
+                "stdout": result.stdout[-2000:] if result.stdout else "",
+                "stderr": result.stderr[-2000:] if result.stderr else "",
+            }
+
+        except subprocess.TimeoutExpired:
+            return {"error": "DESeq2 analysis timed out"}
+        except Exception:
+            return {"error": f"DESeq2 failed: {traceback.format_exc()[-3000:]}"}
+
+    @_gpu_app.function(
+        gpu="T4",
+        cpu=4,
+        memory=16 * 1024,
+        timeout=3600,
+    )
+    def run_gpu_task(
+        task_type: str,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Generic GPU worker for ML tasks (placeholder)."""
+        return {
+            "status": "not_implemented",
+            "message": f"GPU task type '{task_type}' is not yet pre-defined. Use create_modal_tool to define custom GPU tasks.",
+        }
+
+    # Wire up the task registry with live Modal objects
+    BIO_TASKS["star_alignment"]["app"] = _star_app
+    BIO_TASKS["star_alignment"]["function"] = run_star_alignment
+    BIO_TASKS["download_sra"]["app"] = _sra_app
+    BIO_TASKS["download_sra"]["function"] = download_sra
+    BIO_TASKS["deseq2"]["app"] = _deseq2_app
+    BIO_TASKS["deseq2"]["function"] = run_deseq2
 
 
 # =============================================================================
@@ -469,7 +484,6 @@ def create_modal_task(
     app = modal.App(f"esapiens-dynamic-{safe_name}", image=image)
 
     # Build the remote function from user code
-    # We wrap it in a function factory to capture the code
     func_params = parameters.get("properties", {})
     required_params = parameters.get("required", [])
     param_list = []
@@ -564,6 +578,12 @@ def run_modal_task(job_type: str, params: dict[str, Any]) -> dict[str, Any]:
 
     app = task["app"]
     func = task["function"]
+
+    if app is None or func is None:
+        return {
+            "error": f"Task '{job_type}' is registered but Modal SDK not available to run it.",
+            "status": "error",
+        }
 
     try:
         with app.run():
