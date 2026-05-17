@@ -4,6 +4,10 @@ import { showNotification } from "@mantine/notifications";
 import { produce } from "immer";
 import { theme } from "./theme";
 import {
+  AuthProvider,
+  useAuth,
+} from "./lib/auth";
+import {
   type Message,
   type Session,
   streamChat,
@@ -24,9 +28,53 @@ import { Chat } from "./components/Chat/Chat";
 import { SystemStatusBar } from "./components/Telemetry/SystemStatusBar";
 import { CommandPalette } from "./components/Dashboard/CommandPalette";
 import { KeyboardShortcuts } from "./components/Dashboard/KeyboardShortcuts";
+import { LoginPage } from "./components/Auth/LoginPage";
 
-/* ─── App ─── */
-export default function App() {
+/* ─── Auth Guard ─── */
+
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { authenticated, loading } = useAuth();
+
+  // Listen for auth:unauthorized events from api.ts (401 responses)
+  const [, forceUpdate] = useState(0);
+
+  useEffect(() => {
+    const handler = () => forceUpdate((n) => n + 1);
+    window.addEventListener('auth:unauthorized', handler);
+    return () => window.removeEventListener('auth:unauthorized', handler);
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{
+        width: '100vw',
+        height: '100dvh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'var(--e-bg-default)',
+      }}>
+        <div style={{
+          fontFamily: 'var(--e-font-sans)',
+          fontSize: 'var(--e-type-sm)',
+          color: 'var(--e-text-muted)',
+        }}>
+          Loading...
+        </div>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <LoginPage />;
+  }
+
+  return <>{children}</>;
+}
+
+/* ─── Main App (authenticated) ─── */
+
+function MainApp() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [sessionId, setSessionId] = useState<string>(`session_${Date.now()}`);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -272,7 +320,7 @@ export default function App() {
   const sidebarWidth = sidebarCollapsed ? 56 : 264;
 
   return (
-    <MantineProvider theme={theme} defaultColorScheme="light">
+    <>
       <CommandPalette
         opened={cmdPaletteOpen}
         onClose={() => setCmdPaletteOpen(false)}
@@ -372,6 +420,20 @@ export default function App() {
       </div>
 
       <SystemStatusBar />
+    </>
+  );
+}
+
+/* ─── App Root ─── */
+
+export default function App() {
+  return (
+    <MantineProvider theme={theme} defaultColorScheme="light">
+      <AuthProvider>
+        <AuthGuard>
+          <MainApp />
+        </AuthGuard>
+      </AuthProvider>
     </MantineProvider>
   );
 }

@@ -7,16 +7,20 @@ Provides:
   GET  /sessions        — list sessions
   GET  /sessions/{id}   — get session messages
   DELETE /sessions/{id} — delete session
+  GET  /chat/report/{id} — generate PDF report
+
+All endpoints require authentication via Depends(get_current_user).
 """
 
 import json
 from typing import Any, AsyncGenerator
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
+from auth import get_current_user
 from main import (
     delete_session,
     get_session,
@@ -48,9 +52,12 @@ class ChatResponse(BaseModel):
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat_sync(req: ChatRequest) -> dict[str, Any]:
+async def chat_sync(
+    req: ChatRequest,
+    current_user: dict = Depends(get_current_user),
+) -> dict[str, Any]:
     """
-    Synchronous chat endpoint.
+    Synchronous chat endpoint (requires auth).
     Returns the full response after the agent finishes.
     """
     result = run(query=req.query, session_id=req.session_id)
@@ -61,9 +68,12 @@ async def chat_sync(req: ChatRequest) -> dict[str, Any]:
 
 
 @router.post("/chat/stream")
-async def chat_stream(req: ChatRequest) -> StreamingResponse:
+async def chat_stream(
+    req: ChatRequest,
+    current_user: dict = Depends(get_current_user),
+) -> StreamingResponse:
     """
-    Streaming chat endpoint using Server-Sent Events.
+    Streaming chat endpoint using Server-Sent Events (requires auth).
 
     Event types:
       skills_loaded — list of matched skill paths
@@ -85,14 +95,19 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
 
 
 @router.get("/sessions")
-async def sessions_list() -> list[dict[str, Any]]:
-    """List all active sessions."""
-    return list_sessions()
+async def sessions_list(
+    current_user: dict = Depends(get_current_user),
+) -> list[dict[str, Any]]:
+    """List all active sessions for the authenticated user."""
+    return list_sessions(user_id=current_user["id"])
 
 
 @router.get("/sessions/{session_id}")
-async def sessions_get(session_id: str) -> dict[str, Any]:
-    """Get full session data including messages."""
+async def sessions_get(
+    session_id: str,
+    current_user: dict = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Get full session data including messages (requires auth)."""
     session = get_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -100,8 +115,11 @@ async def sessions_get(session_id: str) -> dict[str, Any]:
 
 
 @router.delete("/sessions/{session_id}")
-async def sessions_delete(session_id: str) -> dict[str, str]:
-    """Delete a session."""
+async def sessions_delete(
+    session_id: str,
+    current_user: dict = Depends(get_current_user),
+) -> dict[str, str]:
+    """Delete a session (requires auth)."""
     if not delete_session(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
     return {"status": "deleted", "session_id": session_id}
@@ -111,9 +129,12 @@ async def sessions_delete(session_id: str) -> dict[str, str]:
 
 
 @router.get("/chat/report/{session_id}")
-async def generate_report(session_id: str):
+async def generate_report(
+    session_id: str,
+    current_user: dict = Depends(get_current_user),
+):
     """
-    Generate a PDF report for a session and return it as a file download.
+    Generate a PDF report for a session and return it as a file download (requires auth).
     """
     from main import get_session as gs
     from report import generate_session_report

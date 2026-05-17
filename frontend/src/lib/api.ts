@@ -96,23 +96,59 @@ function generateId(): string {
 
 const CHAT_BASE = '';
 
+/** Get the current auth token from localStorage */
+function getAuthToken(): string | null {
+  try {
+    return localStorage.getItem('esapiens_token');
+  } catch {
+    return null;
+  }
+}
+
+/** Clear the auth token and trigger re‑render via custom event */
+function clearAuth(): void {
+  try {
+    localStorage.removeItem('esapiens_token');
+  } catch {
+    // noop
+  }
+  window.dispatchEvent(new Event('auth:unauthorized'));
+}
+
 async function apiFetch<T>(
   endpoint: string,
   options?: RequestInit,
 ): Promise<T> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${CHAT_BASE}${endpoint}`, {
     headers: {
-      'Content-Type': 'application/json',
+      ...headers,
       ...options?.headers,
     },
     ...options,
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      clearAuth();
+      throw new Error('Unauthorized — please sign in again.');
+    }
     const body = await response.text().catch(() => '');
     throw new Error(
       `API request failed: ${response.status} ${response.statusText}${body ? ` — ${body.slice(0, 200)}` : ''}`,
     );
+  }
+
+  // Handle 204 No Content
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   return response.json() as Promise<T>;
@@ -123,9 +159,13 @@ export async function sendChat(
   sessionId?: string | null,
   abortSignal?: AbortSignal,
 ): Promise<ChatResponse> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
   const response = await fetch(`${CHAT_BASE}/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       query,
       session_id: sessionId || 'default',
@@ -156,9 +196,13 @@ export async function streamChat(
   callbacks: StreamCallbacks,
   abortSignal?: AbortSignal,
 ): Promise<string> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
   const response = await fetch(`${CHAT_BASE}/chat/stream`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       query,
       session_id: sessionId || 'default',

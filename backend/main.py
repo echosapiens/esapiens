@@ -38,6 +38,7 @@ _SECRET_ENV_VARS = [
     "BRAVE_SEARCH_API_KEY",
     "MODAL_TOKEN_ID",
     "MODAL_TOKEN_SECRET",
+    "JWT_SECRET",
 ]
 
 for _var in _SECRET_ENV_VARS:
@@ -291,9 +292,9 @@ def run_stream(
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def list_sessions() -> list[dict[str, Any]]:
-    """Return a list of all session summaries, newest first."""
-    return storage.list_sessions()
+def list_sessions(user_id: str = "default") -> list[dict[str, Any]]:
+    """Return a list of session summaries for the given user, newest first."""
+    return storage.list_sessions(user_id=user_id)
 
 
 def get_session(session_id: str) -> Optional[dict[str, Any]]:
