@@ -153,7 +153,7 @@ function MainApp() {
   }, []);
 
   const handleSendMessage = useCallback(
-    async (query: string) => {
+    async (query: string, fileContext?: string | null) => {
       if (!query.trim() || isLoading) return;
 
       // Add user message to state
@@ -241,6 +241,7 @@ function MainApp() {
             },
           },
           controller.signal,
+          fileContext,
         );
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {

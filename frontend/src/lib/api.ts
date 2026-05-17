@@ -76,6 +76,18 @@ export interface ChatResponse {
   tool_calls?: ToolCall[];
 }
 
+export interface UploadResponse {
+  file_id: string;
+  filename: string;
+  format: string;
+  rows: number;
+  columns: string[];
+  preview: Record<string, unknown>[];
+  session_id: string;
+  filepath: string;
+  summary: string;
+}
+
 export interface StreamCallbacks {
   onSkillsLoaded?: (skills: string[]) => void;
   onToolCall?: (toolCall: ToolCall) => void;
@@ -158,18 +170,24 @@ export async function sendChat(
   query: string,
   sessionId?: string | null,
   abortSignal?: AbortSignal,
+  fileContext?: string | null,
 ): Promise<ChatResponse> {
   const token = getAuthToken();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
+  const body: Record<string, unknown> = {
+    query,
+    session_id: sessionId || 'default',
+  };
+  if (fileContext) {
+    body.file_context = fileContext;
+  }
+
   const response = await fetch(`${CHAT_BASE}/chat`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({
-      query,
-      session_id: sessionId || 'default',
-    }),
+    body: JSON.stringify(body),
     signal: abortSignal,
   });
 
@@ -195,18 +213,24 @@ export async function streamChat(
   sessionId: string | null,
   callbacks: StreamCallbacks,
   abortSignal?: AbortSignal,
+  fileContext?: string | null,
 ): Promise<string> {
   const token = getAuthToken();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
+  const body: Record<string, unknown> = {
+    query,
+    session_id: sessionId || 'default',
+  };
+  if (fileContext) {
+    body.file_context = fileContext;
+  }
+
   const response = await fetch(`${CHAT_BASE}/chat/stream`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({
-      query,
-      session_id: sessionId || 'default',
-    }),
+    body: JSON.stringify(body),
     signal: abortSignal,
   });
 
@@ -419,6 +443,59 @@ export async function getSession(sessionId: string): Promise<{ session: Session;
 
 export async function deleteSession(sessionId: string): Promise<void> {
   await apiFetch<void>(`/sessions/${sessionId}`, { method: 'DELETE' });
+}
+
+/* ─── File Upload ─── */
+
+export async function uploadFile(
+  file: File,
+  sessionId: string,
+  onProgress?: (progress: number) => void,
+): Promise<UploadResponse> {
+  const token = getAuthToken();
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('session_id', sessionId);
+
+  return new Promise<UploadResponse>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${CHAT_BASE}/upload`);
+
+    if (token) {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    }
+
+    xhr.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable && onProgress) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText) as UploadResponse);
+        } catch {
+          reject(new Error('Failed to parse upload response'));
+        }
+      } else if (xhr.status === 401) {
+        clearAuth();
+        reject(new Error('Unauthorized — please sign in again.'));
+      } else {
+        reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
+      }
+    });
+
+    xhr.addEventListener('error', () => {
+      reject(new Error('Upload failed: network error'));
+    });
+
+    xhr.addEventListener('abort', () => {
+      reject(new Error('Upload cancelled'));
+    });
+
+    xhr.send(formData);
+  });
 }
 
 /* ─── Immer helpers for message state ─── */

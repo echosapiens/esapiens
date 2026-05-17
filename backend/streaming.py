@@ -38,6 +38,11 @@ router = APIRouter(tags=["chat"])
 class ChatRequest(BaseModel):
     query: str = Field(..., max_length=10000, description="User query (max 10,000 characters)")
     session_id: str = Field("default", max_length=128, pattern=r"^[a-zA-Z0-9_-]+$")
+    file_context: str | None = Field(
+        None,
+        max_length=50000,
+        description="Parsed data summary from an uploaded file, prepended to the query for agent context",
+    )
 
 
 class ChatResponse(BaseModel):
@@ -60,7 +65,12 @@ async def chat_sync(
     Synchronous chat endpoint (requires auth).
     Returns the full response after the agent finishes.
     """
-    result = run(query=req.query, session_id=req.session_id)
+    # Prepend file context if provided
+    query = req.query
+    if req.file_context:
+        query = f"{req.file_context}\n\n{query}"
+
+    result = run(query=query, session_id=req.session_id)
     return ChatResponse(**result).model_dump()
 
 
@@ -83,9 +93,13 @@ async def chat_stream(
       done          — final response payload
       error         — error message
     """
+    # Prepend file context if provided
+    query = req.query
+    if req.file_context:
+        query = f"{req.file_context}\n\n{query}"
 
     async def event_generator() -> AsyncGenerator[dict, None]:
-        for event in run_stream(query=req.query, session_id=req.session_id):
+        for event in run_stream(query=query, session_id=req.session_id):
             yield event
 
     return EventSourceResponse(event_generator())

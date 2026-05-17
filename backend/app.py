@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from auth import auth_router
+from file_upload import upload_router
 from streaming import router as chat_router
 
 # ── App instance ─────────────────────────────────────────────────────────────
@@ -41,7 +42,11 @@ app.add_middleware(
 
 app.include_router(auth_router)
 
-# ── Mount chat endpoints ────────────────────────────────────────────────────
+# ── Mount upload endpoint ────────────────────────────────────────────────
+
+app.include_router(upload_router)
+
+# ── Mount chat endpoints ──────────────────────────────────────────────────
 
 app.include_router(chat_router)
 
@@ -69,6 +74,7 @@ async def root() -> dict:
             "POST /auth/register": "Register a new user",
             "POST /auth/login": "Login and receive a JWT token",
             "GET /auth/me": "Get current user profile (requires auth)",
+            "POST /upload": "Upload a data file (CSV, TSV, JSON, XLSX) for analysis",
             "POST /chat": "Synchronous chat (blocking, requires auth)",
             "POST /chat/stream": "Streaming chat (SSE, requires auth)",
             "GET /sessions": "List active sessions (requires auth)",

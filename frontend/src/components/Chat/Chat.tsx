@@ -5,15 +5,20 @@ import {
   Button,
   ScrollArea,
   Stack,
+  ActionIcon,
+  Tooltip,
+  Progress,
+  Text,
 } from '@mantine/core';
-import { IconSend } from '@tabler/icons-react';
+import { IconSend, IconPaperclip, IconX } from '@tabler/icons-react';
 import { MessageBubble } from './MessageBubble';
 import { ComputationExperience } from './ComputationExperience';
+import { uploadFile, type UploadResponse } from '../../lib/api';
 import type { Message } from '../../lib/api';
 
 interface ChatProps {
   messages: Message[];
-  onSend: (query: string) => Promise<void>;
+  onSend: (query: string, fileContext?: string | null) => Promise<void>;
   onStop: () => void;
   isLoading: boolean;
   sessionCount: number;
@@ -21,16 +26,64 @@ interface ChatProps {
   sessionId: string;
 }
 
-export function Chat({ messages, onSend, onStop, isLoading }: ChatProps) {
+export function Chat({ messages, onSend, onStop, isLoading, sessionId }: ChatProps) {
   const [input, setInput] = useState('');
+  const [attachedFile, setAttachedFile] = useState<UploadResponse | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const handleSend = useCallback(async () => {
-    if (input.trim()) {
-      await onSend(input.trim());
-      setInput('');
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadError(null);
+    setUploadProgress(0);
+
+    try {
+      const result = await uploadFile(file, sessionId, (progress) => {
+        setUploadProgress(progress);
+      });
+      setAttachedFile(result);
+      setUploadProgress(null);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Upload failed');
+      setUploadProgress(null);
     }
-  }, [input, onSend]);
+
+    // Reset input so the same file can be re-selected
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [sessionId]);
+
+  const handleRemoveFile = useCallback(() => {
+    setAttachedFile(null);
+    setUploadError(null);
+    setUploadProgress(null);
+  }, []);
+
+  const handleSend = useCallback(async () => {
+    if ((!input.trim() && !attachedFile) || isLoading) return;
+
+    const query = input.trim() || (attachedFile ? 'Analyze this data' : '');
+    const fileContext = attachedFile?.summary ?? null;
+
+    await onSend(query, fileContext);
+
+    setInput('');
+    setAttachedFile(null);
+    setUploadError(null);
+    setUploadProgress(null);
+  }, [input, attachedFile, isLoading, onSend]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  }, [handleSend]);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -52,8 +105,6 @@ export function Chat({ messages, onSend, onStop, isLoading }: ChatProps) {
   // Show ComputationExperience overlay:
   // 1. When loading with no content yet (initial processing phase), OR
   // 2. When loading and there are running tool calls (multi-step computation)
-  // This ensures the overlay persists across multi-step tool executions,
-  // even when intermediate text chunks have already started streaming in.
   const showComputationOverlay =
     isLoading &&
     !!lastAssistant &&
@@ -77,7 +128,6 @@ export function Chat({ messages, onSend, onStop, isLoading }: ChatProps) {
             {ordered.map((msg, idx) => {
               // When the overlay is showing for a streaming assistant, hide
               // that message bubble to avoid double content (overlay + bubble).
-              // The overlay will be dismissed once all tools finish.
               const hideBubble =
                 showComputationOverlay &&
                 msg.role === 'assistant' &&
@@ -118,13 +168,93 @@ export function Chat({ messages, onSend, onStop, isLoading }: ChatProps) {
         padding: '8px 12px',
         flexShrink: 0,
       }}>
+        {/* File attachment chip */}
+        {attachedFile && (
+          <Group gap="xs" style={{ marginBottom: 8 }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: 'var(--e-accent-blue)',
+              color: '#fff',
+              padding: '4px 8px 4px 12px',
+              borderRadius: 'var(--e-radius-lg)',
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              fontFamily: 'var(--e-font-sans)',
+            }}>
+              {attachedFile.filename} ({attachedFile.rows} rows)
+              <ActionIcon
+                size="xs"
+                color="blue"
+                variant="transparent"
+                onClick={handleRemoveFile}
+                style={{ color: '#fff' }}
+              >
+                <IconX size={12} />
+              </ActionIcon>
+            </div>
+          </Group>
+        )}
+
+        {/* Upload progress bar */}
+        {uploadProgress !== null && (
+          <Progress
+            value={uploadProgress}
+            size="xs"
+            color="blue"
+            style={{ marginBottom: 8 }}
+            styles={{
+              root: { backgroundColor: 'var(--e-bg-inset)' },
+            }}
+          />
+        )}
+
+        {/* Upload error message */}
+        {uploadError && (
+          <Text
+            size="xs"
+            c="red"
+            style={{ marginBottom: 8, fontFamily: 'var(--e-font-mono)' }}
+          >
+            {uploadError}
+          </Text>
+        )}
+
         <Group gap="sm">
+          {/* Hidden file input */}
+          <input
+            type="file"
+            accept=".csv,.tsv,.json,.xlsx"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            style={{ display: 'none' }}
+          />
+
+          {/* Paperclip attachment button */}
+          <Tooltip label="Attach file" position="top" withArrow>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="lg"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading}
+              styles={{
+                root: {
+                  color: attachedFile ? 'var(--e-accent-blue)' : 'var(--e-text-secondary)',
+                },
+              }}
+            >
+              <IconPaperclip size={20} />
+            </ActionIcon>
+          </Tooltip>
+
           <TextInput
             flex={1}
             placeholder="Ask a question or paste a gene list..."
             value={input}
             onChange={(e) => setInput(e.currentTarget.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            onKeyDown={handleKeyDown}
             style={{ fontFamily: "var(--e-font-sans)" }}
           />
           {isLoading ? (
