@@ -32,11 +32,14 @@ function shuffleArray<T>(arr: T[]): T[] {
   return a;
 }
 
-/** Count positions where attempt matches reference */
+/** Watson-Crick complement: A↔T, C↔G */
+const COMPLEMENT: Record<string, string> = { A: 'T', T: 'A', C: 'G', G: 'C' };
+
+/** Count positions where attempt has the Watson-Crick complement of reference */
 function computeMatches(reference: string[], attempt: string[]): number {
   let matches = 0;
   for (let i = 0; i < reference.length; i++) {
-    if (i < attempt.length && reference[i] === attempt[i]) matches++;
+    if (i < attempt.length && attempt[i] === COMPLEMENT[reference[i]]) matches++;
   }
   return matches;
 }
@@ -165,7 +168,7 @@ export function SequenceGame() {
         </div>
       </div>
 
-      {/* Reference sequence */}
+      {/* Reference strand (5'→3') */}
       <div style={{ marginBottom: 4 }}>
         <span
           style={{
@@ -175,7 +178,7 @@ export function SequenceGame() {
             letterSpacing: '0.08em',
           }}
         >
-          REFERENCE
+          5&apos; → 3&apos; STRAND
         </span>
       </div>
       <div
@@ -184,7 +187,7 @@ export function SequenceGame() {
           gap: 3,
           fontFamily: 'var(--e-font-mono, Roboto Mono, monospace)',
           fontSize: '0.75rem',
-          marginBottom: 10,
+          marginBottom: 2,
         }}
       >
         {reference.map((base, i) => (
@@ -207,6 +210,31 @@ export function SequenceGame() {
           </div>
         ))}
       </div>
+      {/* Expected complements (hint row) */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 3,
+          fontFamily: 'var(--e-font-mono, Roboto Mono, monospace)',
+          fontSize: '0.65rem',
+          marginBottom: 4,
+          opacity: 0.45,
+        }}
+      >
+        {reference.map((base, i) => (
+          <div
+            key={i}
+            style={{
+              width: 24,
+              textAlign: 'center',
+              color: baseColorMap[COMPLEMENT[base]] || '#525252',
+              fontWeight: 600,
+            }}
+          >
+            {COMPLEMENT[base]}
+          </div>
+        ))}
+      </div>
 
       {/* Match indicators */}
       <div
@@ -219,10 +247,10 @@ export function SequenceGame() {
         }}
       >
         {reference.map((base, i) => {
-          const isMatch = playerSeq[i] === base;
+          const isPair = playerSeq[i] === COMPLEMENT[base];
           return (
-            <div key={i} style={{ width: 24, textAlign: 'center', color: isMatch ? 'var(--e-accent-green, #059669)' : 'transparent', fontWeight: 700 }}>
-              |
+            <div key={i} style={{ width: 24, textAlign: 'center', color: isPair ? 'var(--e-accent-green, #059669)' : 'transparent', fontWeight: 700 }}>
+              {isPair ? '━' : '·'}
             </div>
           );
         })}
@@ -238,7 +266,7 @@ export function SequenceGame() {
             letterSpacing: '0.08em',
           }}
         >
-          YOUR ALIGNMENT — tap two bases to swap
+          COMPLEMENT STRAND — swap bases to pair A↔T, C↔G
         </span>
       </div>
       <div
@@ -251,7 +279,7 @@ export function SequenceGame() {
         }}
       >
         {playerSeq.map((base, i) => {
-          const isMatch = reference[i] === base;
+          const isPair = playerSeq[i] === COMPLEMENT[reference[i]];
           const isSelected = selectedIdx === i;
           return (
             <div
@@ -265,20 +293,20 @@ export function SequenceGame() {
                 justifyContent: 'center',
                 backgroundColor: isSelected
                   ? 'rgba(37,99,235,0.15)'
-                  : isMatch
+                  : isPair
                   ? 'rgba(5,150,105,0.12)'
                   : 'var(--e-bg-subtle, #F5F5F5)',
                 border: `1.5px solid ${
                   isSelected
                     ? 'var(--e-accent-blue, #2563EB)'
-                    : isMatch
+                    : isPair
                     ? 'var(--e-accent-green, #059669)'
                     : 'var(--e-border, #E5E5E5)'
                 }`,
                 borderRadius: 3,
                 color: isSelected
                   ? 'var(--e-accent-blue, #2563EB)'
-                  : isMatch
+                  : isPair
                   ? 'var(--e-accent-green, #059669)'
                   : baseColorMap[base] || '#525252',
                 fontWeight: 600,
@@ -340,8 +368,8 @@ export function SequenceGame() {
           }}
         >
           {perfect
-            ? `Perfect alignment in ${moveCount} ${moveCount === 1 ? 'move' : 'moves'}.`
-            : `Time expired. ${matches} of ${reference.length} bases aligned.`}
+            ? `Perfect pairing in ${moveCount} ${moveCount === 1 ? 'move' : 'moves'}.`
+            : `Time expired. ${matches} of ${reference.length} pairs matched.`}
         </div>
       )}
     </div>
