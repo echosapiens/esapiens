@@ -13,6 +13,8 @@ import sqlite3
 from pathlib import Path
 from typing import Any, AsyncGenerator, Optional
 
+import os
+
 from dotenv import load_dotenv
 from langgraph.checkpoint.sqlite import SqliteSaver
 
@@ -22,6 +24,26 @@ from storage import StorageBackend, get_storage
 from tools import TOOL_DEFINITIONS
 
 load_dotenv()
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Secret Hygiene — consume secrets from env, then scrub them
+# ═══════════════════════════════════════════════════════════════════════════
+# After load_dotenv(), secrets are in os.environ for the process to read.
+# We snapshot them into module-level variables so agent.py / tools.py can
+# still use them, then DELETE them from os.environ so that execute_python
+# (which passes `os` to user code) cannot leak them.
+
+_SECRET_ENV_VARS = [
+    "OPENROUTER_API_KEY",
+    "BRAVE_SEARCH_API_KEY",
+    "MODAL_TOKEN_ID",
+    "MODAL_TOKEN_SECRET",
+]
+
+for _var in _SECRET_ENV_VARS:
+    if _var in os.environ:
+        # Value is already captured by agent.py / modal_tasks.py at import time
+        del os.environ[_var]
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Persistent Storage

@@ -15,9 +15,53 @@ import tempfile
 import base64
 import textwrap
 import io
+import types
 
 # Shared HTTP headers for NCBI/GDC API compliance
 HEADERS = {"User-Agent": "E.sapiens/1.0 (contact: research@example.edu); research assistant"}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Secret Hygiene — prevent agent code-exec tools from leaking API keys
+# ═══════════════════════════════════════════════════════════════════════════
+# Tools that exec() user-provided Python (execute_python, run_python_plot,
+# plotly_plot) pass `os` to the sandbox — giving agent code access to
+# os.environ and all secrets. We create a _safe_os proxy that exposes
+# all os attributes EXCEPT environ, which is replaces with a filtered
+# copy that strips sensitive keys.
+
+_SECRET_ENV_VARS = {
+    "OPENROUTER_API_KEY",
+    "BRAVE_SEARCH_API_KEY",
+    "MODAL_TOKEN_ID",
+    "MODAL_TOKEN_SECRET",
+}
+
+
+def _make_safe_os():
+    """Create an os-like module that masks secrets in os.environ."""
+    _os = sys.modules["os"]
+    # Create a filtered environ that hides secrets
+    _safe_environ = types.MappingProxyType({
+        k: ("***REDACTED***" if k in _SECRET_ENV_VARS else v)
+        for k, v in _os.environ.items()
+    })
+    safe = types.ModuleType("os_safe")
+    # Copy all attributes from the real os module
+    for attr in dir(_os):
+        if attr == "environ":
+            continue  # skip real environ
+        try:
+            setattr(safe, attr, getattr(_os, attr))
+        except (AttributeError, TypeError):
+            pass
+    # Replace with redacted environ
+    safe.environ = _safe_environ
+    # Also shadow getenv to prevent bypassing the proxy
+    safe.getenv = lambda key, default=None: _safe_environ.get(key, default)
+    return safe
+
+
+_safe_os = _make_safe_os()
 
 # =============================================================================
 # Tool definitions (OpenAI-compatible JSON schema for function calling)
@@ -760,7 +804,7 @@ def run_python_plot(code: str, title: str = "", pretty: bool = True) -> dict:
     exec_globals = {
         "__builtins__": builtins,
         "__name__": "__main__",
-        "os": _os, "sys": sys, "json": json, "subprocess": subprocess,
+        "os": _safe_os, "sys": sys, "json": json, "subprocess": subprocess,
         "tempfile": tempfile, "base64": _base64, "io": _io, "textwrap": textwrap,
         "Path": _Path, "httpx": httpx, "np": np, "pd": pd,
         "plt": plt, "sns": sns, "np": np, "pd": pd,
@@ -822,7 +866,7 @@ def plotly_plot(code: str, title: str = "Plot") -> dict:
     exec_globals = {
         "__builtins__": builtins,
         "__name__": "__main__",
-        "os": os, "sys": sys, "json": json, "subprocess": subprocess,
+        "os": _safe_os, "sys": sys, "json": json, "subprocess": subprocess,
         "tempfile": tempfile, "Path": _Path, "httpx": httpx,
         "np": np, "pd": pd, "px": px, "go": go,
         "WORKSPACE": WORKSPACE,
@@ -1030,7 +1074,7 @@ def execute_python(code: str, description: str = "") -> dict:
     exec_globals = {
         "__builtins__": builtins,
         "__name__": "__main__",
-        "os": _os,
+        "os": _safe_os,
         "sys": _sys,
         "json": _json,
         "subprocess": _subprocess,

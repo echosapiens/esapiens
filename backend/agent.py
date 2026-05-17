@@ -129,7 +129,7 @@ def classify_intent_node(state: WorkflowState) -> dict:
 
 def _is_placeholder_key() -> bool:
     """Check if the OpenRouter API key is a placeholder."""
-    key = os.getenv("OPENROUTER_API_KEY", "")
+    key = _openrouter_api_key or ""
     return not key or key.startswith("sk-or-v1-placeholder")
 
 
