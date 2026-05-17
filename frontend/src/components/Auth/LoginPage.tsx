@@ -88,7 +88,7 @@ export function LoginPage() {
           boxShadow: 'var(--e-shadow-lg)',
         }}
       >
-        <LoadingOverlay visible={authLoading} overlayBlur={2} />
+        <LoadingOverlay visible={authLoading} />
 
         {/* ─── Logo & Branding ─── */}
         <Stack gap={4} align="center" mb="lg">
@@ -147,7 +147,7 @@ export function LoginPage() {
             tabLabel: {
               color: 'inherit',
             },
-            tabsList: {
+            list: {
               borderBottom: '1px solid var(--e-border-subtle)',
               marginBottom: 'var(--e-space-5)',
             },
