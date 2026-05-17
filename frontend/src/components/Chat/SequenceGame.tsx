@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 
-/* ── Sequence alignment mini-game ── */
+/* ── Sequence alignment mini-game ──
+   A reference sequence is shown. The player's sequence is shuffled
+   and they must swap adjacent bases to sort it back into the correct
+   order. 30-second timer, score = number of bases in correct position.
+*/
 
 const BASES = ['A', 'T', 'C', 'G'];
 
@@ -8,24 +12,33 @@ function randomSeq(len: number): string[] {
   return Array.from({ length: len }, () => BASES[Math.floor(Math.random() * 4)]);
 }
 
+/** Fisher-Yates shuffle; guarantees the result differs from original. */
 function shuffleArray<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
+  // Ensure at least 2 positions are different (avoid trivial solution)
+  if (a.every((v, i) => v === arr[i])) {
+    // swap first two non-identical elements
+    for (let i = 0; i < a.length - 1; i++) {
+      if (a[i] !== a[i + 1]) {
+        [a[i], a[i + 1]] = [a[i + 1], a[i]];
+        break;
+      }
+    }
+  }
   return a;
 }
 
-function computeScore(ref: string[], attempt: string[], offset: number): number {
-  let score = 0;
-  for (let i = 0; i < ref.length; i++) {
-    const j = i + offset;
-    if (j >= 0 && j < attempt.length && ref[i] === attempt[j]) {
-      score++;
-    }
+/** Count positions where attempt matches reference */
+function computeMatches(reference: string[], attempt: string[]): number {
+  let matches = 0;
+  for (let i = 0; i < reference.length; i++) {
+    if (i < attempt.length && reference[i] === attempt[i]) matches++;
   }
-  return score;
+  return matches;
 }
 
 const ROUND_SECONDS = 30;
@@ -38,19 +51,18 @@ const baseColorMap: Record<string, string> = {
 };
 
 export function SequenceGame() {
-  const [seqLen, setSeqLen] = useState(10);
   const [reference, setReference] = useState<string[]>(() => randomSeq(10));
-  const [shuffled, setShuffled] = useState<string[]>(() => {
+  const [playerSeq, setPlayerSeq] = useState<string[]>(() => {
     const r = randomSeq(10);
     return shuffleArray(r);
   });
-  const [offset, setOffset] = useState(0);
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
   const [running, setRunning] = useState(true);
+  const [moveCount, setMoveCount] = useState(0);
 
-  const maxShift = seqLen; // allow shifting up to full length in either direction
-
-  const score = computeScore(reference, shuffled, offset);
+  const matches = computeMatches(reference, playerSeq);
+  const perfect = matches === reference.length;
 
   // Timer
   useEffect(() => {
@@ -67,28 +79,6 @@ export function SequenceGame() {
     return () => clearInterval(timer);
   }, [running]);
 
-  const newRound = useCallback(() => {
-    const len = 8 + Math.floor(Math.random() * 5); // 8-12
-    const ref = randomSeq(len);
-    const shf = shuffleArray([...ref]);
-    setSeqLen(len);
-    setReference(ref);
-    setShuffled(shf);
-    setOffset(0);
-    setTimeLeft(ROUND_SECONDS);
-    setRunning(true);
-  }, []);
-
-  const shiftLeft = useCallback(() => {
-    if (running) setOffset((o) => Math.max(o - 1, -maxShift));
-  }, [running, maxShift]);
-
-  const shiftRight = useCallback(() => {
-    if (running) setOffset((o) => Math.min(o + 1, maxShift));
-  }, [running, maxShift]);
-
-  const perfect = score === reference.length;
-
   // Auto-stop on perfect score
   useEffect(() => {
     if (perfect && running) {
@@ -96,7 +86,39 @@ export function SequenceGame() {
     }
   }, [perfect, running]);
 
-  const displayRange = Math.max(reference.length + Math.abs(offset), reference.length + 4);
+  const newRound = useCallback(() => {
+    const len = 8 + Math.floor(Math.random() * 5); // 8-12
+    const ref = randomSeq(len);
+    const shf = shuffleArray([...ref]);
+    setReference(ref);
+    setPlayerSeq(shf);
+    setSelectedIdx(null);
+    setTimeLeft(ROUND_SECONDS);
+    setRunning(true);
+    setMoveCount(0);
+  }, []);
+
+  /** Click a base to select it; if already selected, swap the two */
+  const handleBaseClick = useCallback((idx: number) => {
+    if (!running) return;
+    if (selectedIdx === null) {
+      setSelectedIdx(idx);
+    } else if (selectedIdx === idx) {
+      // Deselect
+      setSelectedIdx(null);
+    } else {
+      // Swap the two bases
+      setPlayerSeq((prev) => {
+        const next = [...prev];
+        [next[selectedIdx], next[idx]] = [next[idx], next[selectedIdx]];
+        return next;
+      });
+      setMoveCount((m) => m + 1);
+      setSelectedIdx(null);
+    }
+  }, [selectedIdx, running]);
+
+  const formatKey = (base: string, i: number) => `${base}-${i}`;
 
   return (
     <div style={{ padding: '10px 14px' }}>
@@ -138,7 +160,7 @@ export function SequenceGame() {
               color: perfect ? 'var(--e-accent-green, #059669)' : 'var(--e-text-secondary, #525252)',
             }}
           >
-            {score}/{reference.length}
+            {matches}/{reference.length}
           </span>
         </div>
       </div>
@@ -163,7 +185,6 @@ export function SequenceGame() {
           fontFamily: 'var(--e-font-mono, Roboto Mono, monospace)',
           fontSize: '0.75rem',
           marginBottom: 10,
-          overflowX: 'auto',
         }}
       >
         {reference.map((base, i) => (
@@ -176,7 +197,7 @@ export function SequenceGame() {
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: 'var(--e-bg-subtle, #F5F5F5)',
-              border: `1px solid var(--e-border, #E5E5E5)`,
+              border: '1px solid var(--e-border, #E5E5E5)',
               borderRadius: 3,
               color: baseColorMap[base] || '#525252',
               fontWeight: 600,
@@ -187,7 +208,27 @@ export function SequenceGame() {
         ))}
       </div>
 
-      {/* Shifted sequence */}
+      {/* Match indicators */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 3,
+          fontFamily: 'var(--e-font-mono, Roboto Mono, monospace)',
+          fontSize: '0.6rem',
+          marginBottom: 4,
+        }}
+      >
+        {reference.map((base, i) => {
+          const isMatch = playerSeq[i] === base;
+          return (
+            <div key={i} style={{ width: 24, textAlign: 'center', color: isMatch ? 'var(--e-accent-green, #059669)' : 'transparent', fontWeight: 700 }}>
+              |
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Player sequence (swappable) */}
       <div style={{ marginBottom: 4 }}>
         <span
           style={{
@@ -197,7 +238,7 @@ export function SequenceGame() {
             letterSpacing: '0.08em',
           }}
         >
-          YOUR ALIGNMENT
+          YOUR ALIGNMENT — tap two bases to swap
         </span>
       </div>
       <div
@@ -207,84 +248,46 @@ export function SequenceGame() {
           fontFamily: 'var(--e-font-mono, Roboto Mono, monospace)',
           fontSize: '0.75rem',
           marginBottom: 10,
-          overflowX: 'auto',
-          paddingLeft: offset > 0 ? offset * 27 : 0,
-          marginLeft: offset < 0 ? offset * 27 : 0,
         }}
       >
-        {/* Padding for negative offset */}
-        {offset < 0 &&
-          Array.from({ length: Math.abs(offset) }).map((_, k) => (
-            <div
-              key={`pad-l-${k}`}
-              style={{
-                width: 24,
-                height: 24,
-                opacity: 0.2,
-              }}
-            />
-          ))}
-        {shuffled.map((base, i) => {
-          const refIdx = i - offset; // which reference position does this align to?
-          const isMatch = refIdx >= 0 && refIdx < reference.length && reference[refIdx] === base;
+        {playerSeq.map((base, i) => {
+          const isMatch = reference[i] === base;
+          const isSelected = selectedIdx === i;
           return (
             <div
-              key={i}
+              key={formatKey(base, i)}
+              onClick={() => handleBaseClick(i)}
               style={{
                 width: 24,
                 height: 24,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: isMatch ? 'rgba(5,150,105,0.12)' : 'var(--e-bg-subtle, #F5F5F5)',
-                border: `1px solid ${isMatch ? 'var(--e-accent-green, #059669)' : 'var(--e-border, #E5E5E5)'}`,
+                backgroundColor: isSelected
+                  ? 'rgba(37,99,235,0.15)'
+                  : isMatch
+                  ? 'rgba(5,150,105,0.12)'
+                  : 'var(--e-bg-subtle, #F5F5F5)',
+                border: `1.5px solid ${
+                  isSelected
+                    ? 'var(--e-accent-blue, #2563EB)'
+                    : isMatch
+                    ? 'var(--e-accent-green, #059669)'
+                    : 'var(--e-border, #E5E5E5)'
+                }`,
                 borderRadius: 3,
-                color: isMatch ? 'var(--e-accent-green, #059669)' : baseColorMap[base] || '#525252',
+                color: isSelected
+                  ? 'var(--e-accent-blue, #2563EB)'
+                  : isMatch
+                  ? 'var(--e-accent-green, #059669)'
+                  : baseColorMap[base] || '#525252',
                 fontWeight: 600,
-                transition: 'all 150ms ease',
+                cursor: running ? 'pointer' : 'default',
+                transition: 'all 120ms ease',
+                boxShadow: isSelected ? '0 0 0 2px rgba(37,99,235,0.25)' : 'none',
               }}
             >
               {base}
-            </div>
-          );
-        })}
-        {/* Padding for positive offset */}
-        {offset > 0 &&
-          Array.from({ length: offset }).map((_, k) => (
-            <div
-              key={`pad-r-${k}`}
-              style={{
-                width: 24,
-                height: 24,
-                opacity: 0.2,
-              }}
-            />
-          ))}
-      </div>
-
-      {/* Match indicator row */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 3,
-          paddingLeft: offset > 0 ? offset * 27 : 0,
-          marginLeft: offset < 0 ? offset * 27 : 0,
-          fontFamily: 'var(--e-font-mono, Roboto Mono, monospace)',
-          fontSize: '0.6rem',
-          color: 'var(--e-text-muted, #A3A3A3)',
-          marginBottom: 12,
-        }}
-      >
-        {offset < 0 &&
-          Array.from({ length: Math.abs(offset) }).map((_, k) => (
-            <div key={`mi-l-${k}`} style={{ width: 24, textAlign: 'center' }} />
-          ))}
-        {reference.map((_, i) => {
-          const j = i + offset;
-          const isMatch = j >= 0 && j < shuffled.length && reference[i] === shuffled[j];
-          return (
-            <div key={`mi-${i}`} style={{ width: 24, textAlign: 'center' }}>
-              {isMatch ? '|' : ''}
             </div>
           );
         })}
@@ -292,41 +295,16 @@ export function SequenceGame() {
 
       {/* Controls */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button
-            onClick={shiftLeft}
-            disabled={!running}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <span
             style={{
               fontFamily: 'var(--e-font-mono, Roboto Mono, monospace)',
-              fontSize: '0.65rem',
-              padding: '4px 10px',
-              border: '1px solid var(--e-border, #E5E5E5)',
-              borderRadius: 'var(--e-radius-lg, 8px)',
-              background: 'var(--e-bg-surface, #FFFFFF)',
-              color: 'var(--e-text-secondary, #525252)',
-              cursor: running ? 'pointer' : 'not-allowed',
-              opacity: running ? 1 : 0.5,
+              fontSize: '0.6rem',
+              color: 'var(--e-text-muted, #A3A3A3)',
             }}
           >
-            &larr; Shift left
-          </button>
-          <button
-            onClick={shiftRight}
-            disabled={!running}
-            style={{
-              fontFamily: 'var(--e-font-mono, Roboto Mono, monospace)',
-              fontSize: '0.65rem',
-              padding: '4px 10px',
-              border: '1px solid var(--e-border, #E5E5E5)',
-              borderRadius: 'var(--e-radius-lg, 8px)',
-              background: 'var(--e-bg-surface, #FFFFFF)',
-              color: 'var(--e-text-secondary, #525252)',
-              cursor: running ? 'pointer' : 'not-allowed',
-              opacity: running ? 1 : 0.5,
-            }}
-          >
-            Shift right &rarr;
-          </button>
+            {moveCount} {moveCount === 1 ? 'move' : 'moves'}
+          </span>
         </div>
         <button
           onClick={newRound}
@@ -362,8 +340,8 @@ export function SequenceGame() {
           }}
         >
           {perfect
-            ? 'Perfect alignment achieved.'
-            : `Time expired. ${score} of ${reference.length} bases aligned.`}
+            ? `Perfect alignment in ${moveCount} ${moveCount === 1 ? 'move' : 'moves'}.`
+            : `Time expired. ${matches} of ${reference.length} bases aligned.`}
         </div>
       )}
     </div>
