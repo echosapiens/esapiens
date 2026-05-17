@@ -10,7 +10,7 @@ services:
       - MODAL_TOKEN_ID=${MODAL_TOKEN_ID:-}
       - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET:-}
       - ESAPIENS_DATA_DIR=/root/persistent
-      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000,https://esapiens.yourdomain.com
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000,https://esapiens.yourdomain.com,http://localhost
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
     volumes:
       - esapiens-data:/root/persistent
