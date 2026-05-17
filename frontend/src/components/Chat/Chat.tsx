@@ -74,20 +74,6 @@ export function Chat({ messages, onSend, onStop, isLoading }: ChatProps) {
       }}>
         <ScrollArea style={{ flex: 1 }} viewportRef={scrollRef}>
           <Stack p="md" gap="sm">
-            {/* ComputationExperience overlay: shown while loading with no content */}
-            {showComputationOverlay && (
-              <ComputationExperience
-                isLoading={isLoading}
-                toolCalls={activeToolCalls}
-              />
-            )}
-            {/* Fallback loading indicator for initial loading before assistant message exists */}
-            {isLoading && !lastAssistant && (
-              <Group gap="xs" style={{ fontFamily: "var(--e-font-mono)", fontSize: '0.875rem', color: 'var(--e-text-secondary)' }}>
-                <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'var(--e-accent-cyan)' }} />
-                Processing...
-              </Group>
-            )}
             {ordered.map((msg, idx) => {
               // When the overlay is showing for a streaming assistant, hide
               // that message bubble to avoid double content (overlay + bubble).
@@ -109,6 +95,20 @@ export function Chat({ messages, onSend, onStop, isLoading }: ChatProps) {
           </Stack>
         </ScrollArea>
       </div>
+
+      {/* Computation distraction: sits right above the input */}
+      {showComputationOverlay && (
+        <ComputationExperience
+          isLoading={isLoading}
+          toolCalls={activeToolCalls}
+        />
+      )}
+      {isLoading && !lastAssistant && (
+        <Group gap="xs" style={{ fontFamily: "var(--e-font-mono)", fontSize: '0.875rem', color: 'var(--e-text-secondary)', padding: '8px 14px' }}>
+          <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'var(--e-accent-cyan)' }} />
+          Processing...
+        </Group>
+      )}
 
       {/* Input at the bottom — floating card */}
       <div style={{
