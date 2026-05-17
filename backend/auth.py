@@ -3,23 +3,22 @@ Authentication Module — JWT-based user auth for E.sapiens.
 
 Provides:
   - User model & SQLite-backed user store
-  - Password hashing with bcrypt
+  - Password hashing with bcrypt (direct, not passlib)
   - JWT access token creation / verification
   - FastAPI dependency `get_current_user` for route protection
   - Registration & login endpoints
 """
 
 import os
-import sqlite3
 import time
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
+import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr, Field
 
 from storage import get_storage
@@ -30,9 +29,8 @@ from storage import get_storage
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "change-me-in-production")
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_SECONDS = int(os.environ.get("JWT_EXPIRATION_SECONDS", 86400))  # 24h default
+JWT_EXPIRATION_SECONDS = int(os.environ.get("JWT_EXPIRATION_SECONDS", 604800))  # 7 days
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security_scheme = HTTPBearer()
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
@@ -98,18 +96,21 @@ def _ensure_users_table() -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Password hashing
+# Password hashing (bcrypt direct — no passlib dependency)
 # ═══════════════════════════════════════════════════════════════════════════
 
 
 def hash_password(password: str) -> str:
-    """Hash a plaintext password with bcrypt."""
-    return pwd_context.hash(password)
+    """Hash a plaintext password with bcrypt. Returns the hash as a string."""
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plaintext password against a bcrypt hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(
+        plain_password.encode("utf-8"),
+        hashed_password.encode("utf-8"),
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
