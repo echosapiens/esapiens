@@ -32,18 +32,20 @@ export function Chat({ messages, onSend, onStop, isLoading }: ChatProps) {
     }
   }, [input, onSend]);
 
-  // Scroll to top when new messages arrive
+  // Scroll to bottom when new messages arrive
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = 0;
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
 
-  // Newest messages first
-  const reversed = [...messages].reverse();
+  // Oldest messages first (chronological order)
+  const ordered = messages;
 
   // Get tool calls from the last assistant message (for ComputationExperience)
-  const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
+  const lastAssistant = ordered.length > 0
+    ? ordered.reduceRight<typeof ordered[number] | undefined>((found, m) => found ?? (m.role === 'assistant' ? m : undefined), undefined)
+    : undefined;
   const activeToolCalls = lastAssistant?.tool_calls ?? [];
   const hasRunningTools = activeToolCalls.some((tc) => tc.status === 'running');
 
@@ -59,35 +61,6 @@ export function Chat({ messages, onSend, onStop, isLoading }: ChatProps) {
 
   return (
     <>
-      {/* Input at the top — floating card */}
-      <div style={{
-        backgroundColor: 'var(--e-bg-surface)',
-        borderRadius: 'var(--e-radius-2xl)',
-        boxShadow: 'var(--e-shadow-md)',
-        padding: '8px 12px',
-        flexShrink: 0,
-      }}>
-        <Group gap="sm">
-          <TextInput
-            flex={1}
-            placeholder="Ask a question or paste a gene list..."
-            value={input}
-            onChange={(e) => setInput(e.currentTarget.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            style={{ fontFamily: "var(--e-font-sans)" }}
-          />
-          {isLoading ? (
-            <Button color="red" onClick={onStop} style={{ fontFamily: "var(--e-font-sans)" }}>
-              Stop
-            </Button>
-          ) : (
-            <Button onClick={handleSend} style={{ fontFamily: "var(--e-font-sans)" }}>
-              <IconSend size={16} />
-            </Button>
-          )}
-        </Group>
-      </div>
-
       {/* Messages — floating card */}
       <div style={{
         flex: 1,
@@ -115,7 +88,7 @@ export function Chat({ messages, onSend, onStop, isLoading }: ChatProps) {
                 Processing...
               </Group>
             )}
-            {reversed.map((msg, idx) => {
+            {ordered.map((msg, idx) => {
               // When the overlay is showing for a streaming assistant, hide
               // that message bubble to avoid double content (overlay + bubble).
               // The overlay will be dismissed once all tools finish.
@@ -128,13 +101,42 @@ export function Chat({ messages, onSend, onStop, isLoading }: ChatProps) {
 
               return (
                 <MessageBubble
-                  key={messages.length - 1 - idx}
+                  key={msg.id}
                   message={msg}
                 />
               );
             })}
           </Stack>
         </ScrollArea>
+      </div>
+
+      {/* Input at the bottom — floating card */}
+      <div style={{
+        backgroundColor: 'var(--e-bg-surface)',
+        borderRadius: 'var(--e-radius-2xl)',
+        boxShadow: 'var(--e-shadow-md)',
+        padding: '8px 12px',
+        flexShrink: 0,
+      }}>
+        <Group gap="sm">
+          <TextInput
+            flex={1}
+            placeholder="Ask a question or paste a gene list..."
+            value={input}
+            onChange={(e) => setInput(e.currentTarget.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            style={{ fontFamily: "var(--e-font-sans)" }}
+          />
+          {isLoading ? (
+            <Button color="red" onClick={onStop} style={{ fontFamily: "var(--e-font-sans)" }}>
+              Stop
+            </Button>
+          ) : (
+            <Button onClick={handleSend} style={{ fontFamily: "var(--e-font-sans)" }}>
+              <IconSend size={16} />
+            </Button>
+          )}
+        </Group>
       </div>
     </>
   );
