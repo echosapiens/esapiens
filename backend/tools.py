@@ -193,6 +193,84 @@ TOOL_DEFINITIONS: list = [
         },
     },
     # ------------------------------------------------------------------
+    # Modal serverless jobs
+    # ------------------------------------------------------------------
+    {
+        "name": "run_modal_job",
+        "description": "Execute a pre-defined bioinformatics task on Modal's serverless cloud infrastructure with high-CPU/high-RAM containers. Available job types: 'star_alignment' (STAR RNA-seq alignment, 32 cores/128GB), 'download_sra' (SRA FASTQ download), 'deseq2' (DESeq2 differential expression). Use this for computationally heavy tasks that exceed local resources. Results are returned as structured data.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "job_type": {
+                    "type": "string",
+                    "enum": ["star_alignment", "download_sra", "deseq2"],
+                    "description": "Type of bioinformatics job to run on Modal",
+                },
+                "params": {
+                    "type": "object",
+                    "description": "Parameters for the job. Varies by job_type. star_alignment: {sra_accession, gencode_version, star_index_path}. download_sra: {sra_accession, format}. deseq2: {count_matrix_path, design_formula, contrast}.",
+                },
+            },
+            "required": ["job_type", "params"],
+        },
+    },
+    {
+        "name": "create_modal_tool",
+        "description": "Create a new Modal serverless task for heavy compute that the agent can run on-demand. Define the Python code, resource requirements (CPU, memory, GPU), and packages needed. The task runs on Modal's cloud infrastructure. Use this when existing Modal jobs don't cover a needed computation (e.g., custom ML inference, batch genome processing).",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Task name, lowercase with underscores (e.g. 'custom_star_index')",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "What this task does",
+                },
+                "parameters": {
+                    "type": "object",
+                    "description": "JSON schema for the task's parameters",
+                    "properties": {},
+                },
+                "code": {
+                    "type": "string",
+                    "description": "Python function body. Available: standard library, plus pip/apk packages specified in image_packages/image_apt_packages. Must return a dict. Access parameters as function arguments.",
+                },
+                "cpu": {
+                    "type": "number",
+                    "description": "Number of CPU cores (default 2)",
+                    "default": 2,
+                },
+                "memory_mb": {
+                    "type": "integer",
+                    "description": "Memory in MB (default 4096)",
+                    "default": 4096,
+                },
+                "gpu": {
+                    "type": "string",
+                    "description": "GPU type: 'T4', 'A10', 'L4', 'A100-40GB', 'A100-80GB', 'H100'. Omit for CPU-only.",
+                },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Timeout in seconds (default 3600)",
+                    "default": 3600,
+                },
+                "image_packages": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "pip packages to install in the container (e.g. ['scanpy', 'anndata'])",
+                },
+                "image_apt_packages": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "apt packages to install (e.g. ['samtools', 'bedtools'])",
+                },
+            },
+            "required": ["name", "description", "parameters", "code"],
+        },
+    },
+    # ------------------------------------------------------------------
     # General Python execution
     # ------------------------------------------------------------------
     {
@@ -772,6 +850,114 @@ def plotly_plot(code: str, title: str = "Plot") -> dict:
     except Exception as e:
         tb_str = _traceback.format_exc()
         return {"tool": "plotly_plot", "result": f"Error: {tb_str[-1000:]}"}
+
+
+# =============================================================================
+# Modal serverless tools
+# =============================================================================
+
+from modal_tasks import (
+    MODAL_AVAILABLE,
+    BIO_TASKS,
+    run_modal_task,
+    create_modal_task,
+    get_available_tasks,
+)
+
+
+@register_tool("run_modal_job")
+def run_modal_job(job_type: str, params: dict) -> dict:
+    """Execute a pre-defined bioinformatics task on Modal's serverless cloud.
+
+    Args:
+        job_type: One of 'star_alignment', 'download_sra', 'deseq2'
+        params: Job-specific parameters dict
+    """
+    if not MODAL_AVAILABLE:
+        return {
+            "tool": "run_modal_job",
+            "error": "Modal SDK not installed. Install with: pip install modal && modal setup",
+            "available_locally": list(BIO_TASKS.keys()) if MODAL_AVAILABLE else [],
+        }
+
+    # Validate job_type
+    valid_types = list(BIO_TASKS.keys()) + list(get_available_tasks())
+    # Also include dynamically created tasks
+    from modal_tasks import _dynamic_modal_tasks
+    valid_types = list(BIO_TASKS.keys()) + list(_dynamic_modal_tasks.keys())
+
+    if job_type not in BIO_TASKS and job_type not in _dynamic_modal_tasks:
+        return {
+            "tool": "run_modal_job",
+            "error": f"Unknown job_type: '{job_type}'. Available: {valid_types}",
+        }
+
+    # Validate params against the task's schema
+    task = BIO_TASKS.get(job_type) or _dynamic_modal_tasks.get(job_type)
+    task_params = task.get("parameters", task.get("params_schema", {}))
+    required_params = task_params.get("required", [])
+
+    missing = [p for p in required_params if p not in params]
+    if missing:
+        return {
+            "tool": "run_modal_job",
+            "error": f"Missing required parameters for '{job_type}': {missing}",
+            "required": required_params,
+        }
+
+    result = run_modal_task(job_type, params)
+    result["tool"] = "run_modal_job"
+    result["job_type"] = job_type
+    return result
+
+
+@register_tool("create_modal_tool")
+def create_modal_tool_handler(
+    name: str,
+    description: str,
+    parameters: dict,
+    code: str,
+    cpu: float = 2.0,
+    memory_mb: int = 4096,
+    gpu: str | None = None,
+    timeout: int = 3600,
+    image_packages: list | None = None,
+    image_apt_packages: list | None = None,
+) -> dict:
+    """Create a new Modal serverless task dynamically.
+
+    The created task becomes available as a run_modal_job job_type.
+    """
+    if not MODAL_AVAILABLE:
+        return {
+            "tool": "create_modal_tool",
+            "error": "Modal SDK not installed. Install with: pip install modal && modal setup",
+        }
+
+    result = create_modal_task(
+        name=name,
+        description=description,
+        parameters=parameters,
+        code=code,
+        cpu=cpu,
+        memory_mb=memory_mb,
+        gpu=gpu,
+        timeout=timeout,
+        image_packages=image_packages,
+        image_apt_packages=image_apt_packages,
+    )
+
+    # If created successfully, also register as a run_modal_job-compatible entry
+    if result.get("status") == "created":
+        safe_name = result["task"]
+        # Register the tool definition for the agent so it knows this job_type exists
+        new_task = _dynamic_modal_tasks.get(safe_name)
+        if new_task:
+            # Add a run_modal_job-style entry that the agent can discover
+            result["available_jobs"] = get_available_tasks()
+
+    result["tool"] = "create_modal_tool"
+    return result
 
 
 def execute_tool(name: str, args: dict) -> str:

@@ -12,3 +12,4 @@ matplotlib>=3.8.0
 seaborn>=0.13.0
 pandas>=2.0.0
 fpdf2>=2.8.0
+modal>=0.67.0
