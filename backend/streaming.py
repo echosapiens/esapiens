@@ -13,7 +13,7 @@ All endpoints require authentication via Depends(get_current_user).
 """
 
 import json
-from typing import Any, AsyncGenerator
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -44,14 +44,12 @@ class ChatRequest(BaseModel):
         description="Parsed data summary from an uploaded file, prepended to the query for agent context",
     )
 
-
 class ChatResponse(BaseModel):
     response: str
     session_id: str
     skills: list[str] = []
     tool_calls: list[dict[str, Any]] = []
     error: str | None = None
-
 
 # ── Sync endpoint ────────────────────────────────────────────────────────────
 
@@ -70,7 +68,7 @@ async def chat_sync(
     if req.file_context:
         query = f"{req.file_context}\n\n{query}"
 
-    result = run(query=query, session_id=req.session_id)
+    result = run(query=query, session_id=req.session_id, user_id=current_user["id"])
     return ChatResponse(**result).model_dump()
 
 
@@ -98,11 +96,13 @@ async def chat_stream(
     if req.file_context:
         query = f"{req.file_context}\n\n{query}"
 
-    async def event_generator() -> AsyncGenerator[dict, None]:
-        for event in run_stream(query=query, session_id=req.session_id):
-            yield event
+    # sse-starlette runs sync generators in a thread pool via
+    # iterate_in_threadpool, so we can pass run_stream directly.
+    # We use a generator expression to inject the user_id.
+    def _stream():
+        yield from run_stream(query=query, session_id=req.session_id, user_id=current_user["id"])
 
-    return EventSourceResponse(event_generator())
+    return EventSourceResponse(_stream())
 
 
 # ── Session management endpoints ─────────────────────────────────────────────

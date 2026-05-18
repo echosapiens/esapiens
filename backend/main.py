@@ -11,7 +11,7 @@ On import: initializes storage, creates the compiled agent graph.
 import json
 import sqlite3
 from pathlib import Path
-from typing import Any, AsyncGenerator, Optional
+from typing import Any, Generator, Optional
 
 import os
 
@@ -71,9 +71,9 @@ agent_graph = build_agent_graph(checkpointer=_persistent_checkpointer)
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def _ensure_session(session_id: str) -> dict[str, Any]:
+def _ensure_session(session_id: str, user_id: str = "default") -> dict[str, Any]:
     """Get or create a session, returning the session dict with messages."""
-    return storage.get_session(session_id) or storage.ensure_session(session_id)
+    return storage.get_session(session_id) or storage.ensure_session(session_id, user_id=user_id)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -85,9 +85,10 @@ def run(
     query: str,
     session_id: str = "default",
     config: Optional[dict] = None,
+    user_id: str = "default",
 ) -> dict[str, Any]:
     """Run the agent synchronously on a user query. Persists messages to DB."""
-    _ensure_session(session_id)
+    _ensure_session(session_id, user_id=user_id)
     thread_id = session_id  # Stable thread ID per session
 
     initial_state: WorkflowState = {
@@ -152,7 +153,8 @@ def run(
 def run_stream(
     query: str,
     session_id: str = "default",
-) -> AsyncGenerator[dict[str, Any], None]:
+    user_id: str = "default",
+) -> Generator[dict[str, Any], None, None]:
     """
     Run the agent and yield SSE-compatible event dicts.
     Persists messages to SQLite on completion.
@@ -166,7 +168,7 @@ def run_stream(
       {"event": "done", ...}
       {"event": "error", ...}
     """
-    _ensure_session(session_id)
+    _ensure_session(session_id, user_id=user_id)
     thread_id = session_id
 
     # Step 1: classify skills
@@ -199,9 +201,14 @@ def run_stream(
                     if msgs:
                         last = msgs[-1]
                         if hasattr(last, "content") and last.content:
+                            # LangGraph .stream() yields the FULL message content per
+                            # call_model event (not delta). In a ReAct loop, each
+                            # call_model produces a new AIMessage whose content
+                            # replaces the previous intermediate output.  Mark as
+                            # replace so the frontend sets content instead of appending.
                             yield {
                                 "event": "chunk",
-                                "data": json.dumps({"content": last.content}),
+                                "data": json.dumps({"content": last.content, "replace": True}),
                             }
                 elif "tools_node" in event_type or event_type == "tools_node":
                     node_data = event_data if isinstance(event_data, dict) else {}

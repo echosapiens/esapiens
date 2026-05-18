@@ -17,11 +17,12 @@ import {
   addUserMessage,
   addAssistantMessage,
   updateLastAssistantContent,
+  setLastAssistantContent,
   setAssistantSkills,
   addToolCallToAssistant,
   updateToolCallResult,
   finalizeAssistant,
-} from "./lib/api";
+} from './lib/api';
 import { Header } from "./components/Layout/Header";
 import { SessionSidebar } from "./components/Layout/SessionSidebar";
 import { Chat } from "./components/Chat/Chat";
@@ -196,10 +197,10 @@ function MainApp() {
                 }),
               );
             },
-            onChunk: (chunk) => {
+            onChunk: (chunk, replace) => {
               setMessages((prev) =>
                 produce(prev, (draft) => {
-                  updateLastAssistantContent(draft, chunk);
+                  updateLastAssistantContent(draft, chunk, replace);
                 }),
               );
             },
@@ -215,11 +216,15 @@ function MainApp() {
                 }),
               );
             },
-            onDone: (sid) => {
+            onDone: (sid, response) => {
               if (sid) finalSessionId = sid;
               setMessages((prev) =>
                 produce(prev, (draft) => {
                   finalizeAssistant(draft);
+                  // Fallback: if chunks didn't deliver content, set it from the done event
+                  if (response) {
+                    setLastAssistantContent(draft, response);
+                  }
                 }),
               );
               setSessionId(finalSessionId);

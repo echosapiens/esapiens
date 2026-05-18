@@ -92,9 +92,9 @@ export interface StreamCallbacks {
   onSkillsLoaded?: (skills: string[]) => void;
   onToolCall?: (toolCall: ToolCall) => void;
   onToolResult?: (toolCallId: string, result: string, status: 'success' | 'error') => void;
-  onChunk?: (chunk: string) => void;
+  onChunk?: (chunk: string, replace?: boolean) => void;
   onVisualization?: (visData: VisualizationData) => void;
-  onDone?: (sessionId: string) => void;
+  onDone?: (sessionId: string, response?: string) => void;
   onError?: (error: string) => void;
 }
 
@@ -362,7 +362,7 @@ function handleSSEEvent(
     }
     case 'chunk': {
       if (callbacks.onChunk) {
-        callbacks.onChunk((data.content as string) || '');
+        callbacks.onChunk((data.content as string) || '', data.replace as boolean | undefined);
       }
       break;
     }
@@ -374,8 +374,9 @@ function handleSSEEvent(
     }
     case 'done': {
       const sid = (data.session_id as string) || '';
+      const response = (data.response as string) || '';
       if (sid) setSessionId(sid);
-      callbacks.onDone?.(sid);
+      callbacks.onDone?.(sid, response);
       break;
     }
     case 'error': {
@@ -567,10 +568,17 @@ export function updateToolCallResult(
 export function updateLastAssistantContent(
   draft: WritableDraft<Message[]>,
   chunk: string,
+  replace?: boolean,
 ): void {
   for (let i = draft.length - 1; i >= 0; i--) {
     if (draft[i].role === 'assistant') {
-      draft[i].content += chunk;
+      if (replace) {
+        // LangGraph sends full content per call_model event, not deltas.
+        // Replace the entire content to avoid duplication in ReAct loops.
+        draft[i].content = chunk;
+      } else {
+        draft[i].content += chunk;
+      }
       break;
     }
   }
@@ -580,6 +588,23 @@ export function finalizeAssistant(draft: WritableDraft<Message[]>): void {
   for (let i = draft.length - 1; i >= 0; i--) {
     if (draft[i].role === 'assistant') {
       draft[i].isStreaming = false;
+      break;
+    }
+  }
+}
+
+/**
+ * Set the last assistant message's content (overwriting, not appending).
+ * Used as a fallback when the 'done' event provides the full response
+ * but chunks may not have delivered it.
+ */
+export function setLastAssistantContent(draft: WritableDraft<Message[]>, content: string): void {
+  for (let i = draft.length - 1; i >= 0; i--) {
+    if (draft[i].role === 'assistant') {
+      // Only overwrite if no content was received via chunks
+      if (!draft[i].content) {
+        draft[i].content = content;
+      }
       break;
     }
   }
