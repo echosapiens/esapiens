@@ -814,20 +814,32 @@ def run_python_plot(code: str, title: str = "", pretty: bool = True) -> dict:
     }
 
     try:
+        # Record PNG files in WORKSPACE before exec to detect newly-saved ones
+        _png_before = set(WORKSPACE.rglob("*.png")) if WORKSPACE.exists() else set()
+
         plt.close('all')  # Clear any previous figures
         exec(compile(code, "<run_python_plot>", "exec"), exec_globals)
 
-        # Save the current figure (plt.gcf() returns the most recent)
+        # Strategy 1: try to capture the most recent matplotlib figure
         fig = plt.gcf()
-        if not fig.axes:
-            # No axes = no plot was created
-            plt.close('all')
-            return {"tool": "run_python_plot", "result": "No image generated. Ensure you're creating a plot with plt or sns."}
+        b64_data = ""
+        if fig.axes:
+            buf = _io.BytesIO()
+            fig.savefig(buf, format='png', dpi=100, bbox_inches='tight', facecolor=fig.get_facecolor())
+            b64_data = _base64.b64encode(buf.getvalue()).decode()
 
-        buf = _io.BytesIO()
-        fig.savefig(buf, format='png', dpi=100, bbox_inches='tight', facecolor=fig.get_facecolor())
         plt.close('all')
-        b64_data = _base64.b64encode(buf.getvalue()).decode()
+
+        # Strategy 2: if no in-memory figure, look for PNG files the agent
+        # code saved to WORKSPACE (agent code often calls plt.savefig()
+        # followed by plt.close(), which makes plt.gcf() return an empty fig)
+        if not b64_data:
+            _png_after = set(WORKSPACE.rglob("*.png")) if WORKSPACE.exists() else set()
+            _new_pngs = sorted(_png_after - _png_before, key=lambda p: p.stat().st_mtime, reverse=True)
+            if _new_pngs:
+                # Read the most recently created PNG
+                with open(_new_pngs[0], 'rb') as _f:
+                    b64_data = _base64.b64encode(_f.read()).decode()
 
         if not b64_data:
             return {"tool": "run_python_plot", "result": "No image generated. Ensure you're creating a plot with plt or sns."}
