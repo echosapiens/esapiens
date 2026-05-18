@@ -37,7 +37,7 @@ pip install -q -r "$BACKEND_DIR/requirements.txt"
 
 echo "🚀 Starting backend (uvicorn) on http://localhost:8000 ..."
 cd "$BACKEND_DIR"
-uvicorn app:app --host 0.0.0.0 --port 8000 --reload &
+uvicorn app:app --host 0.0.0.0 --port 8000 --reload --reload-exclude '.venv' &
 BACKEND_PID=$!
 cd "$ROOT_DIR"
 
