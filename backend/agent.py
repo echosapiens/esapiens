@@ -24,7 +24,7 @@ load_dotenv()
 
 # ── Agent state ──────────────────────────────────────────────────────────────
 
-
+chosen_model = os.environ.get("OPENROUTER_MODEL", "arcee-ai/trinity-large-thinking:free")
 class WorkflowState(TypedDict):
     """State passed between nodes in the ReAct loop."""
 
@@ -45,7 +45,7 @@ def get_llm() -> ChatOpenAI:
     return ChatOpenAI(
         base_url="https://openrouter.ai/api/v1",
         api_key=_openrouter_api_key or "sk-or-v1-placeholder",
-        model="inception/mercury-2",  # default — can be overridden
+        model=chosen_model,
         temperature=0.0,
         timeout=120,
         default_headers={
