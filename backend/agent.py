@@ -45,7 +45,7 @@ def get_llm() -> ChatOpenAI:
     return ChatOpenAI(
         base_url="https://openrouter.ai/api/v1",
         api_key=_openrouter_api_key or "sk-or-v1-placeholder",
-        model="deepseek/deepseek-v4-flash",  # default — can be overridden
+        model="inception/mercury-2",  # default — can be overridden
         temperature=0.0,
         timeout=120,
         default_headers={
