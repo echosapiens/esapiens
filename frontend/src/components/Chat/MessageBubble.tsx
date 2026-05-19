@@ -1,4 +1,6 @@
-import { Group, Text, Badge, Tooltip } from '@mantine/core';
+import { useState } from 'react';
+import { Group, Text, Badge, Tooltip, Collapse, UnstyledButton } from '@mantine/core';
+import { IconChevronDown, IconChevronUp, IconTerminal2 } from '@tabler/icons-react';
 import Markdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
@@ -59,6 +61,7 @@ function CharCount({ text }: { text: string }) {
 export function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const isStreaming = message.isStreaming;
+  const [showThoughts, setShowThoughts] = useState(true);
 
   /* ─── Typewriter effect for streaming assistant content ─── */
   const { displayText, isAnimating, skipToEnd } = useTypewriter(
@@ -172,6 +175,84 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           <TimeLabel ts={message.timestamp} />
           <CharCount text={message.content} />
         </div>
+
+        {/* Thoughts / Reasoning logs */}
+        {message.thoughts && message.thoughts.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <UnstyledButton
+              onClick={() => setShowThoughts((v) => !v)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '4px 0',
+                opacity: 0.8,
+                color: 'var(--e-text-secondary)',
+              }}
+            >
+              <IconTerminal2 size={12} style={{ color: 'var(--e-accent-cyan)' }} />
+              <Text
+                style={{
+                  fontFamily: "var(--e-font-mono)",
+                  fontSize: '0.65rem',
+                  fontWeight: 600,
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Neural Engine Trace
+              </Text>
+              {showThoughts ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />}
+            </UnstyledButton>
+            <Collapse in={showThoughts}>
+              <div
+                style={{
+                  marginTop: 4,
+                  padding: '8px 12px',
+                  backgroundColor: 'var(--e-bg-subtle)',
+                  borderRadius: 'var(--e-radius-md)',
+                  borderLeft: '1px solid var(--e-border)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                }}
+              >
+                {message.thoughts.map((log, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                    <Text
+                      style={{
+                        fontFamily: "var(--e-font-mono)",
+                        fontSize: '0.6rem',
+                        color: 'var(--e-text-dimmed)',
+                        opacity: 0.5,
+                        marginTop: 2,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {String(i + 1).padStart(2, '0')}
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: "var(--e-font-mono)",
+                        fontSize: '0.7rem',
+                        color: 'var(--e-text-secondary)',
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {log}
+                    </Text>
+                  </div>
+                ))}
+                {isStreaming && (
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', opacity: 0.6 }}>
+                    <div className="pulse-indicator" style={{ width: 3, height: 3, borderRadius: '50%', backgroundColor: 'var(--e-accent-cyan)' }} />
+                    <Text style={{ fontFamily: "var(--e-font-mono)", fontSize: '0.65rem', fontStyle: 'italic' }}>allocating next cycle...</Text>
+                  </div>
+                )}
+              </div>
+            </Collapse>
+          </div>
+        )}
 
         {/* Skills badge */}
         {message.skills && message.skills.length > 0 && (

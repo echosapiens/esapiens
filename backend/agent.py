@@ -24,7 +24,8 @@ load_dotenv()
 
 # ── Agent state ──────────────────────────────────────────────────────────────
 
-chosen_model = os.environ.get("OPENROUTER_MODEL", "arcee-ai/trinity-large-thinking:free")
+# set chosen_model from environment variable, defaulting to "gpt-4o"
+chosen_model = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash")
 class WorkflowState(TypedDict):
     """State passed between nodes in the ReAct loop."""
 

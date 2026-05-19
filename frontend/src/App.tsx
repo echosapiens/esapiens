@@ -20,6 +20,7 @@ import {
   setLastAssistantContent,
   setAssistantSkills,
   addToolCallToAssistant,
+  addThoughtToAssistant,
   updateToolCallResult,
   finalizeAssistant,
 } from './lib/api';
@@ -187,6 +188,13 @@ function MainApp() {
               setMessages((prev) =>
                 produce(prev, (draft) => {
                   addToolCallToAssistant(draft, toolCall);
+                }),
+              );
+            },
+            onThought: (thought) => {
+              setMessages((prev) =>
+                produce(prev, (draft) => {
+                  addThoughtToAssistant(draft, thought);
                 }),
               );
             },

@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS messages (
     timestamp   REAL NOT NULL,
     skills      TEXT NOT NULL DEFAULT '[]',
     tool_calls  TEXT NOT NULL DEFAULT '[]',
+    thoughts    TEXT NOT NULL DEFAULT '[]',
     visualization TEXT
 );
 """
@@ -135,6 +136,13 @@ class StorageBackend:
         self._conn.executescript(TABLE_META)
         self._conn.execute(INDEX_MESSAGES_SESSION)
         self._conn.execute(INDEX_SESSIONS_USER)
+
+        # Migration: Add thoughts column to messages if missing
+        try:
+            self._conn.execute("ALTER TABLE messages ADD COLUMN thoughts TEXT NOT NULL DEFAULT '[]'")
+            self._conn.commit()
+        except sqlite3.OperationalError:
+            pass  # Already exists
 
         # Track schema version
         cur = self._conn.execute(
@@ -239,6 +247,7 @@ class StorageBackend:
             msg = dict(msg_row)
             msg["skills"] = json.loads(msg.get("skills", "[]"))
             msg["tool_calls"] = json.loads(msg.get("tool_calls", "[]"))
+            msg["thoughts"] = json.loads(msg.get("thoughts", "[]"))
             if msg.get("visualization"):
                 msg["visualization"] = json.loads(msg["visualization"])
             else:
@@ -307,6 +316,7 @@ class StorageBackend:
         content: str,
         skills: Optional[list[str]] = None,
         tool_calls: Optional[list[dict]] = None,
+        thoughts: Optional[list[str]] = None,
         visualization: Optional[dict] = None,
     ) -> str:
         """Append a message to a session. Returns message ID."""
@@ -314,8 +324,8 @@ class StorageBackend:
         now = time.time()
 
         self.conn.execute(
-            """INSERT INTO messages (id, session_id, role, content, timestamp, skills, tool_calls, visualization)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO messages (id, session_id, role, content, timestamp, skills, tool_calls, thoughts, visualization)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 msg_id,
                 session_id,
@@ -324,6 +334,7 @@ class StorageBackend:
                 now,
                 json.dumps(skills or []),
                 json.dumps(tool_calls or []),
+                json.dumps(thoughts or []),
                 json.dumps(visualization) if visualization else None,
             ),
         )

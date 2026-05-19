@@ -58,6 +58,7 @@ export interface Message {
   skills?: string[];
   tool_calls?: ToolCall[];
   isStreaming?: boolean;
+  thoughts?: string[];
   visualization?: VisualizationData | null;
 }
 
@@ -92,6 +93,7 @@ export interface StreamCallbacks {
   onSkillsLoaded?: (skills: string[]) => void;
   onToolCall?: (toolCall: ToolCall) => void;
   onToolResult?: (toolCallId: string, result: string, status: 'success' | 'error') => void;
+  onThought?: (message: string) => void;
   onChunk?: (chunk: string, replace?: boolean) => void;
   onVisualization?: (visData: VisualizationData) => void;
   onDone?: (sessionId: string, response?: string) => void;
@@ -360,6 +362,12 @@ function handleSSEEvent(
       }
       break;
     }
+    case 'thought': {
+      if (callbacks.onThought) {
+        callbacks.onThought((data.message as string) || '');
+      }
+      break;
+    }
     case 'chunk': {
       if (callbacks.onChunk) {
         callbacks.onChunk((data.content as string) || '', data.replace as boolean | undefined);
@@ -404,6 +412,7 @@ interface RawMessage {
   timestamp?: number;
   skills?: string[];
   tool_calls?: ToolCall[];
+  thoughts?: string[];
   visualization?: VisualizationData | null;
 }
 
@@ -425,6 +434,7 @@ function normalizeMessages(raw: RawMessage[]): Message[] {
     timestamp: m.timestamp || Date.now(),
     skills: m.skills,
     tool_calls: m.tool_calls,
+    thoughts: m.thoughts,
     visualization: m.visualization ?? null,
   }));
 }
@@ -519,6 +529,16 @@ export function addAssistantMessage(draft: WritableDraft<Message[]>): void {
     tool_calls: [],
     isStreaming: true,
   });
+}
+
+export function addThoughtToAssistant(draft: WritableDraft<Message[]>, thought: string): void {
+  for (let i = draft.length - 1; i >= 0; i--) {
+    if (draft[i].role === 'assistant') {
+      if (!draft[i].thoughts) draft[i].thoughts = [];
+      draft[i].thoughts!.push(thought);
+      break;
+    }
+  }
 }
 
 export function setAssistantSkills(draft: WritableDraft<Message[]>, skills: string[]): void {

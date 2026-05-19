@@ -125,7 +125,7 @@ def run(
 
         # Persist messages to SQLite
         storage.add_message(session_id, "user", query)
-        storage.add_message(session_id, "assistant", response_text, skills=loaded_skills, visualization=visualization)
+        storage.add_message(session_id, "assistant", response_text, skills=loaded_skills, tool_calls=tool_calls, thoughts=[], visualization=visualization)
 
         return {
             "response": response_text,
@@ -160,6 +160,7 @@ def run_stream(
     Persists messages to SQLite on completion.
 
     Yields:
+      {"event": "thought", ...}
       {"event": "skills_loaded", "data": json_str, ...}
       {"event": "tool_call", ...}
       {"event": "tool_result", ...}
@@ -171,8 +172,13 @@ def run_stream(
     _ensure_session(session_id, user_id=user_id)
     thread_id = session_id
 
+    collected_thoughts: list[str] = []
+
     # Step 1: classify skills
     skill_paths = classify_query(query)
+    thought1 = "Classifying intent and loading relevant biological protocols..."
+    collected_thoughts.append(thought1)
+    yield {"event": "thought", "data": json.dumps({"message": thought1})}
     yield {"event": "skills_loaded", "data": json.dumps({"skills": skill_paths})}
 
     # Step 2: build initial state
@@ -193,30 +199,46 @@ def run_stream(
     collected_skills: list[str] = []
     collected_visualization: Optional[dict] = None
     try:
+        thought2 = "Allocating neural engine threads for scientific reasoning..."
+        collected_thoughts.append(thought2)
+        yield {"event": "thought", "data": json.dumps({"message": thought2})}
         for event in agent_graph.stream(initial_state, run_config):
             for event_type, event_data in event.items():
-                if "call_model" in event_type or event_type == "call_model":
+                if "classify_intent" in event_type or event_type == "classify_intent":
+                    thought = "Configuring system persona and skill context..."
+                    collected_thoughts.append(thought)
+                    yield {"event": "thought", "data": json.dumps({"message": thought})}
+                elif "call_model" in event_type or event_type == "call_model":
+                    thought = "Consulting large language models for trajectory analysis..."
+                    collected_thoughts.append(thought)
+                    yield {"event": "thought", "data": json.dumps({"message": thought})}
                     node_data = event_data if isinstance(event_data, dict) else {}
                     msgs = node_data.get("messages", [])
                     if msgs:
                         last = msgs[-1]
+                        if last.tool_calls:
+                            thought = f"Planning {len(last.tool_calls)} computation steps: {', '.join(tc['name'] for tc in last.tool_calls)}"
+                            collected_thoughts.append(thought)
+                            yield {"event": "thought", "data": json.dumps({"message": thought}) }
                         if hasattr(last, "content") and last.content:
-                            # LangGraph .stream() yields the FULL message content per
-                            # call_model event (not delta). In a ReAct loop, each
-                            # call_model produces a new AIMessage whose content
-                            # replaces the previous intermediate output.  Mark as
-                            # replace so the frontend sets content instead of appending.
                             yield {
                                 "event": "chunk",
                                 "data": json.dumps({"content": last.content, "replace": True}),
                             }
                 elif "tools_node" in event_type or event_type == "tools_node":
+                    thought = "Engaging hardware interface for tool execution..."
+                    collected_thoughts.append(thought)
+                    yield {"event": "thought", "data": json.dumps({"message": thought})}
                     node_data = event_data if isinstance(event_data, dict) else {}
                     for tc in node_data.get("tool_calls", []):
+                        name = tc["name"]
                         collected_tool_calls.append({
-                            "name": tc["name"],
+                            "name": name,
                             "args": tc.get("args", {}),
                         })
+                        thought = f"Executing tool: {name}"
+                        collected_thoughts.append(thought)
+                        yield {"event": "thought", "data": json.dumps({"message": thought})}
                         yield {
                             "event": "tool_call",
                             "data": json.dumps({"name": tc["name"], "args": tc["args"]}),
@@ -230,9 +252,6 @@ def run_stream(
                             except (json.JSONDecodeError, TypeError):
                                 pass
                         if vis_data:
-                            # Keep last visualization per tool call (multiple tools may produce viz)
-                            # We store the last one since Message.visualization is a single object
-                            # Future: consider Message.visualizations: list for multiple
                             collected_visualization = vis_data
                             yield {
                                 "event": "visualization",
@@ -248,6 +267,9 @@ def run_stream(
                             }),
                         }
                 elif "finalize" in event_type or event_type == "finalize":
+                    thought = "Synthesizing final scientific report..."
+                    collected_thoughts.append(thought)
+                    yield {"event": "thought", "data": json.dumps({"message": thought})}
                     if isinstance(event_data, dict):
                         collected_skills = event_data.get("loaded_skills", [])
     except Exception as e:
@@ -276,6 +298,8 @@ def run_stream(
             "assistant",
             result_text,
             skills=collected_skills,
+            tool_calls=collected_tool_calls if collected_tool_calls else None,
+            thoughts=collected_thoughts,
             visualization=collected_visualization,
         )
 
