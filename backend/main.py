@@ -181,21 +181,65 @@ def run_stream(
     yield {"event": "thought", "data": json.dumps({"message": thought1})}
     yield {"event": "skills_loaded", "data": json.dumps({"skills": skill_paths})}
 
-    # PROACTIVE PERSISTENCE: Save user message BEFORE the stream starts.
-    # This ensures the session is interactive/visible even if the backend hangs.
-    storage.add_message(
+    # PROACTIVE PERSISTENCE: Save both messages immediately
+    # Create the User message
+    user_msg_id = storage.add_message(
         session_id,
         "user",
         query,
         skills=None,
         tool_calls=None,
     )
-    # Ensure session has a meaningful title immediately
+    
+    # Create an empty Assistant placeholder so the session is never "empty"
+    assistant_msg_id = storage.add_message(
+        session_id,
+        "assistant",
+        "",
+        skills=skill_paths,
+        thoughts=collected_thoughts,
+    )
+
+    # Ensure session has a title immediately
     session = storage.get_session(session_id)
-    if session and session.get("message_count", 0) <= 2:
+    if session and (not session.get("title") or "Session" in session.get("title", "")):
         title = query[:60] + ("..." if len(query) > 60 else "")
         storage.update_session_title(session_id, title)
     
+    # helper to update the assistant message in DB as we go
+    def update_assistant_in_db(content=None, tool_calls=None, thoughts=None, visualization=None, skills=None):
+        try:
+            # We need to query current message content to append, or storage layer handles it
+            # To keep it simple, we'll use a new method I'll add to StorageBackend or just update directly
+            # Since I can't easily add methods to StorageBackend class here without complex patching,
+            # I will use the connection directly for this high-frequency update task.
+            conn = storage.conn
+            updates = []
+            params = []
+            if content is not None:
+                updates.append("content = ?")
+                params.append(content)
+            if tool_calls is not None:
+                updates.append("tool_calls = ?")
+                params.append(json.dumps(tool_calls))
+            if thoughts is not None:
+                updates.append("thoughts = ?")
+                params.append(json.dumps(thoughts))
+            if visualization is not None:
+                updates.append("visualization = ?")
+                params.append(json.dumps(visualization))
+            if skills is not None:
+                updates.append("skills = ?")
+                params.append(json.dumps(skills))
+            
+            if updates:
+                sql = f"UPDATE messages SET {', '.join(updates)} WHERE id = ?"
+                params.append(assistant_msg_id)
+                conn.execute(sql, tuple(params))
+                conn.commit()
+        except Exception as e:
+            print(f"[Persistence] Error updating assistant message: {e}")
+
     # Step 2: build initial state
     initial_state: WorkflowState = {
         "messages": [],
@@ -236,6 +280,7 @@ def run_stream(
                             collected_thoughts.append(thought)
                             yield {"event": "thought", "data": json.dumps({"message": thought}) }
                         if hasattr(last, "content") and last.content:
+                            update_assistant_in_db(content=last.content, thoughts=collected_thoughts)
                             yield {
                                 "event": "chunk",
                                 "data": json.dumps({"content": last.content, "replace": True}),
@@ -257,6 +302,7 @@ def run_stream(
                             "result": result_str,
                             "status": "success",
                         })
+                        update_assistant_in_db(tool_calls=collected_tool_calls, thoughts=collected_thoughts)
                         
                         thought = f"Executing tool: {name}"
                         collected_thoughts.append(thought)
@@ -275,6 +321,7 @@ def run_stream(
                                 pass
                         if vis_data:
                             collected_visualization = vis_data
+                            update_assistant_in_db(visualization=collected_visualization, thoughts=collected_thoughts)
                             yield {
                                 "event": "visualization",
                                 "data": json.dumps(vis_data),
@@ -294,6 +341,7 @@ def run_stream(
                     yield {"event": "thought", "data": json.dumps({"message": thought})}
                     if isinstance(event_data, dict):
                         collected_skills = event_data.get("loaded_skills", [])
+                        update_assistant_in_db(skills=collected_skills, thoughts=collected_thoughts)
     except Exception as e:
         import logging
         logging.getLogger(__name__).exception("Stream handler error")
@@ -307,11 +355,9 @@ def run_stream(
         if final_state and final_state.values:
             result_text = final_state.values.get("result", "")
 
-        # Persist Assistant message to SQLite
-        storage.add_message(
-            session_id,
-            "assistant",
-            result_text,
+        # Persist Assistant message to SQLite (Final update)
+        update_assistant_in_db(
+            content=result_text,
             skills=collected_skills,
             tool_calls=collected_tool_calls if collected_tool_calls else None,
             thoughts=collected_thoughts,
