@@ -3,29 +3,53 @@ import { Text, Center, Loader } from '@mantine/core';
 import type { PlotlyVisualizationData } from '../../lib/api';
 
 export function PlotlyViewer({ html, title }: PlotlyVisualizationData) {
-const containerRef = useRef<HTMLIFrameElement>(null);
-const [error, setError] = useState<string | null>(null);
-const [loading, setLoading] = useState(true);
+  const containerRef = useRef<HTMLIFrameElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isVisible, setIsVisible] = useState(false);
 
-useEffect(() => {
-if (!html) {
-setError('NO HTML PROVIDED');
-setLoading(false);
-return;
-}
+  // Intersection Observer to lazy-load the plot
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1, rootMargin: '200px' }
+    );
 
-if (containerRef.current) {
-try {
-const iframe = containerRef.current;
-iframe.srcdoc = html;
-setLoading(false);
-} catch (err: unknown) {
-const msg = err instanceof Error ? err.message : 'FAILED TO RENDER PLOTLY';
-setError(msg);
-setLoading(false);
-}
-}
-}, [html]);
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!html) {
+      setError('NO HTML PROVIDED');
+      setLoading(false);
+      return;
+    }
+
+    // Only set srcdoc when visible to avoid crashing the tab on session load
+    if (isVisible && containerRef.current) {
+      try {
+        const iframe = containerRef.current;
+        // Optimization: only update if changed
+        if (iframe.srcdoc !== html) {
+          iframe.srcdoc = html;
+        }
+        setLoading(false);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'FAILED TO RENDER PLOTLY';
+        setError(msg);
+        setLoading(false);
+      }
+    }
+  }, [html, isVisible]);
 
 if (error) {
 return (

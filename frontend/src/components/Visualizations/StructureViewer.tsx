@@ -65,6 +65,24 @@ export function StructureViewer({ pdb_id, pdb_file, title, representation: initi
   const [loading, setLoading] = useState(true);
   const [activeRep, setActiveRep] = useState<RepresentationType>(initialRepresentation || 'cartoon');
   const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  // Intersection Observer for lazy loading
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1, rootMargin: '200px' }
+    );
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+    return () => observer.disconnect();
+  }, []);
 
   const applyReps = useCallback((reps: { type: string; params: Record<string, any> }[]) => { // eslint-disable-line @typescript-eslint/no-explicit-any
     const comp = componentRef.current as any; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -118,7 +136,7 @@ export function StructureViewer({ pdb_id, pdb_file, title, representation: initi
     let mounted = true;
 
     async function init() {
-      if (!containerRef.current) return;
+      if (!containerRef.current || !isVisible) return;
 
       try {
         const NGL = await import('ngl') as unknown as NGLModule;
@@ -215,7 +233,7 @@ export function StructureViewer({ pdb_id, pdb_file, title, representation: initi
         componentRef.current = null;
       }
     };
-  }, [pdb_id, pdb_file, initialRepresentation]);
+  }, [pdb_id, pdb_file, initialRepresentation, isVisible]);
 
   if (error) {
     return (

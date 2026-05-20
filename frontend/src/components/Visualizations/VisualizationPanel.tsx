@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Paper, Title, Text } from '@mantine/core';
 import type { VisualizationData } from '../../lib/api';
 import { ImageViewer } from './ImageViewer';
@@ -8,7 +9,7 @@ interface VisualizationPanelProps {
   data: VisualizationData | null | undefined;
 }
 
-export function VisualizationPanel({ data }: VisualizationPanelProps) {
+export const VisualizationPanel = memo(function VisualizationPanel({ data }: VisualizationPanelProps) {
   if (!data) {
     return null;
   }
@@ -61,4 +62,4 @@ export function VisualizationPanel({ data }: VisualizationPanelProps) {
       </div>
     </div>
   );
-}
+});

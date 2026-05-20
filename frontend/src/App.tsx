@@ -81,6 +81,7 @@ function MainApp() {
   const [sessionId, setSessionId] = useState<string>(`session_${Date.now()}`);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSessionLoading, setIsSessionLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -292,9 +293,9 @@ function MainApp() {
 
   const handleSelectSession = useCallback(
     async (id: string) => {
-      if (isLoading) return;
+      if (isLoading || isSessionLoading) return;
       abortRef.current?.abort();
-      setIsLoading(true);
+      setIsSessionLoading(true);
       try {
         const data = await getSession(id);
         setSessionId(id);
@@ -306,10 +307,10 @@ function MainApp() {
           color: "red",
         });
       } finally {
-        setIsLoading(false);
+        setIsSessionLoading(false);
       }
     },
-    [isLoading],
+    [isLoading, isSessionLoading],
   );
 
   const handleDeleteSession = useCallback(

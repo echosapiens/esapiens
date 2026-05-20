@@ -66,9 +66,15 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   /* ─── Typewriter effect for streaming assistant content ─── */
   const { displayText, isAnimating, skipToEnd } = useTypewriter(
     message.content,
-    15,   // ms per chunk — 15ms = fast typewriter feel
-    isStreaming && !!message.content,  // only animate while streaming + has content
+    15,   // ms per chunk
+    !!message.isStreaming && !!message.content,
   );
+
+  useEffect(() => {
+    if (!message.isStreaming && isAnimating) {
+      skipToEnd();
+    }
+  }, [message.isStreaming, isAnimating, skipToEnd]);
 
   /* ─── User Message (terminal input style) ─── */
   if (isUser) {

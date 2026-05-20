@@ -436,6 +436,7 @@ function normalizeMessages(raw: RawMessage[]): Message[] {
     tool_calls: m.tool_calls,
     thoughts: m.thoughts,
     visualization: m.visualization ?? null,
+    isStreaming: false, // Ensure historical messages are NOT streaming
   }));
 }
 

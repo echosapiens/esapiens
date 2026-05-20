@@ -18,9 +18,16 @@ export function useTypewriter(
   // Reset when text content changes
   useEffect(() => {
     if (prevTextRef.current !== fullText) {
+      // If the change is small (streaming chunk), don't reset the counter
+      // This prevents the flicker/reset during live typing
+      const diff = fullText.length - prevTextRef.current.length;
+      if (diff > 0 && diff < 500 && fullText.startsWith(prevTextRef.current)) {
+         // Keep current index, let the interval catch up
+      } else {
+         setDisplayIndex(0);
+         setSkipped(false);
+      }
       prevTextRef.current = fullText;
-      setDisplayIndex(0);
-      setSkipped(false);
     }
   }, [fullText]);
 

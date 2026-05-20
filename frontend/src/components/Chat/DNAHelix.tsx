@@ -18,12 +18,8 @@ export function DNAHelix({ progress, toolName }: DNAHelixProps) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const dpr = window.devicePixelRatio || 1;
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    ctx.scale(dpr, dpr);
 
     // Clear with subtle background
     ctx.fillStyle = '#FAFAFA';
@@ -88,7 +84,6 @@ export function DNAHelix({ progress, toolName }: DNAHelixProps) {
         const y = topY + t * helixHeight;
         const angle = phase + t * pairs * 0.55 + offset;
         const x = cx + Math.sin(angle) * amplitude;
-        const depth = (Math.cos(angle) + 1) / 2;
         if (i === 0) {
           ctx.moveTo(x, y);
         } else {
@@ -145,6 +140,28 @@ export function DNAHelix({ progress, toolName }: DNAHelixProps) {
     }
 
     frameRef.current = requestAnimationFrame(draw);
+  }, []);
+
+  // Handle resizing outside the draw loop
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const updateSize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        const ctx = canvas.getContext('2d');
+        if (ctx) ctx.scale(dpr, dpr);
+      }
+    };
+
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
   }, []);
 
   useEffect(() => {
