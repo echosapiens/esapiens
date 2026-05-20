@@ -181,6 +181,21 @@ def run_stream(
     yield {"event": "thought", "data": json.dumps({"message": thought1})}
     yield {"event": "skills_loaded", "data": json.dumps({"skills": skill_paths})}
 
+    # PROACTIVE PERSISTENCE: Save user message BEFORE the stream starts.
+    # This ensures the session is interactive/visible even if the backend hangs.
+    storage.add_message(
+        session_id,
+        "user",
+        query,
+        skills=None,
+        tool_calls=None,
+    )
+    # Ensure session has a meaningful title immediately
+    session = storage.get_session(session_id)
+    if session and session.get("message_count", 0) <= 2:
+        title = query[:60] + ("..." if len(query) > 60 else "")
+        storage.update_session_title(session_id, title)
+    
     # Step 2: build initial state
     initial_state: WorkflowState = {
         "messages": [],
@@ -232,10 +247,17 @@ def run_stream(
                     node_data = event_data if isinstance(event_data, dict) else {}
                     for tc in node_data.get("tool_calls", []):
                         name = tc["name"]
+                        args = tc.get("args", {})
+                        result_str = tc.get("result", "")
+                        
                         collected_tool_calls.append({
+                            "id": tc.get("id", ""),
                             "name": name,
-                            "args": tc.get("args", {}),
+                            "args": args,
+                            "result": result_str,
+                            "status": "success",
                         })
+                        
                         thought = f"Executing tool: {name}"
                         collected_thoughts.append(thought)
                         yield {"event": "thought", "data": json.dumps({"message": thought})}
@@ -285,14 +307,7 @@ def run_stream(
         if final_state and final_state.values:
             result_text = final_state.values.get("result", "")
 
-        # Persist to SQLite
-        storage.add_message(
-            session_id,
-            "user",
-            query,
-            skills=None,
-            tool_calls=collected_tool_calls if collected_tool_calls else None,
-        )
+        # Persist Assistant message to SQLite
         storage.add_message(
             session_id,
             "assistant",
@@ -302,13 +317,6 @@ def run_stream(
             thoughts=collected_thoughts,
             visualization=collected_visualization,
         )
-
-        # Ensure session has a meaningful title from first message
-        session = storage.get_session(session_id)
-        if session and session.get("message_count", 0) <= 2:
-            # Auto-title from first query
-            title = query[:60] + ("..." if len(query) > 60 else "")
-            storage.update_session_title(session_id, title)
 
         yield {
             "event": "done",
