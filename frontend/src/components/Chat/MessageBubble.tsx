@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Group, Text, Badge, Tooltip, Collapse, UnstyledButton } from '@mantine/core';
+import { memo, useState, useEffect } from 'react';
+import { Group, Text, Badge, Tooltip, Collapse, UnstyledButton, Accordion } from '@mantine/core';
 import { IconChevronDown, IconChevronUp, IconTerminal2 } from '@tabler/icons-react';
 import Markdown from 'react-markdown';
 import remarkMath from 'remark-math';
@@ -387,7 +387,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           </Text>
         )}
 
-        {/* "Skip animation" hint */}
+        {/* \"Skip animation\" hint */}
         {isAnimating && message.content.length > 100 && (
           <Text
             style={{
@@ -405,9 +405,32 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         {/* Tool calls (collapsed) */}
         {hasToolCalls && !isStreaming && (
           <div style={{ marginTop: 4 }}>
-            {message.tool_calls!.map((tc) => (
-              <ToolCallDisplay key={tc.id} toolCall={tc} />
-            ))}
+            <Accordion
+              variant="contained"
+              chevronPosition="right"
+              styles={{
+                item: {
+                  backgroundColor: 'transparent',
+                  border: '1px solid var(--e-border)',
+                  marginBottom: 2,
+                },
+                control: {
+                  padding: '4px 10px',
+                  minHeight: 0,
+                },
+                panel: {
+                  padding: '6px 10px',
+                },
+                chevron: {
+                  width: 10,
+                  height: 12,
+                },
+              }}
+            >
+              {message.tool_calls!.map((tc) => (
+                <ToolCallDisplay key={tc.id} toolCall={tc} />
+              ))}
+            </Accordion>
           </div>
         )}
 
