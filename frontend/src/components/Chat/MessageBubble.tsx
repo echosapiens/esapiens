@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Group, Text, Badge, Tooltip, Collapse, UnstyledButton } from '@mantine/core';
 import { IconChevronDown, IconChevronUp, IconTerminal2 } from '@tabler/icons-react';
 import Markdown from 'react-markdown';
