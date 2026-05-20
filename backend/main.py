@@ -295,11 +295,17 @@ def run_stream(
                         args = tc.get("args", {})
                         result_str = tc.get("result", "")
                         
+                        # SANITIZATION: Truncate massive tool outputs to prevent DB bloat/crashes
+                        # 15k chars is plenty for history; full results are usually too big for SQLite JSON columns
+                        safe_result = result_str
+                        if len(safe_result) > 15000:
+                            safe_result = safe_result[:15000] + "\n\n[... output truncated for history persistence ...]"
+
                         collected_tool_calls.append({
                             "id": tc.get("id", ""),
                             "name": name,
                             "args": args,
-                            "result": result_str,
+                            "result": safe_result,
                             "status": "success",
                         })
                         update_assistant_in_db(tool_calls=collected_tool_calls, thoughts=collected_thoughts)

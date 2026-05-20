@@ -244,17 +244,25 @@ class StorageBackend:
         )
         messages = []
         for msg_row in msg_cursor.fetchall():
-            msg = dict(msg_row)
-            msg["skills"] = json.loads(msg.get("skills", "[]"))
-            msg["tool_calls"] = json.loads(msg.get("tool_calls", "[]"))
-            msg["thoughts"] = json.loads(msg.get("thoughts", "[]"))
-            if msg.get("visualization"):
-                msg["visualization"] = json.loads(msg["visualization"])
-            else:
-                msg["visualization"] = None
-            # Messages timestamp stored as Unix seconds → convert to ms for JS Date
-            msg["timestamp"] = int(msg["timestamp"] * 1000)
-            messages.append(msg)
+            try:
+                msg = dict(msg_row)
+                # Robust JSON loading for columns that might contain heavy tool data
+                for col in ["skills", "tool_calls", "thoughts", "visualization"]:
+                    val = msg.get(col)
+                    if val:
+                        try:
+                            msg[col] = json.loads(val)
+                        except (json.JSONDecodeError, TypeError):
+                            msg[col] = [] if col != "visualization" else None
+                    else:
+                        msg[col] = [] if col != "visualization" else None
+                
+                # Messages timestamp stored as Unix seconds → convert to ms for JS Date
+                msg["timestamp"] = int(msg["timestamp"] * 1000)
+                messages.append(msg)
+            except Exception as e:
+                print(f"[Storage] Skipping malformed message: {e}")
+                continue
 
         session["messages"] = messages
         return session
