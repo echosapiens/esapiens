@@ -124,6 +124,7 @@ class StorageBackend:
         self._conn = sqlite3.connect(str(self._db_path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
 
         self._run_migrations()
@@ -242,8 +243,11 @@ class StorageBackend:
             "SELECT * FROM messages WHERE session_id = ? ORDER BY timestamp ASC",
             (session_id,),
         )
+        msg_rows = msg_cursor.fetchall()
+        print(f"[Storage] Fetching session {session_id}: Found {len(msg_rows)} messages in DB")
+        
         messages = []
-        for msg_row in msg_cursor.fetchall():
+        for msg_row in msg_rows:
             try:
                 msg = dict(msg_row)
                 # Robust JSON loading for columns that might contain heavy tool data

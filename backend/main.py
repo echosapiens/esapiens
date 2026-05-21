@@ -209,10 +209,6 @@ def run_stream(
     # helper to update the assistant message in DB as we go
     def update_assistant_in_db(content=None, tool_calls=None, thoughts=None, visualization=None, skills=None):
         try:
-            # We need to query current message content to append, or storage layer handles it
-            # To keep it simple, we'll use a new method I'll add to StorageBackend or just update directly
-            # Since I can't easily add methods to StorageBackend class here without complex patching,
-            # I will use the connection directly for this high-frequency update task.
             conn = storage.conn
             updates = []
             params = []
@@ -237,6 +233,8 @@ def run_stream(
                 params.append(assistant_msg_id)
                 conn.execute(sql, tuple(params))
                 conn.commit()
+                # Force a checkpoint to disk for VPS stability
+                conn.execute("PRAGMA wal_checkpoint(PASSIVE)")
         except Exception as e:
             print(f"[Persistence] Error updating assistant message: {e}")
 
