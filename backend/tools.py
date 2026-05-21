@@ -1057,7 +1057,25 @@ def create_tool_handler(name: str, description: str, parameters: dict, code: str
 def execute_python(code: str, description: str = "") -> dict:
     """Execute arbitrary Python code and return stdout/stderr."""
     import sys as _sys
+    import html as _html
     from pathlib import Path as _Path
+
+    # RECOVERY: Some proxies/LLM layers escape '<' and '>' into '&lt;' and '&gt;'
+    # which causes Python SyntaxErrors. We decode them back before execution.
+    if "&lt;" in code or "&gt;" in code or "&amp;" in code:
+        code = _html.unescape(code)
+
+    # RECOVERY: LLMs often wrap the code in markdown blocks (e.g. ```python ... ```)
+    # which causes SyntaxErrors in compile(). We strip these out if present.
+    code = code.strip()
+    if code.startswith("```"):
+        # Remove the first line (the opener) and the last line (the closer)
+        lines = code.splitlines()
+        if len(lines) > 2:
+            code = "\n".join(lines[1:-1])
+        else:
+            # Fallback for single-line blocks like ```python code```
+            code = code.strip("`").replace("python", "", 1).strip()
 
     WORKSPACE = _Path(os.environ.get("ESAPIENS_DATA_DIR", os.path.expanduser("~/esapiens-data")))
 
