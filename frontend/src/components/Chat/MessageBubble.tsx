@@ -37,7 +37,7 @@ function TimeLabel({ ts }: { ts: number }) {
 }
 
 /* ─── Content Length Badge ─── */
-function CharCount({ text }: { text: string }) {
+function CharCount({ text }: { text?: string | null }) {
   if (!text || text.length < 100) return null;
   return (
     <Tooltip label={`${text.length} characters`} withArrow>

@@ -64,14 +64,17 @@ function ToolCallLabel({ name, status }: { name: string; status?: string }) {
 }
 
 export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
+  if (!toolCall) return null;
+  const tcId = toolCall.id || `tc_missing_fallback`;
+
   // Truncate heavy payloads even before JSON stringify if they are huge
-  const stringifiedArgs = JSON.stringify(toolCall.args, null, 2);
+  const stringifiedArgs = JSON.stringify(toolCall.args || {}, null, 2);
   const truncatedArgs = stringifiedArgs.length > 5000 
     ? `${stringifiedArgs.slice(0, 5000)}\n... (args truncated, ${stringifiedArgs.length} chars)`
     : stringifiedArgs;
 
   return (
-    <Accordion.Item key={toolCall.id} value={toolCall.id}>
+    <Accordion.Item key={tcId} value={tcId}>
       <Accordion.Control>
         <ToolCallLabel name={toolCall.name} status={toolCall.status} />
       </Accordion.Control>

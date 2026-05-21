@@ -427,17 +427,27 @@ function normalizeSession(raw: RawSession): Session {
 }
 
 function normalizeMessages(raw: RawMessage[]): Message[] {
-  return raw.map((m) => ({
-    id: m.id || generateId(),
-    role: m.role,
-    content: m.content,
-    timestamp: m.timestamp || Date.now(),
-    skills: m.skills,
-    tool_calls: m.tool_calls,
-    thoughts: m.thoughts,
-    visualization: m.visualization ?? null,
-    isStreaming: false, // Ensure historical messages are NOT streaming
-  }));
+  return raw.map((m) => {
+    // Generate fallback tool call IDs to prevent React key crashes
+    const safeToolCalls = m.tool_calls?.map((tc, idx) => ({
+      ...tc,
+      id: tc.id || `tc_${Date.now()}_${idx}`,
+      args: tc.args || {},
+      status: tc.status || 'success'
+    }));
+
+    return {
+      id: m.id || generateId(),
+      role: m.role,
+      content: m.content || '',
+      timestamp: m.timestamp || Date.now(),
+      skills: m.skills || [],
+      tool_calls: safeToolCalls,
+      thoughts: m.thoughts || [],
+      visualization: m.visualization ?? null,
+      isStreaming: false,
+    };
+  });
 }
 
 export async function listSessions(): Promise<Session[]> {
