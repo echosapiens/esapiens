@@ -22,19 +22,20 @@ export function Header({ onNewChat }: HeaderProps) {
     <Group
       h="100%"
       w="100%"
-      justify="space-between"
+      justify="center"
+      style={{ position: 'relative' }}
     >
-      {/* Left: Logo */}
-      <Group h="100%" gap="sm" align="center">
+      {/* Centered Group: Logo + Text + Ghost Logo */}
+      <Group h="100%" gap="md" align="center" justify="center">
         <Image
           src="/logo.png"
           alt="E.sapiens"
-          h={40}
+          h={32}
           w="auto"
           style={{ objectFit: 'contain' }}
         />
 
-        <Stack gap={0}>
+        <Stack gap={0} align="center">
           <Text
             style={{
               fontFamily: 'var(--e-font-sans)',
@@ -43,6 +44,7 @@ export function Header({ onNewChat }: HeaderProps) {
               color: '#092426',
               letterSpacing: '-0.03em',
               lineHeight: 1,
+              fontStyle: 'italic',
             }}
           >
             E.sapiens
@@ -50,20 +52,30 @@ export function Header({ onNewChat }: HeaderProps) {
           <Text
             style={{
               fontFamily: 'var(--e-font-sans)',
-              fontSize: 'var(--e-type-xs)',
-              fontWeight: 400,
+              fontSize: '10px',
+              fontWeight: 500,
               color: 'var(--e-text-muted)',
-              letterSpacing: '0.04em',
+              letterSpacing: '0.12em',
               lineHeight: 1.3,
+              textTransform: 'uppercase',
+              marginTop: 2,
             }}
           >
             Computational Biology Platform
           </Text>
         </Stack>
+
+        <Image
+          src="/logo.png"
+          alt="E.sapiens"
+          h={32}
+          w="auto"
+          style={{ objectFit: 'contain', opacity: 0.08, filter: 'grayscale(1)' }}
+        />
       </Group>
 
-      {/* Right: New session */}
-      <Group gap="sm">
+      {/* New Session Button - Pulled to Right */}
+      <div style={{ position: 'absolute', right: 0 }}>
         <Tooltip label="New session (⌘N)" withArrow>
           <ActionIcon
             variant="subtle"
@@ -75,19 +87,11 @@ export function Header({ onNewChat }: HeaderProps) {
               borderRadius: 'var(--e-radius-md)',
               transition: 'all 0.15s ease',
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'var(--e-brand)';
-              e.currentTarget.style.backgroundColor = 'var(--e-bg-subtle)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'var(--e-border-subtle)';
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }}
           >
             <PlusIcon />
           </ActionIcon>
         </Tooltip>
-      </Group>
+      </div>
     </Group>
   );
 }

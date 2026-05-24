@@ -105,10 +105,14 @@ export function Chat({ messages, onSend, onStop, isLoading, sessionId }: ChatPro
   // Show ComputationExperience overlay:
   // 1. When loading with no content yet (initial processing phase), OR
   // 2. When loading and there are running tool calls (multi-step computation)
+  // 3. When there are active background jobs detected
   const showComputationOverlay =
-    isLoading &&
-    !!lastAssistant &&
-    (!lastAssistant.content || hasRunningTools);
+    (isLoading || activeToolCalls.some(tc => tc.status === 'running')) &&
+    (!!lastAssistant || true) && // simplified check
+    (!lastAssistant?.content || hasRunningTools || true); // always show if loading
+
+  // Actually let's make it data driven
+  const shouldShow = isLoading && (!lastAssistant?.content || hasRunningTools || (activeToolCalls.length === 0));
 
   return (
     <>
@@ -146,15 +150,7 @@ export function Chat({ messages, onSend, onStop, isLoading, sessionId }: ChatPro
         </ScrollArea>
       </div>
 
-      {/* Computation distraction: sits right above the input */}
-      {showComputationOverlay && (
-        <ComputationExperience
-          isLoading={isLoading}
-          toolCalls={activeToolCalls}
-        />
-      )}
-      {isLoading && !lastAssistant && (
-        <Group gap="xs" style={{ fontFamily: "var(--e-font-mono)", fontSize: '0.875rem', color: 'var(--e-text-secondary)', padding: '8px 14px' }}>
+      {/* Computation distraction: sits right above the input */}\n      {shouldShow && (\n        <ComputationExperience\n          isLoading={isLoading}\n          toolCalls={activeToolCalls}\n        />\n      )}\n      {isLoading && !lastAssistant && !shouldShow && (\n        <Group gap="xs" style={{ fontFamily: "var(--e-font-mono)", fontSize: '0.875rem', color: 'var(--e-text-secondary)', padding: '8px 14px' }}>
           <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'var(--e-accent-cyan)' }} />
           Processing...
         </Group>

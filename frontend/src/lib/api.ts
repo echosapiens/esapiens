@@ -98,6 +98,7 @@ export interface StreamCallbacks {
   onVisualization?: (visData: VisualizationData) => void;
   onDone?: (sessionId: string, response?: string) => void;
   onError?: (error: string) => void;
+  onComputationActive?: (jobs: any[]) => void;
 }
 
 /* ─── Helpers ─── */
@@ -385,6 +386,13 @@ function handleSSEEvent(
       const response = (data.response as string) || '';
       if (sid) setSessionId(sid);
       callbacks.onDone?.(sid, response);
+      break;
+    }
+    case 'computation_active': {
+      const jobs = data.jobs as any[] | undefined;
+      if (jobs && callbacks.onComputationActive) {
+        callbacks.onComputationActive(jobs);
+      }
       break;
     }
     case 'error': {

@@ -13,7 +13,10 @@ time and creates a persistent Modal client. No browser needed.
 """
 
 import os
+import json
+import time
 import traceback
+from pathlib import Path
 from typing import Any
 
 # Try importing modal — if not installed, tasks will fail gracefully
@@ -445,28 +448,9 @@ def create_modal_task(
     image_packages: list[str] | None = None,
     image_apt_packages: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Create a new Modal function dynamically.
-
-    Args:
-        name: Task name (lowercase, underscores)
-        description: What the task does
-        parameters: JSON schema for parameters
-        code: Python function body (indented). Has access to the specified packages.
-        cpu: Number of CPU cores (default 2)
-        memory_mb: Memory in MB (default 4096)
-        gpu: GPU type string (e.g., "T4", "A100") or None
-        timeout: Timeout in seconds (default 3600)
-        image_packages: pip packages to install in the container
-        image_apt_packages: apt packages to install
-
-    Returns:
-        dict with status and task info
-    """
+    """Create a new Modal function dynamically."""
     if not MODAL_AVAILABLE:
-        return {
-            "error": "Modal SDK not installed. Run: pip install modal",
-            "status": "error",
-        }
+        return {"error": "Modal SDK not installed.", "status": "error"}
 
     # Sanitize name
     safe_name = name.lower().strip().replace("-", "_").replace(" ", "_")
@@ -496,13 +480,12 @@ def create_modal_task(
 
     params_sig = ", ".join(param_list)
 
-    # Create the remote function definition
+    # Create the remote function source
     func_code = f"""
 def {safe_name}({params_sig}):
     {chr(10).join('    ' + line for line in code.strip().split(chr(10)))}
 """
 
-    # Execute the function definition in a local namespace
     func_ns: dict[str, Any] = {}
     try:
         exec(func_code, func_ns)
@@ -548,55 +531,57 @@ def {safe_name}({params_sig}):
     }
 
 
-def run_modal_task(job_type: str, params: dict[str, Any]) -> dict[str, Any]:
-    """Execute a registered Modal task.
-
-    Looks up the task in BIO_TASKS (pre-defined) then _dynamic_modal_tasks.
-    Runs the remote function and returns the result.
-
-    Args:
-        job_type: Key in BIO_TASKS or _dynamic_modal_tasks
-        params: Parameters to pass to the remote function
-
-    Returns:
-        dict with task result or error
-    """
+def run_modal_task(job_type: str, params: dict[str, Any], workspace: Path | None = None) -> dict[str, Any]:
+    """Execute a registered Modal task with detached job support."""
     if not MODAL_AVAILABLE:
-        return {
-            "error": "Modal SDK not installed. Run: pip install modal",
-            "status": "error",
-        }
+        return {"error": "Modal SDK not installed.", "status": "error"}
 
-    # Look up task
     task = BIO_TASKS.get(job_type) or _dynamic_modal_tasks.get(job_type)
     if task is None:
-        available = list(BIO_TASKS.keys()) + list(_dynamic_modal_tasks.keys())
-        return {
-            "error": f"Unknown job_type: {job_type}. Available: {available}",
-            "status": "error",
-        }
+        return {"error": f"Unknown job_type: {job_type}", "status": "error"}
 
     app = task["app"]
     func = task["function"]
 
     if app is None or func is None:
-        return {
-            "error": f"Task '{job_type}' is registered but Modal SDK not available to run it.",
-            "status": "error",
-        }
+        return {"error": f"Task '{job_type}' is registered but Modal SDK not available to run it.", "status": "error"}
 
+    # ── Background Execution Logic ──
+    is_background = params.pop("background", False)
+    if is_background and workspace:
+        job_id = f"modal_{job_type}_{int(time.time())}"
+        jobs_dir = workspace / "background_jobs"
+        jobs_dir.mkdir(parents=True, exist_ok=True)
+        job_path = jobs_dir / f"{job_id}.json"
+        
+        try:
+            with app.run():
+                call = func.spawn(**params)
+                status_data = {
+                    "job_id": job_id,
+                    "modal_call_id": call.object_id,
+                    "job_type": job_type,
+                    "status": "running",
+                    "start_time": time.time(),
+                }
+                job_path.write_text(json.dumps(status_data))
+                return {
+                    "status": "detached",
+                    "job_id": job_id,
+                    "message": f"Detached Modal job '{job_type}' spawned. Monitor Call ID: {call.object_id}"
+                }
+        except Exception as e:
+            return {"error": f"Failed to spawn Modal task: {e}", "status": "error"}
+
+    # ── Standard Blocking Execution ──
     try:
         with app.run():
             result = func.remote(**params)
-            if isinstance(result, dict):
-                result["status"] = result.get("status", "success")
-                return result
-            return {"status": "success", "result": str(result)}
+            return result if isinstance(result, dict) else {"status": "success", "result": str(result)}
     except Exception as e:
-        tb = traceback.format_exc()
         return {
             "error": f"Modal task '{job_type}' failed: {e}",
-            "traceback": tb[-3000:],
+            "traceback": traceback.format_exc()[-3000:],
             "status": "error",
         }
 

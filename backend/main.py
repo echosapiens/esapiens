@@ -168,11 +168,29 @@ def run_stream(
       {"event": "visualization", ...}
       {"event": "done", ...}
       {"event": "error", ...}
+      {"event": "computation_active", "data": json_str, ...}
     """
     _ensure_session(session_id, user_id=user_id)
     thread_id = session_id
 
     collected_thoughts: list[str] = []
+
+    # Step pre-1: Check for active background jobs
+    workspace_path = storage.get_workspace_path(user_id, session_id)
+    jobs_dir = workspace_path / "background_jobs"
+    active_jobs = []
+    if jobs_dir.exists():
+        for job_file in jobs_dir.glob("*.json"):
+            try:
+                job_data = json.loads(job_file.read_text())
+                if job_data.get("status") == "running":
+                    active_jobs.append(job_data)
+            except:
+                continue
+    
+    if active_jobs:
+        yield {"event": "thought", "data": json.dumps({"message": f"Detected {len(active_jobs)} biological pipelines running in VPS sectors..."})}
+        yield {"event": "computation_active", "data": json.dumps({"jobs": active_jobs})}
 
     # Step 1: classify skills
     skill_paths = classify_query(query)
@@ -418,4 +436,4 @@ def create_user_profile(user_id: str) -> Path:
 
 def get_data_dir() -> Path:
     """Return the root data directory path."""
-    return storage.data_dir
+    return storage.get_data_dir()

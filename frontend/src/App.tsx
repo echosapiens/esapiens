@@ -36,8 +36,6 @@ import { LoginPage } from "./components/Auth/LoginPage";
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { authenticated, loading } = useAuth();
-
-  // Listen for auth:unauthorized events from api.ts (401 responses)
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
@@ -80,45 +78,81 @@ function MainApp() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [sessionId, setSessionId] = useState<string>(`session_${Date.now()}`);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [activeBackgroundJobs, setActiveBackgroundJobs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSessionLoading, setIsSessionLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [uiVisible, setUiVisible] = useState(true);
+  
   const abortRef = useRef<AbortController | null>(null);
+  const inactivityTimerRef = useRef<number | null>(null);
 
   /* ─── Command palette & shortcuts state ─── */
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
-  const toggleSidebar = useCallback(() => setSidebarCollapsed((c) => !c), []);
+  const resetInactivityTimer = useCallback(() => {
+    setUiVisible(true);
+    if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
+    inactivityTimerRef.current = window.setTimeout(() => {
+      setUiVisible(false);
+    }, 7000);
+  }, []);
+
+  useEffect(() => {
+    const handleEvents = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof MouseEvent) {
+        // Tapping edge detection: top (y < 20) or left (x < 20)
+        if (e.clientY < 20 || e.clientX < 20) {
+          setUiVisible(true);
+          resetInactivityTimer();
+          return;
+        }
+      }
+      resetInactivityTimer();
+    };
+
+    window.addEventListener('mousemove', handleEvents as any);
+    window.addEventListener('keydown', handleEvents as any);
+    window.addEventListener('mousedown', handleEvents as any);
+    resetInactivityTimer();
+
+    return () => {
+      window.removeEventListener('mousemove', handleEvents as any);
+      window.removeEventListener('keydown', handleEvents as any);
+      window.removeEventListener('mousedown', handleEvents as any);
+      if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
+    };
+  }, [resetInactivityTimer]);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((c) => !c);
+    resetInactivityTimer();
+  }, [resetInactivityTimer]);
 
   /* ─── Global keyboard shortcuts ─── */
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      // Cmd+K — command palette
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setCmdPaletteOpen((prev) => !prev);
         return;
       }
-      // Cmd+N — new chat
       if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
         e.preventDefault();
         handleNewChat();
         return;
       }
-      // Cmd+B — toggle sidebar
       if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
         e.preventDefault();
         toggleSidebar();
         return;
       }
-      // ? — shortcuts (only when not typing in an input)
       if (e.key === '?' && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
         e.preventDefault();
         setShortcutsOpen(true);
         return;
       }
-      // Escape — close modals
       if (e.key === 'Escape') {
         if (cmdPaletteOpen) setCmdPaletteOpen(false);
         if (shortcutsOpen) setShortcutsOpen(false);
@@ -129,14 +163,6 @@ function MainApp() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [cmdPaletteOpen, shortcutsOpen, toggleSidebar]);
 
-  /* ─── Listen for custom event from WelcomeDashboard ─── */
-  useEffect(() => {
-    function handler() { setShortcutsOpen(true); }
-    window.addEventListener('open-shortcuts', handler);
-    return () => window.removeEventListener('open-shortcuts', handler);
-  }, []);
-
-  // Load sessions on mount
   useEffect(() => {
     listSessions()
       .then(setSessions)
@@ -153,13 +179,13 @@ function MainApp() {
     setMessages([]);
     setSessionId(`session_${Date.now()}`);
     setIsLoading(false);
+    setActiveBackgroundJobs([]);
   }, []);
 
   const handleSendMessage = useCallback(
     async (query: string, fileContext?: string | null) => {
       if (!query.trim() || isLoading) return;
 
-      // Add user message to state
       setMessages((prev) =>
         produce(prev, (draft) => {
           addUserMessage(draft, query);
@@ -179,78 +205,46 @@ function MainApp() {
           sessionId,
           {
             onSkillsLoaded: (skills) => {
-              setMessages((prev) =>
-                produce(prev, (draft) => {
-                  setAssistantSkills(draft, skills);
-                }),
-              );
+              setMessages((prev) => produce(prev, (draft) => { setAssistantSkills(draft, skills); }));
             },
             onToolCall: (toolCall) => {
-              setMessages((prev) =>
-                produce(prev, (draft) => {
-                  addToolCallToAssistant(draft, toolCall);
-                }),
-              );
+              setMessages((prev) => produce(prev, (draft) => { addToolCallToAssistant(draft, toolCall); }));
             },
             onThought: (thought) => {
-              setMessages((prev) =>
-                produce(prev, (draft) => {
-                  addThoughtToAssistant(draft, thought);
-                }),
-              );
+              setMessages((prev) => produce(prev, (draft) => { addThoughtToAssistant(draft, thought); }));
             },
             onToolResult: (toolCallId, result, status) => {
-              setMessages((prev) =>
-                produce(prev, (draft) => {
-                  updateToolCallResult(draft, toolCallId, result, status);
-                }),
-              );
+              setMessages((prev) => produce(prev, (draft) => { updateToolCallResult(draft, toolCallId, result, status); }));
             },
             onChunk: (chunk, replace) => {
-              setMessages((prev) =>
-                produce(prev, (draft) => {
-                  updateLastAssistantContent(draft, chunk, replace);
-                }),
-              );
+              setMessages((prev) => produce(prev, (draft) => { updateLastAssistantContent(draft, chunk, replace); }));
             },
             onVisualization: (visData) => {
-              setMessages((prev) =>
-                produce(prev, (draft) => {
-                  for (let i = draft.length - 1; i >= 0; i--) {
-                    if (draft[i].role === 'assistant') {
-                      draft[i].visualization = visData;
-                      break;
-                    }
+              setMessages((prev) => produce(prev, (draft) => {
+                for (let i = draft.length - 1; i >= 0; i--) {
+                  if (draft[i].role === 'assistant') {
+                    draft[i].visualization = visData;
+                    break;
                   }
-                }),
-              );
+                }
+              }));
+            },
+            onComputationActive: (jobs) => {
+              setActiveBackgroundJobs(jobs);
             },
             onDone: (sid, response) => {
               if (sid) finalSessionId = sid;
-              setMessages((prev) =>
-                produce(prev, (draft) => {
-                  finalizeAssistant(draft);
-                  // Fallback: if chunks didn't deliver content, set it from the done event
-                  if (response) {
-                    setLastAssistantContent(draft, response);
-                  }
-                }),
-              );
+              setMessages((prev) => produce(prev, (draft) => {
+                finalizeAssistant(draft);
+                if (response) setLastAssistantContent(draft, response);
+              }));
               setSessionId(finalSessionId);
               setIsLoading(false);
               refreshSessions();
             },
             onError: (error) => {
-              showNotification({
-                title: "Error",
-                message: error,
-                color: "red",
-              });
-              setMessages((prev) =>
-                produce(prev, (draft) => {
-                  finalizeAssistant(draft);
-                }),
-              );
+              showNotification({ title: "Error", message: error, color: "red" });
+              setMessages((prev) => produce(prev, (draft) => { finalizeAssistant(draft); }));
               setIsLoading(false);
             },
           },
@@ -259,26 +253,12 @@ function MainApp() {
         );
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {
-          setMessages((prev) =>
-            produce(prev, (draft) => {
-              finalizeAssistant(draft);
-            }),
-          );
+          setMessages((prev) => produce(prev, (draft) => { finalizeAssistant(draft); }));
         } else {
-          const msg = err instanceof Error ? err.message : "Request failed";
-          showNotification({
-            title: "Error",
-            message: msg,
-            color: "red",
-          });
-          setMessages((prev) =>
-            produce(prev, (draft) => {
-              finalizeAssistant(draft);
-            }),
-          );
+          showNotification({ title: "Error", message: (err as any).message || "Request failed", color: "red" });
+          setMessages((prev) => produce(prev, (draft) => { finalizeAssistant(draft); }));
         }
       } finally {
-        // Safety net: always clear loading state, even if stream ends without done/error
         setIsLoading(false);
       }
     },
@@ -300,12 +280,9 @@ function MainApp() {
         const data = await getSession(id);
         setSessionId(id);
         setMessages(data.messages);
+        setActiveBackgroundJobs([]); // Reset jobs, will be re-populated by backend on next query or fetch logic
       } catch {
-        showNotification({
-          title: "Error",
-          message: "Failed to load session",
-          color: "red",
-        });
+        showNotification({ title: "Error", message: "Failed to load session", color: "red" });
       } finally {
         setIsSessionLoading(false);
       }
@@ -317,38 +294,23 @@ function MainApp() {
     async (id: string) => {
       try {
         await apiDeleteSession(id);
-        if (sessionId === id) {
-          handleNewChat();
-        }
+        if (sessionId === id) handleNewChat();
         refreshSessions();
       } catch {
-        showNotification({
-          title: "Error",
-          message: "Failed to delete session",
-          color: "red",
-        });
+        showNotification({ title: "Error", message: "Failed to delete session", color: "red" });
       }
     },
     [sessionId, handleNewChat, refreshSessions],
   );
 
-  const sidebarWidth = sidebarCollapsed ? 56 : 264;
+  const sidebarWidth = sidebarCollapsed ? 0 : 264;
+  const actualUiVisible = uiVisible || cmdPaletteOpen || shortcutsOpen || isSessionLoading || isLoading;
 
   return (
     <>
-      <CommandPalette
-        opened={cmdPaletteOpen}
-        onClose={() => setCmdPaletteOpen(false)}
-        onNewChat={handleNewChat}
-        onToggleSidebar={toggleSidebar}
-        onOpenShortcuts={() => setShortcutsOpen(true)}
-      />
-      <KeyboardShortcuts
-        opened={shortcutsOpen}
-        onClose={() => setShortcutsOpen(false)}
-      />
+      <CommandPalette opened={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} onNewChat={handleNewChat} onToggleSidebar={toggleSidebar} onOpenShortcuts={() => setShortcutsOpen(true)} />
+      <KeyboardShortcuts opened={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
-      {/* Full-viewport canvas */}
       <div style={{
         width: '100vw',
         height: '100dvh',
@@ -357,10 +319,13 @@ function MainApp() {
         flexDirection: 'column',
         overflow: 'hidden',
       }}>
-        {/* Row 1: Floating header bar */}
+        {/* Header */}
         <div style={{
-          padding: '10px 12px 0 12px',
+          padding: actualUiVisible ? '10px 12px 0 12px' : '0',
+          marginTop: actualUiVisible ? 0 : -62,
           flexShrink: 0,
+          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          opacity: actualUiVisible ? 1 : 0,
         }}>
           <div style={{
             backgroundColor: 'var(--e-bg-surface)',
@@ -382,23 +347,26 @@ function MainApp() {
           </div>
         </div>
 
-        {/* Row 2: Sidebar + Main content */}
+        {/* Workspace Body */}
         <div style={{
           display: 'flex',
           flex: 1,
           minHeight: 0,
-          padding: '10px 12px 12px 12px',
-          gap: 10,
+          padding: actualUiVisible ? '10px 12px 12px 12px' : '0',
+          gap: actualUiVisible ? 10 : 0,
+          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
         }}>
-          {/* Floating sidebar card */}
+          {/* Sidebar */}
           <div style={{
-            width: sidebarWidth,
+            width: actualUiVisible ? sidebarWidth : 0,
+            marginLeft: actualUiVisible ? 0 : -(sidebarWidth + 24),
             flexShrink: 0,
             backgroundColor: 'var(--e-bg-surface)',
             borderRadius: 'var(--e-radius-2xl)',
             boxShadow: 'var(--e-shadow-md)',
             overflow: 'hidden',
-            transition: 'width 0.2s ease',
+            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            opacity: actualUiVisible ? 1 : 0,
             display: 'flex',
             flexDirection: 'column',
           }}>
@@ -413,19 +381,13 @@ function MainApp() {
             />
           </div>
 
-          {/* Main chat area */}
-          <div style={{
-            flex: 1,
-            minWidth: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10,
-          }}>
+          {/* Chat Expansion */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <Chat
               messages={messages}
               onSend={handleSendMessage}
               onStop={handleStop}
-              isLoading={isLoading}
+              isLoading={isLoading || activeBackgroundJobs.length > 0}
               sessionCount={sessions.length}
               onNewChat={handleNewChat}
               sessionId={sessionId}
@@ -433,13 +395,10 @@ function MainApp() {
           </div>
         </div>
       </div>
-
       <SystemStatusBar />
     </>
   );
 }
-
-/* ─── App Root ─── */
 
 export default function App() {
   return (
