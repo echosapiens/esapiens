@@ -391,6 +391,7 @@ function MainApp() {
               sessionCount={sessions.length}
               onNewChat={handleNewChat}
               sessionId={sessionId}
+              activeBackgroundJobs={activeBackgroundJobs}
             />
           </div>
         </div>

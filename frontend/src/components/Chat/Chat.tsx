@@ -24,9 +24,10 @@ interface ChatProps {
   sessionCount: number;
   onNewChat: () => void;
   sessionId: string;
+  activeBackgroundJobs?: any[];
 }
 
-export function Chat({ messages, onSend, onStop, isLoading, sessionId }: ChatProps) {
+export function Chat({ messages, onSend, onStop, isLoading, sessionId, activeBackgroundJobs = [] }: ChatProps) {
   const [input, setInput] = useState('');
   const [attachedFile, setAttachedFile] = useState<UploadResponse | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -52,7 +53,6 @@ export function Chat({ messages, onSend, onStop, isLoading, sessionId }: ChatPro
       setUploadProgress(null);
     }
 
-    // Reset input so the same file can be re-selected
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -70,12 +70,12 @@ export function Chat({ messages, onSend, onStop, isLoading, sessionId }: ChatPro
     const query = input.trim() || (attachedFile ? 'Analyze this data' : '');
     const fileContext = attachedFile?.summary ?? null;
 
-    await onSend(query, fileContext);
-
     setInput('');
     setAttachedFile(null);
     setUploadError(null);
     setUploadProgress(null);
+
+    await onSend(query, fileContext);
   }, [input, attachedFile, isLoading, onSend]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -85,38 +85,25 @@ export function Chat({ messages, onSend, onStop, isLoading, sessionId }: ChatPro
     }
   }, [handleSend]);
 
-  // Scroll to bottom when new messages arrive
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
 
-  // Oldest messages first (chronological order)
   const ordered = messages;
-
-  // Get tool calls from the last assistant message (for ComputationExperience)
   const lastAssistant = ordered.length > 0
     ? ordered.reduceRight<typeof ordered[number] | undefined>((found, m) => found ?? (m.role === 'assistant' ? m : undefined), undefined)
     : undefined;
+  
   const activeToolCalls = lastAssistant?.tool_calls ?? [];
-  const hasRunningTools = activeToolCalls.some((tc) => tc.status === 'running');
+  const hasRunningTools = activeToolCalls.some((tc) => tc.status === 'running') || activeBackgroundJobs.length > 0;
 
-  // Show ComputationExperience overlay:
-  // 1. When loading with no content yet (initial processing phase), OR
-  // 2. When loading and there are running tool calls (multi-step computation)
-  // 3. When there are active background jobs detected
-  const showComputationOverlay =
-    (isLoading || activeToolCalls.some(tc => tc.status === 'running')) &&
-    (!!lastAssistant || true) && // simplified check
-    (!lastAssistant?.content || hasRunningTools || true); // always show if loading
-
-  // Actually let's make it data driven
-  const shouldShow = isLoading && (!lastAssistant?.content || hasRunningTools || (activeToolCalls.length === 0));
+  // Logic: Show overlay if loading and (no content yet OR still executing tools)
+  const shouldShowOverlay = isLoading && (!lastAssistant?.content || hasRunningTools || activeToolCalls.length === 0);
 
   return (
     <>
-      {/* Messages — floating card */}
       <div style={{
         flex: 1,
         minHeight: 0,
@@ -129,14 +116,8 @@ export function Chat({ messages, onSend, onStop, isLoading, sessionId }: ChatPro
       }}>
         <ScrollArea style={{ flex: 1 }} viewportRef={scrollRef}>
           <Stack p="md" gap="sm">
-            {ordered.map((msg, idx) => {
-              // When the overlay is showing for a streaming assistant, hide
-              // that message bubble to avoid double content (overlay + bubble).
-              const hideBubble =
-                showComputationOverlay &&
-                msg.role === 'assistant' &&
-                msg.id === lastAssistant?.id;
-
+            {ordered.map((msg) => {
+              const hideBubble = shouldShowOverlay && msg.role === 'assistant' && msg.id === lastAssistant?.id;
               if (hideBubble) return null;
 
               return (
@@ -150,13 +131,20 @@ export function Chat({ messages, onSend, onStop, isLoading, sessionId }: ChatPro
         </ScrollArea>
       </div>
 
-      {/* Computation distraction: sits right above the input */}\n      {shouldShow && (\n        <ComputationExperience\n          isLoading={isLoading}\n          toolCalls={activeToolCalls}\n        />\n      )}\n      {isLoading && !lastAssistant && !shouldShow && (\n        <Group gap="xs" style={{ fontFamily: "var(--e-font-mono)", fontSize: '0.875rem', color: 'var(--e-text-secondary)', padding: '8px 14px' }}>
+      {shouldShowOverlay && (
+        <ComputationExperience
+          isLoading={isLoading}
+          toolCalls={activeToolCalls}
+        />
+      )}
+
+      {isLoading && !lastAssistant && !shouldShowOverlay && (
+        <Group gap="xs" style={{ fontFamily: "var(--e-font-mono)", fontSize: '0.875rem', color: 'var(--e-text-secondary)', padding: '8px 14px' }}>
           <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'var(--e-accent-cyan)' }} />
           Processing...
         </Group>
       )}
 
-      {/* Input at the bottom — floating card */}
       <div style={{
         backgroundColor: 'var(--e-bg-surface)',
         borderRadius: 'var(--e-radius-2xl)',
@@ -164,7 +152,6 @@ export function Chat({ messages, onSend, onStop, isLoading, sessionId }: ChatPro
         padding: '8px 12px',
         flexShrink: 0,
       }}>
-        {/* File attachment chip */}
         {attachedFile && (
           <Group gap="xs" style={{ marginBottom: 8 }}>
             <div style={{
@@ -180,87 +167,36 @@ export function Chat({ messages, onSend, onStop, isLoading, sessionId }: ChatPro
               fontFamily: 'var(--e-font-sans)',
             }}>
               {attachedFile.filename} ({attachedFile.rows} rows)
-              <ActionIcon
-                size="xs"
-                color="blue"
-                variant="transparent"
-                onClick={handleRemoveFile}
-                style={{ color: '#fff' }}
-              >
+              <ActionIcon size="xs" color="blue" variant="transparent" onClick={handleRemoveFile} style={{ color: '#fff' }}>
                 <IconX size={12} />
               </ActionIcon>
             </div>
           </Group>
         )}
 
-        {/* Upload progress bar */}
         {uploadProgress !== null && (
-          <Progress
-            value={uploadProgress}
-            size="xs"
-            color="blue"
-            style={{ marginBottom: 8 }}
-            styles={{
-              root: { backgroundColor: 'var(--e-bg-inset)' },
-            }}
-          />
+          <Progress value={uploadProgress} size="xs" color="blue" style={{ marginBottom: 8 }} styles={{ root: { backgroundColor: 'var(--e-bg-inset)' } }} />
         )}
 
-        {/* Upload error message */}
         {uploadError && (
-          <Text
-            size="xs"
-            c="red"
-            style={{ marginBottom: 8, fontFamily: 'var(--e-font-mono)' }}
-          >
+          <Text size="xs" c="red" style={{ marginBottom: 8, fontFamily: 'var(--e-font-mono)' }}>
             {uploadError}
           </Text>
         )}
 
         <Group gap="sm">
-          {/* Hidden file input */}
-          <input
-            type="file"
-            accept=".csv,.tsv,.json,.xlsx"
-            ref={fileInputRef}
-            onChange={handleFileSelect}
-            style={{ display: 'none' }}
-          />
-
-          {/* Paperclip attachment button */}
+          <input type="file" accept=".csv,.tsv,.json,.xlsx" ref={fileInputRef} onChange={handleFileSelect} style={{ display: 'none' }} />
           <Tooltip label="Attach file" position="top" withArrow>
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              size="lg"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading}
-              styles={{
-                root: {
-                  color: attachedFile ? 'var(--e-accent-blue)' : 'var(--e-text-secondary)',
-                },
-              }}
-            >
+            <ActionIcon variant="subtle" color="gray" size="lg" onClick={() => fileInputRef.current?.click()} disabled={isLoading} styles={{ root: { color: attachedFile ? 'var(--e-accent-blue)' : 'var(--e-text-secondary)' } }}>
               <IconPaperclip size={20} />
             </ActionIcon>
           </Tooltip>
 
-          <TextInput
-            flex={1}
-            placeholder="Ask a question or paste a gene list..."
-            value={input}
-            onChange={(e) => setInput(e.currentTarget.value)}
-            onKeyDown={handleKeyDown}
-            style={{ fontFamily: "var(--e-font-sans)" }}
-          />
+          <TextInput flex={1} placeholder="Ask a question or paste a gene list..." value={input} onChange={(e) => setInput(e.currentTarget.value)} onKeyDown={handleKeyDown} style={{ fontFamily: "var(--e-font-sans)" }} />
           {isLoading ? (
-            <Button color="red" onClick={onStop} style={{ fontFamily: "var(--e-font-sans)" }}>
-              Stop
-            </Button>
+            <Button color="red" onClick={onStop} style={{ fontFamily: "var(--e-font-sans)" }}>Stop</Button>
           ) : (
-            <Button onClick={handleSend} style={{ fontFamily: "var(--e-font-sans)" }}>
-              <IconSend size={16} />
-            </Button>
+            <Button onClick={handleSend} style={{ fontFamily: "var(--e-font-sans)" }}><IconSend size={16} /></Button>
           )}
         </Group>
       </div>

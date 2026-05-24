@@ -44,7 +44,7 @@ export function Header({ onNewChat }: HeaderProps) {
               color: '#092426',
               letterSpacing: '-0.03em',
               lineHeight: 1,
-              fontStyle: 'italic',
+              fontStyle: 'italic', // User requested italic
             }}
           >
             E.sapiens
@@ -52,10 +52,10 @@ export function Header({ onNewChat }: HeaderProps) {
           <Text
             style={{
               fontFamily: 'var(--e-font-sans)',
-              fontSize: '10px',
+              fontSize: 'var(--e-type-xs)',
               fontWeight: 500,
               color: 'var(--e-text-muted)',
-              letterSpacing: '0.12em',
+              letterSpacing: '0.14em',
               lineHeight: 1.3,
               textTransform: 'uppercase',
               marginTop: 2,
@@ -70,7 +70,7 @@ export function Header({ onNewChat }: HeaderProps) {
           alt="E.sapiens"
           h={32}
           w="auto"
-          style={{ objectFit: 'contain', opacity: 0.08, filter: 'grayscale(1)' }}
+          style={{ objectFit: 'contain', opacity: 0.1, filter: 'grayscale(1)' }}
         />
       </Group>
 
