@@ -49,7 +49,7 @@ export function Header({ onToggleNavbar, onNewChat }: HeaderProps) {
         {/* Tagline - hidden on mobile */}
         {!isMobile && (
           <Text size="sm" c="dimmed" ff="monospace">
-            advancing bibautronics & discovery
+            ai-native bioinformatics agent
           </Text>
         )}
       </Group>
