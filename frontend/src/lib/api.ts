@@ -384,7 +384,11 @@ function handleSSEEvent(
     case 'done': {
       const sid = (data.session_id as string) || '';
       const response = (data.response as string) || '';
+      const visualization = data.visualization as VisualizationData | undefined;
       if (sid) setSessionId(sid);
+      if (visualization && callbacks.onVisualization) {
+        callbacks.onVisualization(visualization);
+      }
       callbacks.onDone?.(sid, response);
       break;
     }

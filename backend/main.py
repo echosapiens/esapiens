@@ -285,6 +285,22 @@ def run_stream(
                                 "id": tc.get("id", ""),
                             }),
                         }
+
+                        # Extract visualization from tool result JSON
+                        raw_result = tc.get("result", "")
+                        if raw_result:
+                            try:
+                                parsed = json.loads(raw_result)
+                                if isinstance(parsed, dict) and "visualization" in parsed:
+                                    vis_data = parsed["visualization"]
+                                    collected_visualization = vis_data
+                                    yield {
+                                        "event": "visualization",
+                                        "data": json.dumps(vis_data),
+                                    }
+                            except (json.JSONDecodeError, TypeError):
+                                pass
+
                         collected_thoughts.append(f"\u2713 {tc.get('name', '')} completed")
                         update_assistant(tool_calls=collected_tool_calls, thoughts=collected_thoughts)
 
