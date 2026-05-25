@@ -1,5 +1,5 @@
-import { Text, ActionIcon, ScrollAuto } from '@mantine/core';
-import { IconTrash, IconPlus, IconXl } from '@tabler/icons-react';
+import { Text, ActionIcon, ScrollArea } from '@mantine/core';
+import { IconTrash, IconPlus, IconX } from '@tabler/icons-react';
 import type { Session } from '../../lib/api';
 import { useMobile } from '../../hooks/useMobile';
 
@@ -42,7 +42,7 @@ export function SessionSidebar({
             color: 'var(--e-text-secondary)',
           }}>Sessions</Text>
           <ActionIcon variant="subtle" color="gray" onClick={onClose} size="lg">
-            <IconXl size={20} />
+            <IconX size={20} />
           </ActionIcon>
         </div>
       )}
@@ -65,7 +65,7 @@ export function SessionSidebar({
       </div>
 
       {/* Session List */}
-      <ScrollAuto style={{ flex: 1, overflow: 'auto' }}>
+      <ScrollArea style={{ flex: 1 }} type="auto">
           {sessions.map((session) => (
             <div key={session.id}
               onClick={() => {
@@ -109,7 +109,7 @@ export function SessionSidebar({
               </div>
             </div>
           ))}
-      </ScrollAuto>
+      </ScrollArea>
 
       {/* Mobile Footer */}
       {isMobile && (

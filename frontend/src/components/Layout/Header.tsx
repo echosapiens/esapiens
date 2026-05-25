@@ -14,7 +14,7 @@ export function Header({ onToggleNavbar, onNewChat }: HeaderProps) {
   const isMobile = useMobile();
 
   return (
-    <Group h="100%" w="100%" justify="space-between" align="center">
+    <Group h="100%" w="100%" justify="space-between" align="center" px="md">
       {/* Left: Hamburger icon */}
       {isMobile && (
         <ActionIcon
@@ -32,34 +32,30 @@ export function Header({ onToggleNavbar, onNewChat }: HeaderProps) {
       )}
 
       {/* Center: Logo + Name */}
-      <Group gap={sm } align="center" justify="center" style={{ flex: 1 }}>
+      <Group gap="sm" align="center" justify="center" style={{ flex: 1 }}>
         <img
           src="/logo.png"
           alt="E.sapiens"
-          height={32}
+          height={28}
           style={{ objectFit: 'contain' }}
         />
         <Text
-          hf={30}
+          fz={20}
           ff="sans-serif"
-          w="sm-fit"
           style={{ fontWeight: 600, letterSpacing: '-0.03em', color: 'var(--e-text-primary)' }}
         >
           E.sapiens
         </Text>
-        {/* Tagline - responsive - hidden on mobile */}
-        <Text
-          size="sm"
-          ff="mono-serif"
-          w="now-md:block"
-          style={{ display: isMobile ? 'none' : 'block', color: 'var(--e-text-muted)', fontSize: '0.65rem' }}
-        >
-          advancing bibautronics & discovery
-        </Text>
+        {/* Tagline - hidden on mobile */}
+        {!isMobile && (
+          <Text size="sm" c="dimmed" ff="monospace">
+            advancing bibautronics & discovery
+          </Text>
+        )}
       </Group>
 
       {/* Right: New Chat Button */}
-      <Group gap={'md'}>
+      <Group gap="md">
         <Tooltip label="New session (i⌋N)" withArrow>
           <ActionIcon
             variant="subtle"
