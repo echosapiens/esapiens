@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { MantineProvider } from "@mantine/core";
+import { MantineProvider, useMantineColorScheme } from "@mantine/core";
 import { showNotification } from "@mantine/notifications";
 import { produce } from "immer";
 import { theme } from "./theme";
@@ -52,7 +52,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'var(--e-bg-default)',
+        backgroundColor: 'var(--e-bg-base)',
       }}>
         <div style={{
           fontFamily: 'var(--e-font-sans)',
@@ -90,6 +90,8 @@ function MainApp() {
   /* ─── Command palette & shortcuts state ─── */
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+
+  const { toggleColorScheme } = useMantineColorScheme();
 
   const resetInactivityTimer = useCallback(() => {
     setUiVisible(true);
@@ -148,6 +150,11 @@ function MainApp() {
         toggleSidebar();
         return;
       }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'D') {
+        e.preventDefault();
+        toggleColorScheme();
+        return;
+      }
       if (e.key === '?' && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
         e.preventDefault();
         setShortcutsOpen(true);
@@ -161,7 +168,7 @@ function MainApp() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [cmdPaletteOpen, shortcutsOpen, toggleSidebar]);
+  }, [cmdPaletteOpen, shortcutsOpen, toggleSidebar, toggleColorScheme]);
 
   useEffect(() => {
     listSessions()
@@ -315,7 +322,7 @@ function MainApp() {
       <div style={{
         width: '100vw',
         height: '100dvh',
-        backgroundColor: 'var(--e-bg-default)',
+        backgroundColor: 'var(--e-bg-base)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -404,7 +411,7 @@ function MainApp() {
 
 export default function App() {
   return (
-    <MantineProvider theme={theme} defaultColorScheme="light">
+    <MantineProvider theme={theme} defaultColorScheme="auto">
       <AuthProvider>
         <AuthGuard>
           <MainApp />

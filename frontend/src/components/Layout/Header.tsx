@@ -1,6 +1,7 @@
 import { Group, Text, ActionIcon, Tooltip } from '@mantine/core';
 import { IconMenu2, IconPlus } from '@tabler/icons-react';
 import { useMobile } from '../../hooks/useMobile';
+import { ThemeToggle } from './ThemeToggle';
 
 interface HeaderProps {
   navbarOpened: boolean;
@@ -54,8 +55,9 @@ export function Header({ onToggleNavbar, onNewChat }: HeaderProps) {
         )}
       </Group>
 
-      {/* Right: New Chat Button */}
+      {/* Right: Theme Toggle + New Chat Button */}
       <Group gap="md">
+        <ThemeToggle />
         <Tooltip label="New session (i⌋N)" withArrow>
           <ActionIcon
             variant="subtle"

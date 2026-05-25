@@ -143,6 +143,75 @@ body {
   outline: none;
 }
 
+/* ─── Dark Mode Tokens ─── */
+[data-mantine-color-scheme='dark'] {
+  --e-bg-base: #0A0B0F;
+  --e-bg-surface: #13151A;
+  --e-bg-elevated: #1A1C23;
+  --e-bg-subtle: #1E2028;
+  --e-bg-hover: #262832;
+  
+  --e-brand: #3B82F6;
+  --e-brand-subtle: #2563EB;
+  --e-text-primary: #E5E7EB;
+  --e-text-secondary: #9CA3AF;
+  --e-text-tertiary: #6B7280;
+  --e-text-muted: #4B5563;
+  
+  --e-border: #2D3039;
+  --e-border-subtle: #23262E;
+  --e-border-active: #3B82F6;
+  
+  --e-success: #34D399;
+  --e-warning: #FBBF24;
+  --e-error: #F87171;
+  --e-info: #60A5FA;
+  
+  --e-accent-cyan: #22D3EE;
+  --e-accent-red: #FCA5A5;
+  --e-accent-blue: #3B82F6;
+  --e-accent-green: #34D399;
+  
+  --e-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --e-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --e-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --e-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Code blocks in dark mode ── */
+[data-mantine-color-scheme='dark'] .markdown-content pre {
+  background: #0D0E12 !important;
+  border: 1px solid var(--e-border);
+}
+
+[data-mantine-color-scheme='dark'] .markdown-content pre code {
+  color: #D4D4D8;
+}
+
+[data-mantine-color-scheme='dark'] .e-header {
+  background: rgba(19, 21, 26, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--e-border-subtle);
+}
+
+/* ── Login page dark mode ── */
+[data-mantine-color-scheme='dark'] .e-login-backdrop {
+  background-image: none;
+  background-color: #0A0B0F;
+}
+
+[data-mantine-color-scheme='dark'] .e-login-overlay {
+  background-color: rgba(10, 11, 15, 0.6) !important;
+}
+
+[data-mantine-color-scheme='dark'] .e-login-card {
+  background-color: rgba(19, 21, 26, 0.9) !important;
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  border: 1px solid rgba(45, 48, 57, 0.6) !important;
+}
+
 /* ── Visible focus ring for keyboard nav ── */
 :focus-visible {
   outline: 2px solid var(--e-brand);

@@ -144,6 +144,7 @@ export function LoginPage() {
     >
       {/* Background image */}
       <div
+        className="e-login-backdrop"
         style={{
           position: 'fixed',
           inset: 0,
@@ -156,6 +157,7 @@ export function LoginPage() {
       />
       {/* Dark overlay for readability */}
       <div
+        className="e-login-overlay"
         style={{
           position: 'fixed',
           inset: 0,
@@ -166,6 +168,7 @@ export function LoginPage() {
 
       {/* Glass card */}
       <div
+        className="e-login-card"
         style={{
           width: '100%',
           maxWidth: 420,
