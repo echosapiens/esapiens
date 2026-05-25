@@ -1,75 +1,64 @@
 """
-Main — LangGraph agent orchestration with persistent storage.
+Main — VPS Orchestrator (Thin Shell)
 
-Provides run() / run_stream() that use:
-  - StorageBackend for session/message persistence (SQLite)
-  - SqliteSaver for agent checkpoint persistence (SQLite)
+The VPS handles auth, sessions, storage, and proxies all compute
+to the Modal.com service. No agent, no tools, no LLM calls run here.
 
-On import: initializes storage, creates the compiled agent graph.
+Architecture:
+  Browser → Nginx → VPS FastAPI (auth, sessions, storage)
+                        ↓
+                    Modal Compute Service (agent, tools, LLM, bio pipelines)
 """
 
 import json
-import sqlite3
-from pathlib import Path
+import os
 from typing import Any, Generator, Optional
 
-import os
-
+import httpx
 from dotenv import load_dotenv
-from langgraph.checkpoint.sqlite import SqliteSaver
 
-from agent import WorkflowState, agent_graph, build_agent_graph, get_llm
 from intent_classifier import classify_query
+from agent import classify_tier, QueryTier
 from storage import StorageBackend, get_storage
-from tools import TOOL_DEFINITIONS
 
 load_dotenv()
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Secret Hygiene — consume secrets from env, then scrub them
+# Modal Compute URL
 # ═══════════════════════════════════════════════════════════════════════════
-# After load_dotenv(), secrets are in os.environ for the process to read.
-# We snapshot them into module-level variables so agent.py / tools.py can
-# still use them, then DELETE them from os.environ so that execute_python
-# (which passes `os` to user code) cannot leak them.
+# The VPS orchestrator proxies all agent execution to this Modal endpoint.
+# Set MODAL_COMPUTE_URL in .env or docker-compose.yml.
+# Example: https://echosapiens--esapiens-compute-compute-api.modal.run
+
+MODAL_COMPUTE_URL = os.environ.get("MODAL_COMPUTE_URL", "").rstrip("/")
+MODAL_TIMEOUT = int(os.environ.get("MODAL_TIMEOUT", "300"))  # 5 min default
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Secret Hygiene — scrub secrets from os.environ after reading
+# ═══════════════════════════════════════════════════════════════════════════
 
 _SECRET_ENV_VARS = [
     "OPENROUTER_API_KEY",
     "BRAVE_SEARCH_API_KEY",
+    "JWT_SECRET",
     "MODAL_TOKEN_ID",
     "MODAL_TOKEN_SECRET",
-    "JWT_SECRET",
 ]
 
 for _var in _SECRET_ENV_VARS:
     if _var in os.environ:
-        # Value is already captured by agent.py / modal_tasks.py at import time
         del os.environ[_var]
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Persistent Storage
+# Persistent Storage (VPS-local SQLite)
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Initialize storage singleton (creates dirs, DB tables, workspace root)
 storage: StorageBackend = get_storage()
-
-# Rebuild agent graph with persistent SQLite checkpointer
-# Open a persistent connection for the SqliteSaver (stays open for server lifetime)
-_checkpoint_conn = sqlite3.connect(
-    str(storage.data_dir / "checkpoints" / "agent_checkpoints.db"),
-    check_same_thread=False,
-)
-_checkpoint_conn.execute("PRAGMA journal_mode=WAL")
-_persistent_checkpointer = SqliteSaver(_checkpoint_conn)
-
-# Rebuild graph with persistent checkpointer
-agent_graph = build_agent_graph(checkpointer=_persistent_checkpointer)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Session Helpers
 # ═══════════════════════════════════════════════════════════════════════════
-
 
 def _ensure_session(session_id: str, user_id: str = "default") -> dict[str, Any]:
     """Get or create a session, returning the session dict with messages."""
@@ -77,9 +66,8 @@ def _ensure_session(session_id: str, user_id: str = "default") -> dict[str, Any]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Synchronous Run
+# Sync Run — Proxies to Modal /compute/sync
 # ═══════════════════════════════════════════════════════════════════════════
-
 
 def run(
     query: str,
@@ -87,68 +75,71 @@ def run(
     config: Optional[dict] = None,
     user_id: str = "default",
 ) -> dict[str, Any]:
-    """Run the agent synchronously on a user query. Persists messages to DB."""
+    """
+    Run the agent synchronously via Modal. Persists messages to SQLite.
+    """
     _ensure_session(session_id, user_id=user_id)
-    thread_id = session_id  # Stable thread ID per session
+    skill_paths = classify_query(query)
+    tier = classify_tier(query, skill_paths)
 
-    initial_state: WorkflowState = {
-        "messages": [],
-        "query": query,
-        "result": "",
-        "loaded_skills": [],
-        "tool_calls": [],
-    }
+    # Persist user message
+    storage.add_message(session_id, "user", query)
 
-    run_config = {
-        "configurable": {"thread_id": thread_id},
-        **(config or {}),
-    }
+    if not MODAL_COMPUTE_URL:
+        return {
+            "response": "⚠️ Modal compute service not configured. Set MODAL_COMPUTE_URL.",
+            "session_id": session_id,
+            "skills": skill_paths,
+            "tool_calls": [],
+            "tier": tier.value,
+            "error": "modal_not_configured",
+        }
 
     try:
-        result_state = agent_graph.invoke(initial_state, run_config)
-        response_text = result_state.get("result", "")
-        loaded_skills = result_state.get("loaded_skills", [])
-        tool_calls = result_state.get("tool_calls", [])
+        resp = httpx.post(
+            f"{MODAL_COMPUTE_URL}/compute/sync",
+            json={
+                "query": query,
+                "session_id": session_id,
+                "skill_paths": skill_paths,
+                "user_id": user_id,
+            },
+            timeout=MODAL_TIMEOUT,
+        )
+        resp.raise_for_status()
+        result = resp.json()
 
-        # Extract visualization from the last tool call result (if any)
-        visualization = None
-        for tc in tool_calls:
-            result_str = tc.get("result", "")
-            if result_str:
-                try:
-                    result_parsed = json.loads(result_str)
-                    vis = result_parsed.get("visualization")
-                    if vis:
-                        visualization = vis
-                except (json.JSONDecodeError, TypeError):
-                    pass
-
-        # Persist messages to SQLite
-        storage.add_message(session_id, "user", query)
-        storage.add_message(session_id, "assistant", response_text, skills=loaded_skills, tool_calls=tool_calls, thoughts=[], visualization=visualization)
+        # Persist assistant message
+        storage.add_message(
+            session_id,
+            "assistant",
+            result.get("response", ""),
+            skills=result.get("skills"),
+            tool_calls=result.get("tool_calls"),
+        )
 
         return {
-            "response": response_text,
+            "response": result.get("response", ""),
             "session_id": session_id,
-            "skills": loaded_skills,
-            "tool_calls": tool_calls,
+            "skills": result.get("skills", []),
+            "tool_calls": result.get("tool_calls", []),
+            "tier": result.get("tier", tier.value),
         }
     except Exception as e:
         import logging
-        logging.getLogger(__name__).exception("Chat handler error")
+        logging.getLogger(__name__).exception("Modal sync compute error")
         return {
-            "response": "An internal error occurred. Please try again.",
+            "response": f"⚠️ Compute service error: {str(e)}",
             "session_id": session_id,
-            "skills": [],
+            "skills": skill_paths,
             "tool_calls": [],
-            "error": "internal_error",
+            "error": "compute_error",
         }
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Streaming Run
+# Streaming Run — Proxies SSE from Modal and persists to SQLite
 # ═══════════════════════════════════════════════════════════════════════════
-
 
 def run_stream(
     query: str,
@@ -156,76 +147,44 @@ def run_stream(
     user_id: str = "default",
 ) -> Generator[dict[str, Any], None, None]:
     """
-    Run the agent and yield SSE-compatible event dicts.
-    Persists messages to SQLite on completion.
+    Stream agent execution via Modal SSE endpoint.
+    Proxies events to the frontend and persists messages to SQLite.
 
-    Yields:
-      {"event": "thought", ...}
-      {"event": "skills_loaded", "data": json_str, ...}
-      {"event": "tool_call", ...}
-      {"event": "tool_result", ...}
-      {"event": "chunk", ...}
-      {"event": "visualization", ...}
-      {"event": "done", ...}
-      {"event": "error", ...}
-      {"event": "computation_active", "data": json_str, ...}
+    For DIRECT-tier queries, the VPS can short-circuit and respond
+    immediately without calling Modal if the compute URL is not set.
     """
     _ensure_session(session_id, user_id=user_id)
-    thread_id = session_id
-
-    collected_thoughts: list[str] = []
-
-    # Step pre-1: Check for active background jobs
-    workspace_path = storage.get_workspace_path(user_id, session_id)
-    jobs_dir = workspace_path / "background_jobs"
-    active_jobs = []
-    if jobs_dir.exists():
-        for job_file in jobs_dir.glob("*.json"):
-            try:
-                job_data = json.loads(job_file.read_text())
-                if job_data.get("status") == "running":
-                    active_jobs.append(job_data)
-            except:
-                continue
-    
-    if active_jobs:
-        yield {"event": "thought", "data": json.dumps({"message": f"Detected {len(active_jobs)} biological pipelines running in VPS sectors..."})}
-        yield {"event": "computation_active", "data": json.dumps({"jobs": active_jobs})}
-
-    # Step 1: classify skills
     skill_paths = classify_query(query)
-    thought1 = "Classifying intent and loading relevant biological protocols..."
-    collected_thoughts.append(thought1)
+    tier = classify_tier(query, skill_paths)
+
+    # Step 1: Yield initial thought events
+    if tier == QueryTier.DIRECT:
+        thought1 = "Direct response — skipping agent loop..."
+    else:
+        thought1 = f"Route: {tier.value} — classifying intent and loading protocols..."
     yield {"event": "thought", "data": json.dumps({"message": thought1})}
-    yield {"event": "skills_loaded", "data": json.dumps({"skills": skill_paths})}
+    yield {"event": "skills_loaded", "data": json.dumps({"skills": skill_paths, "tier": tier.value})}
 
-    # PROACTIVE PERSISTENCE: Save both messages immediately
-    # Create the User message
-    user_msg_id = storage.add_message(
-        session_id,
-        "user",
-        query,
-        skills=None,
-        tool_calls=None,
-    )
-    
-    # Create an empty Assistant placeholder so the session is never "empty"
+    # Step 2: Persist user message
+    user_msg_id = storage.add_message(session_id, "user", query)
+
+    # Step 3: Create empty assistant placeholder
     assistant_msg_id = storage.add_message(
-        session_id,
-        "assistant",
-        "",
+        session_id, "assistant", "",
         skills=skill_paths,
-        thoughts=collected_thoughts,
+        thoughts=[thought1, "Routing to compute..." if tier != QueryTier.DIRECT else "Fast-path direct response"],
     )
 
-    # Ensure session has a title immediately
+    # Ensure session has a title
     session = storage.get_session(session_id)
     if session and (not session.get("title") or "Session" in session.get("title", "")):
         title = query[:60] + ("..." if len(query) > 60 else "")
         storage.update_session_title(session_id, title)
-    
-    # helper to update the assistant message in DB as we go
-    def update_assistant_in_db(content=None, tool_calls=None, thoughts=None, visualization=None, skills=None):
+
+    # Helper to update assistant message in DB
+    collected_thoughts = [thought1, "Routing to compute..." if tier != QueryTier.DIRECT else "Fast-path direct response"]
+
+    def update_assistant(content=None, tool_calls=None, thoughts=None, visualization=None, skills=None):
         try:
             conn = storage.conn
             updates = []
@@ -245,159 +204,117 @@ def run_stream(
             if skills is not None:
                 updates.append("skills = ?")
                 params.append(json.dumps(skills))
-            
             if updates:
                 sql = f"UPDATE messages SET {', '.join(updates)} WHERE id = ?"
                 params.append(assistant_msg_id)
                 conn.execute(sql, tuple(params))
                 conn.commit()
-                # Force a checkpoint to disk for VPS stability
                 conn.execute("PRAGMA wal_checkpoint(PASSIVE)")
         except Exception as e:
             print(f"[Persistence] Error updating assistant message: {e}")
 
-    # Step 2: build initial state
-    initial_state: WorkflowState = {
-        "messages": [],
-        "query": query,
-        "result": "",
-        "loaded_skills": [],
-        "tool_calls": [],
-    }
-
-    run_config = {
-        "configurable": {"thread_id": thread_id},
-    }
-
-    # Step 3: iterate through graph events
-    collected_tool_calls: list[dict[str, Any]] = []
-    collected_skills: list[str] = []
-    collected_visualization: Optional[dict] = None
-    try:
-        thought2 = "Allocating neural engine threads for scientific reasoning..."
-        collected_thoughts.append(thought2)
-        yield {"event": "thought", "data": json.dumps({"message": thought2})}
-        for event in agent_graph.stream(initial_state, run_config):
-            for event_type, event_data in event.items():
-                if "classify_intent" in event_type or event_type == "classify_intent":
-                    thought = "Configuring system persona and skill context..."
-                    collected_thoughts.append(thought)
-                    yield {"event": "thought", "data": json.dumps({"message": thought})}
-                elif "call_model" in event_type or event_type == "call_model":
-                    thought = "Consulting large language models for trajectory analysis..."
-                    collected_thoughts.append(thought)
-                    yield {"event": "thought", "data": json.dumps({"message": thought})}
-                    node_data = event_data if isinstance(event_data, dict) else {}
-                    msgs = node_data.get("messages", [])
-                    if msgs:
-                        last = msgs[-1]
-                        if last.tool_calls:
-                            thought = f"Planning {len(last.tool_calls)} computation steps: {', '.join(tc['name'] for tc in last.tool_calls)}"
-                            collected_thoughts.append(thought)
-                            yield {"event": "thought", "data": json.dumps({"message": thought}) }
-                        if hasattr(last, "content") and last.content:
-                            update_assistant_in_db(content=last.content, thoughts=collected_thoughts)
-                            yield {
-                                "event": "chunk",
-                                "data": json.dumps({"content": last.content, "replace": True}),
-                            }
-                elif "tools_node" in event_type or event_type == "tools_node":
-                    thought = "Engaging hardware interface for tool execution..."
-                    collected_thoughts.append(thought)
-                    yield {"event": "thought", "data": json.dumps({"message": thought})}
-                    node_data = event_data if isinstance(event_data, dict) else {}
-                    for tc in node_data.get("tool_calls", []):
-                        name = tc["name"]
-                        args = tc.get("args", {})
-                        result_str = tc.get("result", "")
-                        
-                        # SANITIZATION: Truncate massive tool outputs to prevent DB bloat/crashes
-                        # 15k chars is plenty for history; full results are usually too big for SQLite JSON columns
-                        safe_result = result_str
-                        if len(safe_result) > 15000:
-                            safe_result = safe_result[:15000] + "\n\n[... output truncated for history persistence ...]"
-
-                        collected_tool_calls.append({
-                            "id": tc.get("id", ""),
-                            "name": name,
-                            "args": args,
-                            "result": safe_result,
-                            "status": "success",
-                        })
-                        update_assistant_in_db(tool_calls=collected_tool_calls, thoughts=collected_thoughts)
-                        
-                        thought = f"Executing tool: {name}"
-                        collected_thoughts.append(thought)
-                        yield {"event": "thought", "data": json.dumps({"message": thought})}
-                        yield {
-                            "event": "tool_call",
-                            "data": json.dumps({"name": tc["name"], "args": tc["args"]}),
-                        }
-                        result_str = tc.get("result", "")
-                        vis_data = None
-                        if result_str:
-                            try:
-                                result_parsed = json.loads(result_str)
-                                vis_data = result_parsed.get("visualization") if isinstance(result_parsed, dict) else None
-                            except (json.JSONDecodeError, TypeError):
-                                pass
-                        if vis_data:
-                            collected_visualization = vis_data
-                            update_assistant_in_db(visualization=collected_visualization, thoughts=collected_thoughts)
-                            yield {
-                                "event": "visualization",
-                                "data": json.dumps(vis_data),
-                            }
-                        yield {
-                            "event": "tool_result",
-                            "data": json.dumps({
-                                "id": tc.get("id", ""),
-                                "name": tc["name"],
-                                "result": result_str,
-                                "status": "success",
-                            }),
-                        }
-                elif "finalize" in event_type or event_type == "finalize":
-                    thought = "Synthesizing final scientific report..."
-                    collected_thoughts.append(thought)
-                    yield {"event": "thought", "data": json.dumps({"message": thought})}
-                    if isinstance(event_data, dict):
-                        collected_skills = event_data.get("loaded_skills", [])
-                        update_assistant_in_db(skills=collected_skills, thoughts=collected_thoughts)
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).exception("Stream handler error")
-        yield {"event": "error", "data": json.dumps({"message": "An internal error occurred."})}
+    # Step 4: Proxy SSE from Modal
+    if not MODAL_COMPUTE_URL:
+        yield {"event": "error", "data": json.dumps({"message": "⚠️ Modal compute service not configured. Set MODAL_COMPUTE_URL."})}
+        yield {"event": "done", "data": json.dumps({"response": "", "session_id": session_id})}
         return
 
-    # Step 4: get final result
+    collected_tool_calls: list[dict] = []
+    collected_skills: list[str] = skill_paths
+    collected_visualization: Optional[dict] = None
+    result_text = ""
+
     try:
-        final_state = agent_graph.get_state(run_config)
-        result_text = ""
-        if final_state and final_state.values:
-            result_text = final_state.values.get("result", "")
+        with httpx.stream(
+            "POST",
+            f"{MODAL_COMPUTE_URL}/compute/stream",
+            json={
+                "query": query,
+                "session_id": session_id,
+                "skill_paths": skill_paths,
+                "user_id": user_id,
+            },
+            timeout=MODAL_TIMEOUT,
+        ) as resp:
+            resp.raise_for_status()
 
-        # Persist Assistant message to SQLite (Final update)
-        update_assistant_in_db(
-            content=result_text,
-            skills=collected_skills,
-            tool_calls=collected_tool_calls if collected_tool_calls else None,
-            thoughts=collected_thoughts,
-            visualization=collected_visualization,
-        )
+            current_event = "message"
+            for line in resp.iter_lines():
+                if line.startswith("event:"):
+                    current_event = line[6:].strip()
+                elif line.startswith("data:"):
+                    data_str = line[5:].strip()
 
-        yield {
-            "event": "done",
-            "data": json.dumps({"response": result_text, "session_id": session_id}),
-        }
+                    # Yield event to frontend
+                    event_dict = {"event": current_event, "data": data_str}
+                    yield event_dict
+
+                    # Accumulate data for persistence
+                    try:
+                        parsed = json.loads(data_str)
+                        if current_event == "thought":
+                            msg = parsed.get("message", "")
+                            if msg:
+                                collected_thoughts.append(msg)
+                        elif current_event == "chunk":
+                            content = parsed.get("content", "")
+                            if content:
+                                update_assistant(content=content, thoughts=collected_thoughts)
+                        elif current_event == "tool_call":
+                            pass  # tool details come in tool_result
+                        elif current_event == "tool_result":
+                            name = parsed.get("name", "")
+                            result_str = parsed.get("result", "")
+                            safe_result = result_str
+                            if len(safe_result) > 15000:
+                                safe_result = safe_result[:15000] + "\n\n[... truncated ...]"
+                            collected_tool_calls.append({
+                                "id": parsed.get("id", ""),
+                                "name": name,
+                                "args": {},  # args not in tool_result
+                                "result": safe_result,
+                                "status": "success",
+                            })
+                            update_assistant(tool_calls=collected_tool_calls, thoughts=collected_thoughts)
+                        elif current_event == "visualization":
+                            collected_visualization = parsed
+                            update_assistant(visualization=collected_visualization, thoughts=collected_thoughts)
+                        elif current_event == "skills_loaded":
+                            pass
+                        elif current_event == "done":
+                            result_text = parsed.get("response", "")
+                            collected_skills = parsed.get("skills", collected_skills)
+                            collected_tool_calls = parsed.get("tool_calls", collected_tool_calls)
+                            collected_visualization = parsed.get("visualization", collected_visualization)
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+                elif line == "":
+                    current_event = "message"
+
+    except httpx.ConnectError:
+        yield {"event": "error", "data": json.dumps({"message": "⚠️ Cannot reach Modal compute service. Check MODAL_COMPUTE_URL."})}
+    except httpx.TimeoutException:
+        yield {"event": "error", "data": json.dumps({"message": "⚠️ Modal compute service timed out."})}
     except Exception as e:
-        yield {"event": "done", "data": json.dumps({"response": "", "session_id": session_id})}
+        import logging
+        logging.getLogger(__name__).exception("Modal stream proxy error")
+        yield {"event": "error", "data": json.dumps({"message": f"⚠️ Compute service error: {str(e)}"})}
+
+    # Step 5: Persist final assistant message
+    update_assistant(
+        content=result_text,
+        skills=collected_skills,
+        tool_calls=collected_tool_calls,
+        thoughts=collected_thoughts,
+        visualization=collected_visualization,
+    )
+
+    yield {"event": "done", "data": json.dumps({"response": result_text, "session_id": session_id})}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Session Management (backed by StorageBackend)
 # ═══════════════════════════════════════════════════════════════════════════
-
 
 def list_sessions(user_id: str = "default") -> list[dict[str, Any]]:
     """Return a list of session summaries for the given user, newest first."""
@@ -423,17 +340,18 @@ def reset_session(session_id: str) -> dict[str, Any]:
 # Workspace & User Management
 # ═══════════════════════════════════════════════════════════════════════════
 
-
-def get_workspace_path(user_id: str, session_id: str) -> Path:
+def get_workspace_path(user_id: str, session_id: str):
     """Return the workspace directory path for a user's session."""
+    from pathlib import Path
     return storage.get_workspace_path(user_id, session_id)
 
 
-def create_user_profile(user_id: str) -> Path:
+def create_user_profile(user_id: str):
     """Create a user profile directory with metadata."""
     return storage.create_user_profile(user_id)
 
 
-def get_data_dir() -> Path:
+def get_data_dir():
     """Return the root data directory path."""
+    from pathlib import Path
     return storage.get_data_dir()

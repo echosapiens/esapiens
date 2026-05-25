@@ -15,6 +15,7 @@ import { MessageBubble } from './MessageBubble';
 import { ComputationExperience } from './ComputationExperience';
 import { uploadFile, type UploadResponse } from '../../lib/api';
 import type { Message } from '../../lib/api';
+import { useMobile } from '../../hooks/useMobile';
 
 interface ChatProps {
   messages: Message[];
@@ -32,6 +33,7 @@ export function Chat({ messages, onSend, onStop, isLoading, sessionId, activeBac
   const [attachedFile, setAttachedFile] = useState<UploadResponse | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const isMobile = useMobile();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 

@@ -2,11 +2,14 @@
 Agent Node Definitions — LangGraph ReAct loop nodes.
 
 Defines WorkflowState TypedDict, the call_model and tools_node,
-and the graph builder function for the E.sapiens v2 agent.
+the graph builder function for the E.sapiens v2 agent,
+and a tiered query router for fast-pathing simple queries.
 """
 
 import json
 import os
+import re
+from enum import Enum
 from typing import Annotated, Any, Callable, Literal, Sequence, TypedDict
 
 import operator
@@ -22,10 +25,115 @@ from tools import TOOL_DEFINITIONS, execute_tool
 
 load_dotenv()
 
+# ── Tiered Query Routing ────────────────────────────────────────────────────
+
+
+class QueryTier(str, Enum):
+    """Routing tier for incoming queries.
+
+    DIRECT   — greetings, meta-questions, simple definitions → fast LLM, no tools
+    STANDARD — bio queries that need tools → full ReAct loop with skill context
+    HEAVY    — multi-step pipelines, plots → full ReAct loop (may iterate)
+    """
+    DIRECT = "direct"
+    STANDARD = "standard"
+    HEAVY = "heavy"
+
+
+# Patterns that indicate a DIRECT (fast-path) query — no tools needed
+_DIRECT_PATTERNS = re.compile(
+    r"^(hi|hello|hey|good\s*(morning|evening|afternoon|night)|what'?s?\s*up|sup|thanks|thank\s*you|ty|bye|goodbye|ok|okay|yes|no|sure|got\s*it|sounds?\s*good|cool|great|nice|awesome|right|exactly|understood|gotcha|roger|agreed|please|pls|help|how\s*are\s*you|who\s*are\s*you|what\s*(can|do)\s*you\s*do)\b",
+    re.IGNORECASE,
+)
+
+# Short, simple definition patterns — "what is X", "define X", "explain X briefly"
+_SIMPLE_DEFINITION = re.compile(
+    r"^(what\s+is|what'?s|define|explain\s+briefly|tell\s+me\s+about|describe)\s+\w+",
+    re.IGNORECASE,
+)
+
+# Queries that imply multi-step computation
+_HEAVY_PATTERNS = re.compile(
+    r"\b(pipeline|workflow|compare|benchmark|analyze\s+and\s+plot|multi[- ]?step|end[- ]?to[- ]?end|integrate|correlate\s+.*\band\b|download\s+.*\band\s+(plot|visualize|align|run))\b",
+    re.IGNORECASE,
+)
+
+
+def classify_tier(query: str, skill_paths: list[str] | None = None) -> QueryTier:
+    """Classify a query into DIRECT / STANDARD / HEAVY.
+
+    Logic:
+      1. If query matches greeting/meta patterns → DIRECT
+      2. If query is a short simple definition AND no skills matched → DIRECT
+      3. If query matches multi-step patterns OR multiple skills matched → HEAVY
+      4. Otherwise → STANDARD
+    """
+    q = query.strip()
+
+    # 1. Pure greetings / meta → DIRECT
+    if _DIRECT_PATTERNS.match(q):
+        return QueryTier.DIRECT
+
+    # Determine skill match count
+    num_skills = len(skill_paths) if skill_paths else 0
+
+    # 2. Simple definition with no bio skills → DIRECT
+    if _SIMPLE_DEFINITION.match(q) and num_skills == 0 and len(q.split()) <= 12:
+        return QueryTier.DIRECT
+
+    # 3. Multi-step or heavy computation → HEAVY
+    if _HEAVY_PATTERNS.search(q) or num_skills >= 3:
+        return QueryTier.HEAVY
+
+    # 4. Default → STANDARD
+    return QueryTier.STANDARD
+
+
+# ── Fast-path: direct LLM call (no tools, minimal prompt) ────────────────────
+
+_DIRECT_SYSTEM_PROMPT = (
+    "You are E.sapiens, a professional bioinformatics research assistant. "
+    "Respond concisely and accurately. No emojis. Formal scientific tone."
+)
+
+DIRECT_MODEL = os.getenv("OPENROUTER_DIRECT_MODEL", "")  # optional fast model override
+
+
+def direct_llm_response(query: str) -> str:
+    """Fast-path: call the LLM directly with no tools, no skill context.
+
+    Used for DIRECT-tier queries (greetings, simple definitions, meta).
+    Returns the response text directly — no agent loop, no tool calls.
+    """
+    key = os.getenv("OPENROUTER_API_KEY", "")
+    if not key or key.startswith("sk-or-v1-placeholder"):
+        return "I'm running in offline/demo mode. Please set OPENROUTER_API_KEY for full functionality."
+
+    model = DIRECT_MODEL or chosen_model
+    llm = ChatOpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=key,
+        model=model,
+        temperature=0.3,
+        timeout=30,  # aggressive timeout for fast-path
+        max_tokens=1024,
+        default_headers={
+            "HTTP-Referer": "https://echosapiens.bio",
+            "X-Title": "E.sapiens v2 Direct",
+        },
+    )
+    messages = [
+        SystemMessage(content=_DIRECT_SYSTEM_PROMPT),
+        HumanMessage(content=query),
+    ]
+    response = llm.invoke(messages)
+    return response.content or ""
+
+
 # ── Agent state ──────────────────────────────────────────────────────────────
 
-# set chosen_model from environment variable, defaulting to "gpt-4o"
-chosen_model = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash")
+# set chosen_model from environment variable.
+chosen_model = os.getenv("OPENROUTER_MODEL", "qwen/qwen3-coder-next:nitro")
 class WorkflowState(TypedDict):
     """State passed between nodes in the ReAct loop."""
 
