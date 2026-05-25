@@ -41,9 +41,9 @@ def _build_interface() -> "gr.Blocks":
     from main import run
 
     # ── Build the Blocks ─────────────────────────────────────────────
+    # Note: Gradio 6 moved `theme` from Blocks() to launch()/mount_gradio_app()
     with gr.Blocks(
         title="E.sapiens — AI Bioinformatics Agent",
-        theme=gr.themes.Soft(primary_hue="blue", neutral_hue="slate"),
     ) as demo:
         gr.HTML("""<style>
         footer { display: none !important; }
@@ -61,7 +61,6 @@ def _build_interface() -> "gr.Blocks":
             label="Conversation",
             placeholder="Ask a bioinformatics question...",
             height=500,
-            show_copy_button=True,
         )
 
         msg = gr.Textbox(
@@ -159,6 +158,9 @@ def mount_gradio(app) -> object:
 
     mount_path = os.environ.get("GRADIO_MOUNT_PATH", "/gradio")
     demo = _build_interface()
-    gr.mount_gradio_app(app, demo, path=mount_path)
+    gr.mount_gradio_app(
+        app, demo, path=mount_path,
+        theme=gr.themes.Soft(primary_hue="blue", neutral_hue="slate"),
+    )
     logger.info("Gradio interface mounted at %s", mount_path)
     return app
