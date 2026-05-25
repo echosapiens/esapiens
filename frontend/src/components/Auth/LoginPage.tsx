@@ -45,12 +45,12 @@ const inputStyles = {
     backgroundColor: '#FAFAFA',
     border: '1px solid #E5E5E5',
     borderRadius: '8px',
-    color: '#092426',
+    color: '#2563EB',
     padding: '12px 14px',
     height: '48px',
     transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease',
     '&:focus': {
-      borderColor: '#092426',
+      borderColor: '#2563EB',
       boxShadow: '0 0 0 3px rgba(9, 36, 38, 0.08)',
       backgroundColor: '#FFFFFF',
     },
@@ -71,7 +71,7 @@ const passwordInputStyles = {
   innerInput: {
     fontFamily: 'var(--e-font-sans)',
     fontSize: '0.9375rem',
-    color: '#092426',
+    color: '#2563EB',
     padding: '12px 14px',
   },
   visibilityToggle: {
@@ -191,7 +191,7 @@ export function LoginPage() {
               fontSize: '1.75rem',
               fontWeight: 700,
               fontStyle: 'italic',
-              color: '#092426',
+              color: '#2563EB',
               letterSpacing: '-0.03em',
               lineHeight: 1,
               margin: 0,
@@ -234,7 +234,7 @@ export function LoginPage() {
                 fontFamily: 'var(--e-font-sans)',
                 fontSize: '0.8125rem',
                 fontWeight: activeTab === tab ? 600 : 500,
-                color: activeTab === tab ? '#092426' : '#737373',
+                color: activeTab === tab ? '#2563EB' : '#737373',
                 backgroundColor: activeTab === tab ? '#FFFFFF' : 'transparent',
                 border: 'none',
                 borderRadius: '6px',
@@ -345,8 +345,8 @@ export function LoginPage() {
                     borderColor: '#D4D4D4',
                     transition: 'all 0.2s ease',
                     '&:checked': {
-                      backgroundColor: '#092426',
-                      borderColor: '#092426',
+                      backgroundColor: '#2563EB',
+                      borderColor: '#2563EB',
                     },
                   },
                 }}
@@ -363,7 +363,7 @@ export function LoginPage() {
                   transition: 'color 0.2s ease',
                   cursor: 'pointer',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = '#092426')}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#2563EB')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = '#525252')}
               >
                 Forgot password?
@@ -380,7 +380,7 @@ export function LoginPage() {
               fontWeight: 600,
               height: '48px',
               borderRadius: '8px',
-              backgroundColor: submitting ? '#525252' : '#092426',
+              backgroundColor: submitting ? '#525252' : '#2563EB',
               color: '#FFFFFF',
               border: 'none',
               cursor: submitting ? 'not-allowed' : 'pointer',
@@ -393,7 +393,7 @@ export function LoginPage() {
               if (!submitting) e.currentTarget.style.backgroundColor = '#1a3a3c';
             }}
             onMouseLeave={(e) => {
-              if (!submitting) e.currentTarget.style.backgroundColor = '#092426';
+              if (!submitting) e.currentTarget.style.backgroundColor = '#2563EB';
             }}
             onMouseDown={(e) => {
               if (!submitting) e.currentTarget.style.transform = 'translateY(1px)';
@@ -478,7 +478,7 @@ export function LoginPage() {
           {isSignIn ? "Don't have an account? " : 'Already have an account? '}
           <span
             style={{
-              color: '#092426',
+              color: '#2563EB',
               cursor: 'pointer',
               fontWeight: 600,
               transition: 'opacity 0.2s ease',

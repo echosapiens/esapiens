@@ -308,6 +308,7 @@ function MainApp() {
 
   return (
     <>
+      <a href="#chat-content" className="e-skip-link">Skip to content</a>
       <CommandPalette opened={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} onNewChat={handleNewChat} onToggleSidebar={toggleSidebar} onOpenShortcuts={() => setShortcutsOpen(true)} />
       <KeyboardShortcuts opened={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 

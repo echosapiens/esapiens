@@ -2,16 +2,16 @@ import { createTheme, type MantineColorsTuple } from '@mantine/core';
 
 /* ─── Custom Professional Color Palette ─── */
 const brand: MantineColorsTuple = [
-  '#FAFAFA', // 0 - lightest
-  '#F5F5F5', // 1
-  '#E5E5E5', // 2
-  '#D4D4D4', // 3
-  '#A3A3A3', // 4
-  '#737373', // 5
-  '#525252', // 6
-  '#3A3A3A', // 7
-  '#1A3A3C', // 8
-  '#092426', // 9 - darkest (primary)
+  '#EFF6FF', // 0 - lightest
+  '#DBEAFE', // 1
+  '#BFDBFE', // 2
+  '#93C5FD', // 3
+  '#60A5FA', // 4
+  '#3B82F6', // 5
+  '#2563EB', // 6
+  '#1D4ED8', // 7
+  '#1E40AF', // 8
+  '#1E3A8A', // 9 - darkest (primary)
 ];
 
 /* ─── Professional Light Theme for E.sapiens ─── */
@@ -193,7 +193,7 @@ export const theme = createTheme({
           fontWeight: '500',
           letterSpacing: '0.03em',
           padding: '6px 10px',
-          backgroundColor: '#092426',
+          backgroundColor: '#0A0B0F',
         },
       },
     },

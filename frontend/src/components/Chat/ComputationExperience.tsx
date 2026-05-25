@@ -167,7 +167,7 @@ export function ComputationExperience({
                 : '2px solid transparent',
               background: 'transparent',
               color: activeTab === tab
-                ? 'var(--e-text-primary, #092426)'
+                ? 'var(--e-brand)'
                 : 'var(--e-text-muted, #A3A3A3)',
               cursor: 'pointer',
               transition: 'all 150ms ease',

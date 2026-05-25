@@ -92,8 +92,8 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           style={{
             maxWidth: '80%',
             padding: '6px 14px',
-            borderRight: '2px solid var(--e-accent-cyan)',
-            backgroundColor: 'rgba(0, 245, 255, 0.03)',
+            borderRight: '2px solid var(--e-accent-blue)',
+            backgroundColor: 'rgba(37, 99, 235, 0.03)',
           }}
         >
           {/* Header */}
@@ -105,7 +105,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 fontWeight: 600,
                 letterSpacing: '0.12em',
                 textTransform: 'uppercase',
-                color: 'var(--e-accent-cyan)',
+                color: 'var(--e-accent-blue)',
               }}
             >
               USER_INPUT
@@ -160,7 +160,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 width: 4,
                 height: 4,
                 borderRadius: '50%',
-                backgroundColor: isAnimating ? 'var(--e-accent-cyan)' : 'var(--e-accent-green)',
+                backgroundColor: isAnimating ? 'var(--e-accent-blue)' : 'var(--e-accent-green)',
                 transition: 'all 0.3s ease',
               }}
             />
@@ -172,7 +172,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               fontWeight: 600,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
-              color: isAnimating ? 'var(--e-accent-cyan)' : 'var(--e-accent-blue)',
+              color: isAnimating ? 'var(--e-accent-blue)' : '#1a3a3c',
               transition: 'color 0.3s ease',
             }}
           >
@@ -196,7 +196,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 color: 'var(--e-text-secondary)',
               }}
             >
-              <IconTerminal2 size={12} style={{ color: 'var(--e-accent-cyan)' }} />
+              <IconTerminal2 size={12} style={{ color: 'var(--e-accent-blue)' }} />
               <Text
                 style={{
                   fontFamily: "var(--e-font-mono)",
@@ -251,7 +251,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 ))}
                 {isStreaming && (
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', opacity: 0.6 }}>
-                    <div className="pulse-indicator" style={{ width: 3, height: 3, borderRadius: '50%', backgroundColor: 'var(--e-accent-cyan)' }} />
+                    <div className="pulse-indicator" style={{ width: 3, height: 3, borderRadius: '50%', backgroundColor: 'var(--e-accent-blue)' }} />
                     <Text style={{ fontFamily: "var(--e-font-mono)", fontSize: '0.65rem', fontStyle: 'italic' }}>allocating next cycle...</Text>
                   </div>
                 )}
@@ -282,13 +282,13 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             style={{
               fontFamily: "var(--e-font-mono)",
               fontSize: '0.75rem',
-              color: 'var(--e-accent-cyan)',
+              color: 'var(--e-accent-blue)',
               opacity: 0.6,
             }}
           >
             <div style={{ display: 'flex', gap: 4 }}>
-              <span>◌</span>
-              <span>COMPUTING</span>
+              <span>○</span>
+              <span>ANALYZING</span>
             </div>
           </div>
         ) : (
@@ -378,7 +378,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             style={{
               fontFamily: "var(--e-font-mono)",
               fontSize: '0.85rem',
-              color: 'var(--e-accent-cyan)',
+              color: 'var(--e-text-secondary)',
               animation: 'blink 1s step-end infinite',
               lineHeight: 1,
             }}

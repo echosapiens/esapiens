@@ -292,7 +292,7 @@ export function StructureViewer({ pdb_id, pdb_file, title, representation: initi
               key={preset.label}
               size="compact-xs"
               variant={activePreset === preset.label ? 'filled' : 'light'}
-              color={activePreset === preset.label ? '#092426' : 'gray'}
+              color={activePreset === preset.label ? 'var(--e-brand)' : 'gray'}
               radius="sm"
               onClick={() => applyPreset(preset)}
               title={preset.description}

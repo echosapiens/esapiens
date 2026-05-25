@@ -109,16 +109,15 @@ export function Chat({ messages, onSend, onStop, isLoading, sessionId, activeBac
       <div style={{
         flex: 1,
         minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
         backgroundColor: 'var(--e-bg-surface)',
         borderRadius: 'var(--e-radius-2xl)',
         boxShadow: 'var(--e-shadow-md)',
         overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        width: '100%',
-        maxWidth: isMobile ? '100%' : '100%',
+        maxWidth: '100%',
       }}>
-        <ScrollArea style={{ flex: 1 }} viewportRef={scrollRef}>
+        <ScrollArea style={{ flex: 1 }} viewportRef={scrollRef} viewportProps={{ 'aria-label': 'Conversation messages', 'aria-live': 'polite', role: 'log' }} id="chat-content">
           <Stack p={isMobile?"xs":"md"} gap="sm">
             {ordered.map((msg) => {
               const hideBubble = shouldShowOverlay && msg.role === 'assistant' && msg.id === lastAssistant?.id;
@@ -144,7 +143,7 @@ export function Chat({ messages, onSend, onStop, isLoading, sessionId, activeBac
 
       {isLoading && !lastAssistant && !shouldShowOverlay && (
         <Group gap="xs" style={{ fontFamily: "var(--e-font-mono)", fontSize: '0.875rem', color: 'var(--e-text-secondary)', padding: '8px 14px' }}>
-          <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'var(--e-accent-cyan)' }} />
+          <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'var(--e-accent-blue)' }} />
           Processing...
         </Group>
       )}
