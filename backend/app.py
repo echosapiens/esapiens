@@ -12,6 +12,16 @@ from auth import auth_router
 from file_upload import upload_router
 from streaming import router as chat_router
 
+# ── Optional Gradio UI ────────────────────────────────────────────────
+# Mounts at /gradio for direct browser-based interaction with the agent.
+# Uses `import gradio as gr` (not `from gradio import gr`) — compatible
+# with Gradio 5+ which ships as a namespace package.
+try:
+    from gradio_app import mount_gradio
+    HAS_GRADIO = True
+except ImportError:
+    HAS_GRADIO = False
+
 # ── App instance ─────────────────────────────────────────────────────────────
 
 app = FastAPI(
@@ -49,6 +59,11 @@ app.include_router(upload_router)
 # ── Mount chat endpoints ──────────────────────────────────────────────────
 
 app.include_router(chat_router)
+
+# ── Mount Gradio UI interface ─────────────────────────────────────────
+# Provides a browser-based chat UI at /gradio (no auth needed).
+if HAS_GRADIO:
+    mount_gradio(app)
 
 
 # ── Health check ─────────────────────────────────────────────────────────────
