@@ -79,13 +79,16 @@ def run(
         }
     else:
         try:
-            graph_result = agent_graph.invoke({
-                "query": query,
-                "messages": [],
-                "result": "",
-                "loaded_skills": skill_paths,
-                "tool_calls": [],
-            })
+            graph_result = agent_graph.invoke(
+                {
+                    "query": query,
+                    "messages": [],
+                    "result": "",
+                    "loaded_skills": skill_paths,
+                    "tool_calls": [],
+                },
+                config={"configurable": {"thread_id": session_id}},
+            )
             response = graph_result.get("result", "")
             tcs = graph_result.get("tool_calls", [])
             result = {
@@ -235,12 +238,14 @@ def run_stream(
 
     try:
         for step in agent_graph.stream({
-            "query": query,
-            "messages": [],
-            "result": "",
-            "loaded_skills": skill_paths,
-            "tool_calls": [],
-        }):
+                "query": query,
+                "messages": [],
+                "result": "",
+                "loaded_skills": skill_paths,
+                "tool_calls": [],
+            },
+            config={"configurable": {"thread_id": session_id}},
+        ):
             for node_name, state in step.items():
                 if node_name == "call_model":
                     # Check if the AI message requested tools
