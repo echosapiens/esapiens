@@ -32,37 +32,34 @@ except ImportError:
 # =============================================================================
 
 def _init_modal_client():
-    """Initialize Modal client from environment variables.
+    '''Validate Modal environment and return credential status.
 
-    On a headless VPS (Hostinger), there's no browser for `modal setup`.
-    Instead, set MODAL_TOKEN_ID and MODAL_TOKEN_SECRET in .env or
-    environment. This function creates a persistent Modal client that
-    all subsequent Modal calls will use.
+    On a headless VPS (Hostinger), there is no browser for `modal setup`.
+    Set MODAL_TOKEN_ID and MODAL_TOKEN_SECRET in .env or environment.
+    Modern Modal SDK (0.57+) reads these from env vars automatically -
+    no explicit client setup required.
 
-    Returns the client if tokens were found, else None (falls back to
-    default credential chain which works on local dev machines).
-    """
+    Returns True if Modal SDK is importable, False otherwise.
+    '''
     if not MODAL_AVAILABLE:
-        return None
+        return False
 
     token_id = os.environ.get("MODAL_TOKEN_ID", "").strip()
     token_secret = os.environ.get("MODAL_TOKEN_SECRET", "").strip()
 
     if token_id and token_secret:
-        # Authenticate with explicit tokens (headless/VPS mode)
-        client = modal.Client.from_credentials(token_id, token_secret)
-        # Store as the default client so all Modal calls use it
-        modal.Client.set_default(client)
-        return client
+        # Modern Modal SDK reads env vars automatically
+        pass
+    else:
+        # No tokens - Modal will fall back to ~/.modal credentials
+        pass
 
-    # Fall back to default credential chain (~/.modal, modal setup, etc.)
-    # This works on local dev machines where `modal setup` was run
-    return None
+    return True
 
 
-# Initialize Modal authentication on import
+# Check Modal availability on import
 # (dotenv is already loaded by main.py before tools.py imports modal_tasks)
-_modal_client = _init_modal_client()
+MODAL_CREDENTIALS_OK = _init_modal_client()
 
 
 # =============================================================================
