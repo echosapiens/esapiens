@@ -115,9 +115,11 @@ export function Chat({ messages, onSend, onStop, isLoading, sessionId, activeBac
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
+        width: '100%',
+        maxWidth: isMobile ? '100%' : '100%',
       }}>
         <ScrollArea style={{ flex: 1 }} viewportRef={scrollRef}>
-          <Stack p="md" gap="sm">
+          <Stack p={isMobile?"xs":"md"} gap="sm">
             {ordered.map((msg) => {
               const hideBubble = shouldShowOverlay && msg.role === 'assistant' && msg.id === lastAssistant?.id;
               if (hideBubble) return null;
@@ -151,7 +153,7 @@ export function Chat({ messages, onSend, onStop, isLoading, sessionId, activeBac
         backgroundColor: 'var(--e-bg-surface)',
         borderRadius: 'var(--e-radius-2xl)',
         boxShadow: 'var(--e-shadow-md)',
-        padding: '8px 12px',
+        padding: isMobile ? '6px 8px' : '8px 12px',
         flexShrink: 0,
       }}>
         {attachedFile && (
@@ -196,7 +198,7 @@ export function Chat({ messages, onSend, onStop, isLoading, sessionId, activeBac
 
           <TextInput flex={1} placeholder="Ask a question or paste a gene list..." value={input} onChange={(e) => setInput(e.currentTarget.value)} onKeyDown={handleKeyDown} style={{ fontFamily: "var(--e-font-sans)" }} />
           {isLoading ? (
-            <Button color="red" onClick={onStop} style={{ fontFamily: "var(--e-font-sans)" }}>Stop</Button>
+            <Button color="red" onClick={onStop} style={{ fontFamily: "var(--e-font-sans)", height: isMobile ? 36 : 'auto' }}>Stop</Button>
           ) : (
             <Button onClick={handleSend} style={{ fontFamily: "var(--e-font-sans)" }}><IconSend size={16} /></Button>
           )}

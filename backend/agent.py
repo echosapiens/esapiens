@@ -133,7 +133,7 @@ def direct_llm_response(query: str) -> str:
 # ── Agent state ──────────────────────────────────────────────────────────────
 
 # set chosen_model from environment variable.
-chosen_model = os.getenv("OPENROUTER_MODEL", "qwen/qwen3-coder-next:nitro")
+chosen_model = os.getenv("OPENROUTER_MODEL", "qwen/qwen3-coder-next:exacto")
 class WorkflowState(TypedDict):
     """State passed between nodes in the ReAct loop."""
 
