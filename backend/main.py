@@ -1,73 +1,55 @@
 """
-Main — VPS Orchestrator (Thin Shell)
+Main — VPS Agent Runtime
 
-The VPS handles auth, sessions, storage, and proxies all compute
-to the Modal.com service. No agent, no tools, no LLM calls run here.
+The VPS runs the LangGraph agent loop directly, calling OpenRouter for LLM
+inference. Heavy bioinformatics tasks (STAR, SRA downloads, DESeq2, etc.) are
+dispatched to Modal via pre-built biocontainers from Quay.io/BioContainers.
 
 Architecture:
-  Browser → Nginx → VPS FastAPI (auth, sessions, storage)
-                        ↓
-                    Modal Compute Service (agent, tools, LLM, bio pipelines)
+  Browser -> Nginx -> VPS FastAPI (auth, sessions, storage, agent loop)
+                           |
+                           +-- OpenRouter (LLM inference -- direct from VPS)
+                           |
+                           +-- Modal (heavy bio tasks via biocontainers)
 """
 
 import json
 import os
 from typing import Any, Generator, Optional
 
-import httpx
 from dotenv import load_dotenv
 
-from intent_classifier import classify_query
-from agent import classify_tier, QueryTier
-from storage import StorageBackend, get_storage
-
+# MUST load .env before agent imports — agent.py reads OPENROUTER_API_KEY
+# from os.environ at module level
 load_dotenv()
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Modal Compute URL
-# ═══════════════════════════════════════════════════════════════════════════
-# The VPS orchestrator proxies all agent execution to this Modal endpoint.
-# Set MODAL_COMPUTE_URL in .env or docker-compose.yml.
-# Example: https://echosapiens--esapiens-compute-compute-api.modal.run
+from intent_classifier import classify_query
+from agent import classify_tier, QueryTier, direct_llm_response, agent_graph
+from storage import StorageBackend, get_storage
 
-MODAL_COMPUTE_URL = os.environ.get("MODAL_COMPUTE_URL", "").rstrip("/")
-MODAL_TIMEOUT = int(os.environ.get("MODAL_TIMEOUT", "300"))  # 5 min default
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Secret Hygiene — scrub secrets from os.environ after reading
-# ═══════════════════════════════════════════════════════════════════════════
-
-_SECRET_ENV_VARS = [
-    "OPENROUTER_API_KEY",
-    "BRAVE_SEARCH_API_KEY",
-    "JWT_SECRET",
-    "MODAL_TOKEN_ID",
-    "MODAL_TOKEN_SECRET",
-]
-
-for _var in _SECRET_ENV_VARS:
-    if _var in os.environ:
-        del os.environ[_var]
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Persistent Storage (VPS-local SQLite)
-# ═══════════════════════════════════════════════════════════════════════════
+# ============================================================================
+# Secrets stay in environment -- agent.py / tools.py need OPENROUTER_API_KEY
+# ============================================================================
+# NOTE: tools.py has its own _SECRET_ENV_VARS that masks secrets from
+# execute_python's sandbox. We keep them in os.environ for the VPS runtime.
 
 storage: StorageBackend = get_storage()
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ============================================================================
 # Session Helpers
-# ═══════════════════════════════════════════════════════════════════════════
+# ============================================================================
+
 
 def _ensure_session(session_id: str, user_id: str = "default") -> dict[str, Any]:
     """Get or create a session, returning the session dict with messages."""
     return storage.get_session(session_id) or storage.ensure_session(session_id, user_id=user_id)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Sync Run — Proxies to Modal /compute/sync
-# ═══════════════════════════════════════════════════════════════════════════
+# ============================================================================
+# Sync Run -- Direct agent execution on VPS, no Modal proxy
+# ============================================================================
+
 
 def run(
     query: str,
@@ -76,7 +58,8 @@ def run(
     user_id: str = "default",
 ) -> dict[str, Any]:
     """
-    Run the agent synchronously via Modal. Persists messages to SQLite.
+    Run the agent synchronously on the VPS, calling OpenRouter directly.
+    Persists messages to SQLite.
     """
     _ensure_session(session_id, user_id=user_id)
     skill_paths = classify_query(query)
@@ -85,61 +68,63 @@ def run(
     # Persist user message
     storage.add_message(session_id, "user", query)
 
-    if not MODAL_COMPUTE_URL:
-        return {
-            "response": "⚠️ Modal compute service not configured. Set MODAL_COMPUTE_URL.",
+    if tier == QueryTier.DIRECT:
+        response = direct_llm_response(query)
+        result = {
+            "response": response,
             "session_id": session_id,
             "skills": skill_paths,
             "tool_calls": [],
             "tier": tier.value,
-            "error": "modal_not_configured",
         }
-
-    try:
-        resp = httpx.post(
-            f"{MODAL_COMPUTE_URL}/compute/sync",
-            json={
+    else:
+        try:
+            graph_result = agent_graph.invoke({
                 "query": query,
+                "messages": [],
+                "result": "",
+                "loaded_skills": skill_paths,
+                "tool_calls": [],
+            })
+            response = graph_result.get("result", "")
+            tcs = graph_result.get("tool_calls", [])
+            result = {
+                "response": response,
                 "session_id": session_id,
-                "skill_paths": skill_paths,
-                "user_id": user_id,
-            },
-            timeout=MODAL_TIMEOUT,
-        )
-        resp.raise_for_status()
-        result = resp.json()
+                "skills": graph_result.get("loaded_skills", skill_paths),
+                "tool_calls": [
+                    {"name": tc["name"], "args": tc.get("args", {}), "result": tc.get("result", "")}
+                    for tc in tcs
+                ],
+                "tier": tier.value,
+            }
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).exception("Agent sync execution error")
+            result = {
+                "response": f"\u26a0\ufe0f Agent error: {str(e)}",
+                "session_id": session_id,
+                "skills": skill_paths,
+                "tool_calls": [],
+                "error": "agent_error",
+            }
 
-        # Persist assistant message
-        storage.add_message(
-            session_id,
-            "assistant",
-            result.get("response", ""),
-            skills=result.get("skills"),
-            tool_calls=result.get("tool_calls"),
-        )
+    # Persist assistant message
+    storage.add_message(
+        session_id,
+        "assistant",
+        result.get("response", ""),
+        skills=result.get("skills"),
+        tool_calls=result.get("tool_calls"),
+    )
 
-        return {
-            "response": result.get("response", ""),
-            "session_id": session_id,
-            "skills": result.get("skills", []),
-            "tool_calls": result.get("tool_calls", []),
-            "tier": result.get("tier", tier.value),
-        }
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).exception("Modal sync compute error")
-        return {
-            "response": f"⚠️ Compute service error: {str(e)}",
-            "session_id": session_id,
-            "skills": skill_paths,
-            "tool_calls": [],
-            "error": "compute_error",
-        }
+    return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Streaming Run — Proxies SSE from Modal and persists to SQLite
-# ═══════════════════════════════════════════════════════════════════════════
+# ============================================================================
+# Streaming Run -- SSE events from local agent execution
+# ============================================================================
+
 
 def run_stream(
     query: str,
@@ -147,32 +132,43 @@ def run_stream(
     user_id: str = "default",
 ) -> Generator[dict[str, Any], None, None]:
     """
-    Stream agent execution via Modal SSE endpoint.
-    Proxies events to the frontend and persists messages to SQLite.
+    Stream agent execution via SSE, running the LangGraph agent directly on the VPS.
+    Calls OpenRouter directly; heavy bio tasks dispatch to Modal via tools.py.
 
-    For DIRECT-tier queries, the VPS can short-circuit and respond
-    immediately without calling Modal if the compute URL is not set.
+    Event types:
+      skills_loaded -- list of matched skill paths + tier
+      thought       -- reasoning step
+      tool_call     -- tool being invoked
+      tool_result   -- tool execution result
+      chunk         -- text token from LLM response
+      done          -- final response payload
+      error         -- error message
     """
     _ensure_session(session_id, user_id=user_id)
     skill_paths = classify_query(query)
     tier = classify_tier(query, skill_paths)
 
-    # Step 1: Yield initial thought events
-    if tier == QueryTier.DIRECT:
-        thought1 = "Direct response — skipping agent loop..."
-    else:
-        thought1 = f"Route: {tier.value} — classifying intent and loading protocols..."
+    # Step 1: Initial thoughts
+    thought1 = (
+        "Direct response -- skipping agent loop..."
+        if tier == QueryTier.DIRECT
+        else f"Route: {tier.value} -- classifying intent and loading protocols..."
+    )
     yield {"event": "thought", "data": json.dumps({"message": thought1})}
     yield {"event": "skills_loaded", "data": json.dumps({"skills": skill_paths, "tier": tier.value})}
 
     # Step 2: Persist user message
-    user_msg_id = storage.add_message(session_id, "user", query)
+    storage.add_message(session_id, "user", query)
 
     # Step 3: Create empty assistant placeholder
+    collected_thoughts = [thought1]
+    if tier != QueryTier.DIRECT:
+        collected_thoughts.append("Executing agent loop on VPS...")
+
     assistant_msg_id = storage.add_message(
         session_id, "assistant", "",
         skills=skill_paths,
-        thoughts=[thought1, "Routing to compute..." if tier != QueryTier.DIRECT else "Fast-path direct response"],
+        thoughts=collected_thoughts,
     )
 
     # Ensure session has a title
@@ -182,8 +178,6 @@ def run_stream(
         storage.update_session_title(session_id, title)
 
     # Helper to update assistant message in DB
-    collected_thoughts = [thought1, "Routing to compute..." if tier != QueryTier.DIRECT else "Fast-path direct response"]
-
     def update_assistant(content=None, tool_calls=None, thoughts=None, visualization=None, skills=None):
         try:
             conn = storage.conn
@@ -213,94 +207,99 @@ def run_stream(
         except Exception as e:
             print(f"[Persistence] Error updating assistant message: {e}")
 
-    # Step 4: Proxy SSE from Modal
-    if not MODAL_COMPUTE_URL:
-        yield {"event": "error", "data": json.dumps({"message": "⚠️ Modal compute service not configured. Set MODAL_COMPUTE_URL."})}
-        yield {"event": "done", "data": json.dumps({"response": "", "session_id": session_id})}
+    # Fast path for DIRECT queries
+    if tier == QueryTier.DIRECT:
+        text = direct_llm_response(query)
+        if text:
+            for chunk in _chunk_text(text, chunk_size=80):
+                yield {"event": "chunk", "data": json.dumps({"content": chunk})}
+        update_assistant(content=text)
+        yield {
+            "event": "done",
+            "data": json.dumps({
+                "response": text,
+                "session_id": session_id,
+                "skills": skill_paths,
+                "tool_calls": [],
+            }),
+        }
         return
 
+    # ==========================================================================
+    # Agent loop execution -- LangGraph stream on VPS
+    # ==========================================================================
     collected_tool_calls: list[dict] = []
     collected_skills: list[str] = skill_paths
     collected_visualization: Optional[dict] = None
     result_text = ""
 
     try:
-        with httpx.stream(
-            "POST",
-            f"{MODAL_COMPUTE_URL}/compute/stream",
-            json={
-                "query": query,
-                "session_id": session_id,
-                "skill_paths": skill_paths,
-                "user_id": user_id,
-            },
-            timeout=MODAL_TIMEOUT,
-        ) as resp:
-            resp.raise_for_status()
+        for step in agent_graph.stream({
+            "query": query,
+            "messages": [],
+            "result": "",
+            "loaded_skills": skill_paths,
+            "tool_calls": [],
+        }):
+            for node_name, state in step.items():
+                if node_name == "call_model":
+                    # Check if the AI message requested tools
+                    msgs = state.get("messages", [])
+                    for msg in msgs:
+                        if hasattr(msg, "tool_calls") and msg.tool_calls:
+                            for tc in msg.tool_calls:
+                                yield {
+                                    "event": "tool_call",
+                                    "data": json.dumps({
+                                        "id": tc.get("id", ""),
+                                        "name": tc["name"],
+                                        "args": tc.get("args", {}),
+                                    }),
+                                }
+                                collected_thoughts.append(f"Executing {tc['name']}...")
+                                update_assistant(thoughts=collected_thoughts)
 
-            current_event = "message"
-            for line in resp.iter_lines():
-                if line.startswith("event:"):
-                    current_event = line[6:].strip()
-                elif line.startswith("data:"):
-                    data_str = line[5:].strip()
-
-                    # Yield event to frontend
-                    event_dict = {"event": current_event, "data": data_str}
-                    yield event_dict
-
-                    # Accumulate data for persistence
-                    try:
-                        parsed = json.loads(data_str)
-                        if current_event == "thought":
-                            msg = parsed.get("message", "")
-                            if msg:
-                                collected_thoughts.append(msg)
-                        elif current_event == "chunk":
-                            content = parsed.get("content", "")
-                            if content:
-                                update_assistant(content=content, thoughts=collected_thoughts)
-                        elif current_event == "tool_call":
-                            pass  # tool details come in tool_result
-                        elif current_event == "tool_result":
-                            name = parsed.get("name", "")
-                            result_str = parsed.get("result", "")
-                            safe_result = result_str
-                            if len(safe_result) > 15000:
-                                safe_result = safe_result[:15000] + "\n\n[... truncated ...]"
-                            collected_tool_calls.append({
-                                "id": parsed.get("id", ""),
-                                "name": name,
-                                "args": {},  # args not in tool_result
+                elif node_name == "tools_node":
+                    tcs = state.get("tool_calls", [])
+                    for tc in tcs:
+                        safe_result = tc.get("result", "")
+                        if len(safe_result) > 15000:
+                            safe_result = safe_result[:15000] + "\n\n[... truncated ...]"
+                        collected_tool_calls.append({
+                            "id": tc.get("id", ""),
+                            "name": tc.get("name", ""),
+                            "args": tc.get("args", {}),
+                            "result": safe_result,
+                            "status": "success",
+                        })
+                        yield {
+                            "event": "tool_result",
+                            "data": json.dumps({
+                                "name": tc.get("name", ""),
                                 "result": safe_result,
-                                "status": "success",
-                            })
-                            update_assistant(tool_calls=collected_tool_calls, thoughts=collected_thoughts)
-                        elif current_event == "visualization":
-                            collected_visualization = parsed
-                            update_assistant(visualization=collected_visualization, thoughts=collected_thoughts)
-                        elif current_event == "skills_loaded":
-                            pass
-                        elif current_event == "done":
-                            result_text = parsed.get("response", "")
-                            collected_skills = parsed.get("skills", collected_skills)
-                            collected_tool_calls = parsed.get("tool_calls", collected_tool_calls)
-                            collected_visualization = parsed.get("visualization", collected_visualization)
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-                elif line == "":
-                    current_event = "message"
+                                "id": tc.get("id", ""),
+                            }),
+                        }
+                        collected_thoughts.append(f"\u2713 {tc.get('name', '')} completed")
+                        update_assistant(tool_calls=collected_tool_calls, thoughts=collected_thoughts)
 
-    except httpx.ConnectError:
-        yield {"event": "error", "data": json.dumps({"message": "⚠️ Cannot reach Modal compute service. Check MODAL_COMPUTE_URL."})}
-    except httpx.TimeoutException:
-        yield {"event": "error", "data": json.dumps({"message": "⚠️ Modal compute service timed out."})}
+                elif node_name == "finalize":
+                    result_text = state.get("result", "")
+
     except Exception as e:
         import logging
-        logging.getLogger(__name__).exception("Modal stream proxy error")
-        yield {"event": "error", "data": json.dumps({"message": f"⚠️ Compute service error: {str(e)}"})}
+        logging.getLogger(__name__).exception("Agent stream execution error")
+        yield {"event": "error", "data": json.dumps({"message": f"\u26a0\ufe0f Agent error: {str(e)}"})}
+        update_assistant(content=f"Error: {str(e)}", thoughts=collected_thoughts)
+        yield {"event": "done", "data": json.dumps({"response": "", "session_id": session_id})}
+        return
 
-    # Step 5: Persist final assistant message
+    # Emit final response as chunks for streaming feel
+    if result_text:
+        for chunk in _chunk_text(result_text, chunk_size=80):
+            yield {"event": "chunk", "data": json.dumps({"content": chunk})}
+
+    # Persist final state
     update_assistant(
         content=result_text,
         skills=collected_skills,
@@ -309,12 +308,36 @@ def run_stream(
         visualization=collected_visualization,
     )
 
-    yield {"event": "done", "data": json.dumps({"response": result_text, "session_id": session_id})}
+    yield {
+        "event": "done",
+        "data": json.dumps({
+            "response": result_text,
+            "session_id": session_id,
+            "skills": collected_skills,
+            "tool_calls": collected_tool_calls,
+            "visualization": collected_visualization,
+        }),
+    }
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+def _chunk_text(text: str, chunk_size: int = 80) -> Generator[str, None, None]:
+    """Split text into word-boundary chunks for SSE streaming."""
+    words = text.split(" ")
+    current = ""
+    for word in words:
+        if len(current) + len(word) + 1 > chunk_size and current:
+            yield current.strip() + " "
+            current = word + " "
+        else:
+            current += word + " "
+    if current.strip():
+        yield current.strip()
+
+
+# ============================================================================
 # Session Management (backed by StorageBackend)
-# ═══════════════════════════════════════════════════════════════════════════
+# ============================================================================
+
 
 def list_sessions(user_id: str = "default") -> list[dict[str, Any]]:
     """Return a list of session summaries for the given user, newest first."""
@@ -336,9 +359,10 @@ def reset_session(session_id: str) -> dict[str, Any]:
     return storage.reset_session(session_id)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ============================================================================
 # Workspace & User Management
-# ═══════════════════════════════════════════════════════════════════════════
+# ============================================================================
+
 
 def get_workspace_path(user_id: str, session_id: str):
     """Return the workspace directory path for a user's session."""

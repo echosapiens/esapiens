@@ -1,9 +1,18 @@
 """
-Modal Compute Service — E.sapiens agent execution on serverless cloud.
+Modal Compute Service — Optional standalone agent deployment (DEPRECATED primary path)
 
-All heavy computation (LLM calls, tool execution, plotting, bio pipelines)
-runs here. The VPS orchestrator proxies requests to this service.
+ARCHITECTURE CHANGE (May 2026):
+  The VPS now runs the LangGraph agent loop directly, calling OpenRouter locally.
+  Heavy bio tasks are dispatched to Modal via modal_tasks.py (biocontainers from
+  Quay.io). This file is retained as an optional deployment for running the agent
+  on Modal instead of the VPS (e.g., for isolated testing or failover).
 
+  To use this instead of the local agent on VPS:
+    modal deploy backend/modal_compute.py
+    export MODAL_COMPUTE_URL=<deployed-url>
+
+The deployed URL becomes MODAL_COMPUTE_URL in the VPS .env (optional override).
+"""
 Deploy:
     modal secret create esapiens-secrets OPENROUTER_API_KEY=sk-or-v1-... BRAVE_SEARCH_API_KEY=BSA...
     modal deploy backend/modal_compute.py

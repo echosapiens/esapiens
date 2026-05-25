@@ -150,53 +150,41 @@ BIO_TASKS: dict[str, dict[str, Any]] = {
 if MODAL_AVAILABLE:
     # ---- Container Images ----
 
-    _bio_base_image = (
-        modal.Image.debian_slim(python_version="3.11")
-        .apt_install(
-            "wget", "curl", "git", "build-essential", "zlib1g-dev",
-            "libbz2-dev", "liblzma-dev", "libncurses5-dev",
-        )
-    )
+    # BioContainers from Quay.io — production-ready, version-locked,
+    # maintained by the bioconda community. No more compiling from source.
+    #
+    # Each image pulls a specific tool pinned by build hash for reproducibility.
+    # Python dependencies are pip-installed separately on top.
 
-    # STAR aligner image
+    # STAR 2.7.11b aligner via BioContainers
     _star_image = (
-        _bio_base_image
-        .run_commands(
-            "wget -q https://github.com/alexdobin/STAR/archive/2.7.11b.tar.gz -O /tmp/star.tar.gz",
-            "cd /tmp && tar xzf star.tar.gz",
-            "cd STAR-2.7.11b/source && make -j$(nproc) STAR",
-            "cp /tmp/STAR-2.7.11b/source/STAR /usr/local/bin/",
-            "rm -rf /tmp/star.tar.gz /tmp/STAR-*",
+        modal.Image.from_registry(
+            "quay.io/biocontainers/star:2.7.11b--h5ca1c30_8",
+            add_python="3.11",
         )
         .pip_install("pysam")
     )
 
-    # SRA toolkit image (fasterq-dump + prefetch)
+    # SRA Toolkit 3.4.1 (fasterq-dump, prefetch) via BioContainers
     _sra_image = (
-        _bio_base_image
-        .run_commands(
-            "wget -q https://ftp-trace.ncbi.nlm.nih.gov/sra/sdk/3.1.1/sratoolkit.3.1.1-ubuntu64.tar.gz -O /tmp/sra.tar.gz",
-            "cd /tmp && tar xzf sra.tar.gz",
-            "cp /tmp/sratoolkit.3.1.1-ubuntu64/bin/fasterq-dump /usr/local/bin/",
-            "cp /tmp/sratoolkit.3.1.1-ubuntu64/bin/prefetch /usr/local/bin/",
-            "cp /tmp/sratoolkit.3.1.1-ubuntu64/bin/vdb-config /usr/local/bin/",
-            "rm -rf /tmp/sra.tar.gz /tmp/sratoolkit*",
+        modal.Image.from_registry(
+            "quay.io/biocontainers/sra-tools:3.4.1--h4304569_1",
+            add_python="3.11",
         )
         .pip_install("pysam")
     )
 
-    # DESeq2 R image
+    # DESeq2 1.50.2 (R 4.5 / Bioconductor 3.21) via BioContainers
+    # Ships R + BiocManager + DESeq2 pre-installed. No apt installs needed.
     _deseq2_image = (
-        modal.Image.debian_slim(python_version="3.11")
-        .apt_install("r-base", "r-base-dev", "libcurl4-openssl-dev", "libxml2-dev")
-        .run_commands(
-            'Rscript -e \'install.packages(c("BiocManager"), repos="https://cloud.r-project.org")\'',
-            'Rscript -e \'BiocManager::install("DESeq2")\'',
+        modal.Image.from_registry(
+            "quay.io/biocontainers/bioconductor-deseq2:1.50.2--r45ha27e39d_0",
+            add_python="3.11",
         )
         .pip_install("pandas", "numpy", "httpx")
     )
 
-    # General GPU image for ML tasks
+    # General GPU image for ML tasks (no biocontainer — PyTorch from pip)
     _gpu_image = (
         modal.Image.debian_slim(python_version="3.11")
         .pip_install("torch", "transformers", "scanpy", "anndata")
