@@ -43,15 +43,12 @@ def _build_interface() -> "gr.Blocks":
     # ── Build the Blocks ─────────────────────────────────────────────
     with gr.Blocks(
         title="E.sapiens — AI Bioinformatics Agent",
-        theme=gr.themes.Soft(
-            primary_hue="blue",
-            neutral_hue="slate",
-        ),
-        css="""
-        footer { display: none !important; }
-        .gradio-container { max-width: 900px; margin: auto; }
-        """,
+        theme=gr.themes.Soft(primary_hue="blue", neutral_hue="slate"),
     ) as demo:
+        gr.HTML("""<style>
+        footer { display: none !important; }
+        .gradio-container { max-width: 900px !important; margin: auto !important; }
+        </style>""")
         gr.Markdown(
             """
             # 🧬 E.sapiens
@@ -64,8 +61,6 @@ def _build_interface() -> "gr.Blocks":
             label="Conversation",
             placeholder="Ask a bioinformatics question...",
             height=500,
-            bubble_full_width=False,
-            render_markdown=True,
             show_copy_button=True,
         )
 
