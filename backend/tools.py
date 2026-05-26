@@ -596,30 +596,72 @@ def execute_python(code: str, description: str = "") -> ToolResult:
     Use run_bio_pipeline or run_modal_job for heavy or bio workloads.
     """
     # ── Bio computation guard: refuse bio tool usage that belongs on Modal ──
-    BIO_PATTERNS = [
+    # Extended patterns — detect semantic bioinformatics even without tool names like STAR
+    _TCGA_BIO_URLS = (
+        r"tcga-xena-hub\.s3",
+        r"tcga.*xena",
+        r"gdc\.cancer\.gov",
+        r"xena\.ucsc\.edu.*tcga",
+    )
+    _BIO_SEMANTIC_PATTERNS = (
+        # Genomic data portals / large bio downloads
+        r"geo.*download|gse\d+.*series_matrix",
+        r"sra.*download|sratoolkit|fasterq-dump",
+        r"ncbi.*sra|nih.*sra",
+        # Survival / clinical matrix patterns (the agent should not do this on VPS)
+        r"pam50.*subtype|pam50.*rna",
+        r"survival.*analysis|kaplan.*meier|km.*plot",
+        r"tcga.*clinical|clinical.*matrix",
+        r"os_event|os_time|vital.*status",
+        # Heavy bioinformatics computation
+        r"deseq2?|edger|featurecounts",
+        r"star.*align|hisat2|bwa.*align",
+        r"scanpy|anndata|single.*cell",
+        r"methylation.*analysis|minfi",
+    )
+    _BIO_PATTERNS = (
         # Bio tool commands
-        r'\bSTAR\b', r'\bfasterq-dump\b', r'\bprefetch\b', r'\bsratoolkit\b',
-        r'\bRscript\b.*DESeq', r'\bRscript\b.*\bdeseq\b',
-        r'\bsamtools\b', r'\bbcftools\b', r'\bbwa\b', r'\bbowtie2?\b',
-        r'\bhtseq-count\b', r'\bfeatureCounts\b', r'\bfastqc\b',
-        r'\btrimmomatic\b', r'\bcutadapt\b', r'\bmultiqc\b',
-        r'\bkallisto\b', r'\bsalmon\b', r'\bhisat2\b',
+        r"\bSTAR\b", r"\bfasterq-dump\b", r"\bprefetch\b", r"\bsratoolkit\b",
+        r"\bRscript\b.*DESeq", r"\bRscript\b.*\bdeseq\b",
+        r"\bsamtools\b", r"\bbcftools\b", r"\bbwa\b", r"\bbowtie2?\b",
+        r"\bhtseq-count\b", r"\bfeatureCounts\b", r"\bfastqc\b",
+        r"\btrimmomatic\b", r"\bcutadapt\b", r"\bmultiqc\b",
+        r"\bkallisto\b", r"\bsalmon\b", r"\bhisat2\b",
         # Heavy bio Python imports
-        r'\bimport\s+scanpy\b', r'\bimport\s+anndata\b', r'\bfrom\s+scanpy\b',
-        r'\bimport\s+biopython\b', r'\bfrom\s+Bio\b', r'\bimport\s+Bio\b',
-        r'\bimport\s+pybedtools\b', r'\bimport\s+pysam\b', r'\bfrom\s+pysam\b',
-        r'\bimport\s+deeptools\b', r'\bfrom\s+deeptools\b',
+        r"\bimport\s+scanpy\b", r"\bimport\s+anndata\b", r"\bfrom\s+scanpy\b",
+        r"\bimport\s+biopython\b", r"\bfrom\s+Bio\b", r"\bimport\s+Bio\b",
+        r"\bimport\s+pybedtools\b", r"\bimport\s+pysam\b", r"\bfrom\s+pysam\b",
+        r"\bimport\s+deeptools\b", r"\bfrom\s+deeptools\b",
         # Heavy compute patterns
-        r'\bsubprocess\.(run|call|Popen)\b.*\b(star|deseq|sra|fasterq|prefetch|samtools|bwa|bowtie)\b',
+        r"\bsubprocess\.(run|call|Popen)\b.*\b(star|deseq|sra|fasterq|prefetch|samtools|bwa|bowtie)\b",
         # Shell injection via os
-        r'\bos\.system\b', r'\bos\.popen\b', r'\bos\.exec\b',
+        r"\bos\.system\b", r"\bos\.popen\b", r"\bos\.exec\b",
         # Large data download patterns
-        r'\bftp://\b.*\b(sra|gb|gds)\b',
-        r'\bhttps?://ftp\.ncbi\.nlm\.nih\.gov/',
-        r'\bSRA.*download\b', r'\bdownload.*SRR\b',
-    ]
+        r"\bftp://\b.*\b(sra|gb|gds)\b",
+        r"\bhttps?://ftp\.ncbi\.nlm\.nih\.gov/",
+        r"\bSRA.*download\b", r"\bdownload.*SRR\b",
+    )
+
     import re as _re
-    for pattern in BIO_PATTERNS:
+    code_lower = code.lower()
+
+    # Check extended bio patterns first
+    for pattern in _BIO_SEMANTIC_PATTERNS:
+        if _re.search(pattern, code_lower):
+            return ToolResult.err(
+                "execute_python", f"Bioinformatics computation detected ('{pattern}' pattern). "
+                "This workload belongs on Modal. Use run_bio_pipeline or run_modal_job instead."
+            )
+
+    for pattern in _TCGA_BIO_URLS:
+        if _re.search(pattern, code, _re.IGNORECASE):
+            return ToolResult.err(
+                "execute_python", "TCGA/GEO genomic data portal access detected. "
+                "Dispatch to Modal using run_bio_pipeline or run_modal_job. "
+                "Example: run_modal_job(job_type='tcga_data', params={'dataset': 'BRCA', 'type': 'clinical'})"
+            )
+
+    for pattern in _BIO_PATTERNS:
         if _re.search(pattern, code, _re.IGNORECASE):
             return ToolResult.err(
                 "execute_python",
