@@ -67,7 +67,7 @@ def create_tool(
     """
     # Validate name
     if not name.replace("_", "").isalnum():
-        return {"error": f"Invalid tool name: {name}. Use lowercase letters, numbers, underscores."}
+        return {"error": f"Invalid tool name: '{name}'. Use lowercase letters, numbers, underscores only."}
 
     # Sanitize name
     safe_name = name.lower().strip().replace("-", "_").replace(" ", "_")
@@ -131,9 +131,9 @@ def {safe_name}({params_sig}{', ' if params_sig else ''}**kwargs):
         spec.loader.exec_module(mod)
         func = getattr(mod, safe_name)
     except Exception as e:
-        # Remove broken module
+        # Remove broken module so it doesn't get loaded again
         module_path.unlink(missing_ok=True)
-        return {"error": f"Tool code failed to load: {e}"}
+        return {"error": f"Tool code failed to load: {e}. Please check the code for syntax errors and try again."}
 
     # Register in TOOL_DEFINITIONS and TOOL_IMPLS
     definition = {
@@ -189,7 +189,9 @@ def load_dynamic_tools() -> list[dict]:
             spec.loader.exec_module(mod)
             func = getattr(mod, tool_name)
         except Exception as e:
-            print(f"[DynamicTools] Failed to load {tool_name}: {e}")
+            print(f"[DynamicTools] SKIPPING '{tool_name}' — module load failed: {e}. "
+                  f"The registry entry at '{module_path}' is stale or corrupted. "
+                  f"Remove it with: rm {module_path}")
             continue
 
         definition = info["definition"]

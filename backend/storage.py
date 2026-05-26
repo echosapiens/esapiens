@@ -78,8 +78,25 @@ INDEX_MESSAGES_SESSION = """
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, timestamp);
 """
 
-INDEX_SESSIONS_USER = """
-CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id, updated_at);
+TABLE_JOBS = """
+CREATE TABLE IF NOT EXISTS background_jobs (
+    job_id         TEXT PRIMARY KEY,
+    tool           TEXT NOT NULL DEFAULT '',
+    name           TEXT NOT NULL DEFAULT '',
+    command        TEXT NOT NULL DEFAULT '',
+    status         TEXT NOT NULL DEFAULT 'pending',
+    start_time     REAL NOT NULL,
+    end_time       REAL,
+    exit_code      INTEGER,
+    log_path       TEXT,
+    result_preview TEXT,
+    error          TEXT,
+    metadata       TEXT NOT NULL DEFAULT '{}'
+);
+"""
+
+INDEX_JOBS_STATUS = """
+CREATE INDEX IF NOT EXISTS idx_jobs_status ON background_jobs(status, start_time);
 """
 
 
@@ -135,8 +152,10 @@ class StorageBackend:
         self._conn.executescript(TABLE_SESSIONS)
         self._conn.executescript(TABLE_MESSAGES)
         self._conn.executescript(TABLE_META)
+        self._conn.executescript(TABLE_JOBS)
         self._conn.execute(INDEX_MESSAGES_SESSION)
         self._conn.execute(INDEX_SESSIONS_USER)
+        self._conn.execute(INDEX_JOBS_STATUS)
 
         # Migration: Add thoughts column to messages if missing
         try:
@@ -442,6 +461,107 @@ class StorageBackend:
             }, indent=2))
 
         return user_dir
+
+    # ── Background Jobs ──────────────────────────────────────────────────
+
+    def create_job(
+        self,
+        job_id: str,
+        tool: str,
+        name: str = "",
+        command: str = "",
+        metadata: dict | None = None,
+    ) -> None:
+        """Insert a new background job record."""
+        assert self._conn is not None
+        self._conn.execute(
+            """INSERT INTO background_jobs
+               (job_id, tool, name, command, status, start_time, metadata)
+               VALUES (?, ?, ?, ?, 'running', ?, ?)""",
+            (job_id, tool, name, command, time.time(), json.dumps(metadata or {})),
+        )
+        self._conn.commit()
+
+    def update_job(
+        self,
+        job_id: str,
+        status: str,
+        exit_code: int | None = None,
+        result_preview: str | None = None,
+        error: str | None = None,
+        **extra: Any,
+    ) -> None:
+        """Update a background job record (status, exit code, result preview, error)."""
+        assert self._conn is not None
+        fields = ["status = ?", "end_time = ?"]
+        values: list[Any] = [status, time.time()]
+        if exit_code is not None:
+            fields.append("exit_code = ?")
+            values.append(exit_code)
+        if result_preview is not None:
+            fields.append("result_preview = ?")
+            values.append(result_preview)
+        if error is not None:
+            fields.append("error = ?")
+            values.append(error)
+        if extra:
+            meta = {}
+            cur = self._conn.execute(
+                "SELECT metadata FROM background_jobs WHERE job_id = ?", (job_id,)
+            ).fetchone()
+            if cur:
+                meta = json.loads(cur[0])
+            meta.update(extra)
+            fields.append("metadata = ?")
+            values.append(json.dumps(meta))
+        values.append(job_id)
+        self._conn.execute(
+            f"UPDATE background_jobs SET {', '.join(fields)} WHERE job_id = ?",
+            values,
+        )
+        self._conn.commit()
+
+    def get_job(self, job_id: str) -> dict | None:
+        """Fetch a job record by job_id. Returns None if not found."""
+        assert self._conn is not None
+        cur = self._conn.execute(
+            "SELECT job_id, tool, name, command, status, start_time, end_time, "
+            "exit_code, log_path, result_preview, error, metadata "
+            "FROM background_jobs WHERE job_id = ?",
+            (job_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return {
+            "job_id": row[0], "tool": row[1], "name": row[2], "command": row[3],
+            "status": row[4], "start_time": row[5], "end_time": row[6],
+            "exit_code": row[7], "log_path": row[8], "result_preview": row[9],
+            "error": row[10],
+            "metadata": json.loads(row[11]) if row[11] else {},
+        }
+
+    def list_jobs(self, status: str | None = None, limit: int = 50) -> list[dict]:
+        """List background jobs, optionally filtered by status (running/completed/failed)."""
+        assert self._conn is not None
+        if status:
+            cur = self._conn.execute(
+                "SELECT job_id, tool, name, status, start_time, end_time, error "
+                "FROM background_jobs WHERE status = ? ORDER BY start_time DESC LIMIT ?",
+                (status, limit),
+            )
+        else:
+            cur = self._conn.execute(
+                "SELECT job_id, tool, name, status, start_time, end_time, error "
+                "FROM background_jobs ORDER BY start_time DESC LIMIT ?",
+                (limit,),
+            )
+        rows = cur.fetchall()
+        return [
+            {"job_id": r[0], "tool": r[1], "name": r[2], "status": r[3],
+             "start_time": r[4], "end_time": r[5], "error": r[6]}
+            for r in rows
+        ]
 
     # ── Cleanup ───────────────────────────────────────────────────────
 
