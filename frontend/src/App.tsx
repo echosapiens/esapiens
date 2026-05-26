@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { Component, type ReactNode } from "react";
 import { MantineProvider, useMantineColorScheme } from "@mantine/core";
 import { showNotification } from "@mantine/notifications";
 import { produce } from "immer";
@@ -32,6 +33,36 @@ import { CommandPalette } from "./components/Dashboard/CommandPalette";
 import { KeyboardShortcuts } from "./components/Dashboard/KeyboardShortcuts";
 import { JobMonitor } from "./components/Dashboard/JobMonitor";
 import { LoginPage } from "./components/Auth/LoginPage";
+
+/* ─── Error Boundary ─── */
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state: { hasError: boolean } = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          width: '100vw',
+          height: '100dvh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'var(--e-bg-base)',
+          fontFamily: 'var(--e-font-sans)',
+          color: 'var(--e-text-secondary)',
+          fontSize: 'var(--e-type-base)',
+        }}>
+          Something went wrong. Refresh to try again.
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 /* ─── Auth Guard ─── */
 
@@ -104,7 +135,7 @@ function MainApp() {
   }, []);
 
   useEffect(() => {
-    const handleEvents = (e: MouseEvent | KeyboardEvent) => {
+    const handleEvents = (e: Event) => {
       if (e instanceof MouseEvent) {
         // Tapping edge detection: top (y < 20) or left (x < 20)
         if (e.clientY < 20 || e.clientX < 20) {
@@ -116,15 +147,15 @@ function MainApp() {
       resetInactivityTimer();
     };
 
-    window.addEventListener('mousemove', handleEvents as any);
-    window.addEventListener('keydown', handleEvents as any);
-    window.addEventListener('mousedown', handleEvents as any);
+    window.addEventListener('mousemove', handleEvents);
+    window.addEventListener('keydown', handleEvents);
+    window.addEventListener('mousedown', handleEvents);
     resetInactivityTimer();
 
     return () => {
-      window.removeEventListener('mousemove', handleEvents as any);
-      window.removeEventListener('keydown', handleEvents as any);
-      window.removeEventListener('mousedown', handleEvents as any);
+      window.removeEventListener('mousemove', handleEvents);
+      window.removeEventListener('keydown', handleEvents);
+      window.removeEventListener('mousedown', handleEvents);
       if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
     };
   }, [resetInactivityTimer]);
@@ -269,7 +300,7 @@ function MainApp() {
         if (err instanceof Error && err.name === "AbortError") {
           setMessages((prev) => produce(prev, (draft) => { finalizeAssistant(draft); }));
         } else {
-          showNotification({ title: "Error", message: (err as any).message || "Request failed", color: "red" });
+          showNotification({ title: "Error", message: err instanceof Error ? err.message : 'Request failed', color: "red" });
           setMessages((prev) => produce(prev, (draft) => { finalizeAssistant(draft); }));
         }
       } finally {
@@ -337,8 +368,8 @@ function MainApp() {
       }}>
         {/* Header */}
         <div style={{
-          padding: actualUiVisible ? '10px 12px 0 12px' : '0',
-          marginTop: actualUiVisible ? 0 : -62,
+          padding: actualUiVisible ? '8px 12px 0 12px' : '0',
+          marginTop: actualUiVisible ? 0 : -64,
           flexShrink: 0,
           transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
           opacity: actualUiVisible ? 1 : 0,
@@ -369,7 +400,7 @@ function MainApp() {
           flex: 1,
           minHeight: 0,
           padding: actualUiVisible ? '10px 12px 12px 12px' : '0',
-          gap: actualUiVisible ? 10 : 0,
+          gap: actualUiVisible ? 8 : 0,
           transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
         }}>
           {/* Sidebar */}
@@ -398,7 +429,7 @@ function MainApp() {
           </div>
 
           {/* Chat Expansion */}
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <Chat
               messages={messages}
               onSend={handleSendMessage}
@@ -422,7 +453,9 @@ export default function App() {
     <MantineProvider theme={theme} defaultColorScheme="auto">
       <AuthProvider>
         <AuthGuard>
-          <MainApp />
+          <ErrorBoundary>
+            <MainApp />
+          </ErrorBoundary>
         </AuthGuard>
       </AuthProvider>
     </MantineProvider>

@@ -105,7 +105,7 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
         <div
           style={{
             maxWidth: '80%',
-            padding: '10px 16px',
+            padding: '8px 16px',
             borderRight: '2px solid var(--e-accent-blue)',
             backgroundColor: 'rgba(37, 99, 235, 0.04)',
             borderRadius: 'var(--e-radius-md)',
@@ -148,7 +148,7 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
         onClick={isAnimating ? skipToEnd : undefined}
         style={{
           maxWidth: '88%',
-          padding: '8px 16px 10px',
+          padding: '8px 16px 12px',
           borderLeft: `2px solid ${isAnimating ? 'var(--e-accent-blue)' : 'var(--e-border)'}`,
           cursor: isAnimating ? 'pointer' : 'default',
           position: 'relative',

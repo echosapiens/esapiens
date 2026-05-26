@@ -56,13 +56,13 @@
   --e-font-mono: 'Roboto Mono', monospace;
 
   /* Type scale — 4pt grid */
-  --e-type-xs: 0.8125rem;    /* 13px */
+  --e-type-xs: 0.75rem;      /* 12px */
   --e-type-sm: 0.875rem;     /* 14px */
   --e-type-base: 1rem;       /* 16px */
   --e-type-md: 1.125rem;     /* 18px */
   --e-type-lg: 1.3125rem;    /* 21px */
-  --e-type-xl: 1.5625rem;    /* 25px */
-  --e-type-2xl: 1.8125rem;   /* 29px */
+  --e-type-xl: 1.5rem;      /* 24px */
+  --e-type-2xl: 1.75rem;     /* 28px */
   --e-type-3xl: 2.25rem;     /* 36px */
 
   /* Spacing — 8pt soft grid */
@@ -100,7 +100,7 @@
 /* ══════════════════════════════════════════════════════════════════════════
    BASE STYLES
    ══════════════════════════════════════════════════════════════════════════ */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; }
 
 html {
   font-size: 16px;
@@ -114,7 +114,7 @@ body {
   background: var(--e-bg-base);
   color: var(--e-text-primary);
   font-family: var(--e-font-sans);
-  font-size: 0.9375rem;
+  font-size: 1rem;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

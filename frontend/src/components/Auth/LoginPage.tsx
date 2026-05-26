@@ -51,7 +51,7 @@ const inputStyles = {
     transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease',
     '&:focus': {
       borderColor: '#2563EB',
-      boxShadow: '0 0 0 3px rgba(9, 36, 38, 0.08)',
+      boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.08)',
       backgroundColor: '#FFFFFF',
     },
     '&::placeholder': {
@@ -393,7 +393,7 @@ export function LoginPage() {
               opacity: submitting ? 0.7 : 1,
             }}
             onMouseEnter={(e) => {
-              if (!submitting) e.currentTarget.style.backgroundColor = '#1a3a3c';
+              if (!submitting) e.currentTarget.style.backgroundColor = '#1D4ED8';
             }}
             onMouseLeave={(e) => {
               if (!submitting) e.currentTarget.style.backgroundColor = '#2563EB';

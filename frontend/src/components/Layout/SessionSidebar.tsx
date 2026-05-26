@@ -28,7 +28,16 @@ function SessionItem({
 }) {
   return (
     <div
+      className="session-item-row"
       onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -221,7 +230,8 @@ export function SessionSidebar({
 
       {/* ─── CSS to show delete on row hover ─── */}
       <style>{`
-        .session-item-row:hover .session-delete-btn { opacity: 1 !important; }
+        .session-item-row:hover .session-delete-btn,
+        .session-item-row:focus-within .session-delete-btn { opacity: 1 !important; }
       `}</style>
 
       {/* ─── Mobile footer ─── */}

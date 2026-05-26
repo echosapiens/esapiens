@@ -7,7 +7,7 @@ interface DashboardProps {
   sessionCount: number;
 }
 
-/* ─── Stat Card — Filippo: high contrast, skip weight hierarchy ─── */
+/* ─── Stat Card — Filipiuk: high contrast, skip weight hierarchy ─── */
 function StatCard({ label, value, accent }: { label: string; value: string; accent: string }) {
   return (
     <Paper

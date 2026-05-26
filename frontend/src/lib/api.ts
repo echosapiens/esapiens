@@ -163,7 +163,7 @@ async function apiFetch<T>(
 
   // Handle 204 No Content
   if (response.status === 204) {
-    return undefined as T;
+    return undefined as unknown as T;
   }
 
   return response.json() as Promise<T>;
