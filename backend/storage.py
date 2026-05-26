@@ -190,15 +190,13 @@ class StorageBackend:
     @property
     def checkpoint_saver(self) -> SqliteSaver:
         """
-        Return a context-managed SqliteSaver for LangGraph agent checkpoints.
-
-        Usage:
-            with storage.checkpoint_saver as saver:
-                graph.compile(checkpointer=saver)
+        Return a SqliteSaver instance for LangGraph agent checkpoints.
+        Uses direct constructor (not from_conn_string) to avoid context manager.
         """
         if self._checkpoint_saver is None:
             cp_path = str(self._checkpoints_dir / "agent_checkpoints.db")
-            self._checkpoint_saver = SqliteSaver.from_conn_string(cp_path)
+            conn = sqlite3.connect(cp_path, check_same_thread=False)
+            self._checkpoint_saver = SqliteSaver(conn)
         return self._checkpoint_saver
 
     @property
