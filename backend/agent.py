@@ -28,6 +28,7 @@ from prompts import (
     build_tool_definitions_block,
     build_specialist_guidance,
 )
+from compress import compress_messages, should_compress, count_tokens
 
 # ── Tiered Query Routing ────────────────────────────────────────────────────
 
@@ -244,23 +245,43 @@ def _mock_llm_response(state: WorkflowState) -> AIMessage:
 
 
 def call_model(state: WorkflowState) -> dict:
-    """Call the LLM with the current conversation and return the response."""
+    """Call the LLM with the current conversation and return the response.
+
+    Before invoking the LLM, compresses the message history if it exceeds
+    80% of the model's context window to prevent token overflow errors.
+    """
     if _is_placeholder_key():
         response = _mock_llm_response(state)
         return {"messages": [response]}
 
     llm = get_llm()
+
+    # ── Context compression ──────────────────────────────────────────────
+    # Compress message history if it exceeds the model's context threshold.
+    # This prevents 400 errors from token overflow on long conversations.
+    messages = list(state["messages"])
+    if should_compress(messages, chosen_model):
+        compressed = compress_messages(
+            messages,
+            model_name=chosen_model,
+            openrouter_api_key=_openrouter_api_key,
+        )
+        if len(compressed) < len(messages):
+            print(f"[Compress] {len(messages)} msgs → {len(compressed)} "
+                  f"({count_tokens(messages)} → {count_tokens(compressed)} tokens)")
+            messages = compressed
+
     # Bind tools so the model can request function calls
     try:
         llm_with_tools = llm.bind_tools(TOOL_DEFINITIONS)
-        response = llm_with_tools.invoke(state["messages"])
+        response = llm_with_tools.invoke(messages)
     except Exception as e:
         err_str = str(e)
         # If provider rejects the tool definitions, try without tools
         if "400" in err_str or "BadRequest" in err_str or "tool" in err_str.lower():
             print(f"[Agent] Tool binding rejected by provider ({e.__class__.__name__}), retrying without tools")
             try:
-                response = llm.invoke(state["messages"])
+                response = llm.invoke(messages)
             except Exception as e2:
                 print(f"[Agent] LLM invocation failed: {e2}")
                 return {"messages": [AIMessage(content="I encountered an error processing your request. Please try again.")]}
