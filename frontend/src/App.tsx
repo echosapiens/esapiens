@@ -30,6 +30,7 @@ import { Chat } from "./components/Chat/Chat";
 import { SystemStatusBar } from "./components/Telemetry/SystemStatusBar";
 import { CommandPalette } from "./components/Dashboard/CommandPalette";
 import { KeyboardShortcuts } from "./components/Dashboard/KeyboardShortcuts";
+import { JobMonitor } from "./components/Dashboard/JobMonitor";
 import { LoginPage } from "./components/Auth/LoginPage";
 
 /* ─── Auth Guard ─── */
@@ -90,6 +91,7 @@ function MainApp() {
   /* ─── Command palette & shortcuts state ─── */
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [jobMonitorOpen, setJobMonitorOpen] = useState(false);
 
   const { toggleColorScheme } = useMantineColorScheme();
 
@@ -158,6 +160,11 @@ function MainApp() {
       if (e.key === '?' && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
         e.preventDefault();
         setShortcutsOpen(true);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
+        e.preventDefault();
+        setJobMonitorOpen((prev) => !prev);
         return;
       }
       if (e.key === 'Escape') {
@@ -318,6 +325,7 @@ function MainApp() {
       <a href="#chat-content" className="e-skip-link">Skip to content</a>
       <CommandPalette opened={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} onNewChat={handleNewChat} onToggleSidebar={toggleSidebar} onOpenShortcuts={() => setShortcutsOpen(true)} />
       <KeyboardShortcuts opened={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <JobMonitor opened={jobMonitorOpen} onClose={() => setJobMonitorOpen(false)} />
 
       <div style={{
         width: '100vw',

@@ -139,6 +139,35 @@ async def sessions_delete(
     return {"status": "deleted", "session_id": session_id}
 
 
+# ── Job monitor endpoints ────────────────────────────────────────────────
+
+
+@router.get("/jobs")
+async def jobs_list(
+    status: str | None = None,
+    current_user: dict = Depends(get_current_user),
+) -> list[dict[str, Any]]:
+    """
+    List background jobs, optionally filtered by status.
+    Returns job_id, tool, name, status, start_time, end_time, error.
+    """
+    from storage import get_storage
+    return get_storage().list_jobs(status=status, limit=100)
+
+
+@router.get("/jobs/{job_id}")
+async def jobs_get(
+    job_id: str,
+    current_user: dict = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Get full details of a single background job."""
+    from storage import get_storage
+    record = get_storage().get_job(job_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+    return record
+
+
 # ── Report generation ─────────────────────────────────────────────────────
 
 

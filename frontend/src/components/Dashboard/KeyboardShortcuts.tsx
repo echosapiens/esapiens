@@ -14,6 +14,7 @@ const SHORTCUTS: ShortcutEntry[] = [
   { keys: ['⌘K'], label: 'Command palette' },
   { keys: ['⌘N'], label: 'New chat session' },
   { keys: ['⌘B'], label: 'Toggle sidebar' },
+  { keys: ['⌘J'], label: 'Job monitor' },
   { keys: ['?'], label: 'Keyboard shortcuts' },
   { keys: ['⌘', '↑'], label: 'Scroll to top' },
   { keys: ['⌘', '↓'], label: 'Scroll to bottom' },

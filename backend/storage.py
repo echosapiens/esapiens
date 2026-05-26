@@ -78,6 +78,10 @@ INDEX_MESSAGES_SESSION = """
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, timestamp);
 """
 
+INDEX_SESSIONS_USER = """
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id, updated_at);
+"""
+
 TABLE_JOBS = """
 CREATE TABLE IF NOT EXISTS background_jobs (
     job_id         TEXT PRIMARY KEY,
