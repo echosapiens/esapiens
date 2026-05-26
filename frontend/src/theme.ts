@@ -1,29 +1,26 @@
 import { createTheme, type MantineColorsTuple } from '@mantine/core';
 
-/* ─── Custom Professional Color Palette ─── */
+/* ─── Brand Color — Electric Indigo ─── */
 const brand: MantineColorsTuple = [
-  '#EFF6FF', // 0 - lightest
-  '#DBEAFE', // 1
-  '#BFDBFE', // 2
-  '#93C5FD', // 3
-  '#60A5FA', // 4
-  '#3B82F6', // 5
-  '#2563EB', // 6
-  '#1D4ED8', // 7
-  '#1E40AF', // 8
-  '#1E3A8A', // 9 - darkest (primary)
+  '#EEF2FF', // 0 - lightest
+  '#E0E7FF', // 1
+  '#C7D2FE', // 2
+  '#A5B4FC', // 3
+  '#818CF8', // 4
+  '#6366F1', // 5
+  '#4F46E5', // 6 ← primary
+  '#4338CA', // 7
+  '#3730A3', // 8
+  '#312E81', // 9 - darkest
 ];
 
-/* ─── Professional Light Theme for E.sapiens ─── */
+/* ─── E.sapiens Theme v3 ─── */
 export const theme = createTheme({
   primaryColor: 'brand',
-  primaryShade: 9,
+  primaryShade: 6,
 
-  colors: {
-    brand,
-  },
+  colors: { brand },
 
-  /* Typography — Inter headings & body, Roboto Mono code */
   fontFamily: "var(--e-font-sans)",
   fontFamilyMonospace: "var(--e-font-mono)",
 
@@ -31,40 +28,32 @@ export const theme = createTheme({
     fontFamily: "var(--e-font-display)",
     fontWeight: '600',
     sizes: {
-      h1: { fontSize: 'var(--e-type-2xl)', lineHeight: '1.25' },   /* 28px */
-      h2: { fontSize: 'var(--e-type-xl)', lineHeight: '1.3' },     /* 24px */
-      h3: { fontSize: 'var(--e-type-lg)', lineHeight: '1.35' },     /* 20px */
-      h4: { fontSize: 'var(--e-type-base)', lineHeight: '1.4' },    /* 16px */
-      h5: { fontSize: 'var(--e-type-sm)', fontWeight: '600' },      /* 14px */
-      h6: { fontSize: 'var(--e-type-xs)', fontWeight: '600' },     /* 12px */
+      h1: { fontSize: 'var(--e-type-2xl)', lineHeight: '1.2' },
+      h2: { fontSize: 'var(--e-type-xl)', lineHeight: '1.25' },
+      h3: { fontSize: 'var(--e-type-lg)', lineHeight: '1.3' },
+      h4: { fontSize: 'var(--e-type-base)', lineHeight: '1.35' },
+      h5: { fontSize: 'var(--e-type-sm)', fontWeight: '600' },
+      h6: { fontSize: 'var(--e-type-xs)', fontWeight: '600' },
     },
   },
 
   fontSizes: {
-    xs: 'var(--e-type-xs)',      /* 12px */
-    sm: 'var(--e-type-sm)',      /* 14px */
-    md: 'var(--e-type-base)',    /* 16px */
-    lg: 'var(--e-type-md)',      /* 18px */
-    xl: 'var(--e-type-lg)',      /* 20px */
+    xs: 'var(--e-type-xs)',
+    sm: 'var(--e-type-sm)',
+    md: 'var(--e-type-base)',
+    lg: 'var(--e-type-md)',
+    xl: 'var(--e-type-xl)',
   },
 
   spacing: {
-    xs: '0.25rem',
-    sm: '0.5rem',
-    md: '0.75rem',
-    lg: '1rem',
-    xl: '1.25rem',
+    xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '20px',
   },
 
   radius: {
-    xs: '4px',
-    sm: '4px',
-    md: '6px',
-    lg: '8px',
-    xl: '12px',
+    xs: '6px', sm: '8px', md: '10px', lg: '14px', xl: '18px',
   },
 
-  defaultRadius: 'md',
+  defaultRadius: 'lg',
   cursorType: 'pointer',
   respectReducedMotion: true,
 
@@ -80,10 +69,7 @@ export const theme = createTheme({
     },
 
     Paper: {
-      defaultProps: {
-        p: 'md',
-        radius: 'md',
-      },
+      defaultProps: { p: 'md', radius: 'lg' },
       styles: {
         root: {
           backgroundColor: 'var(--e-bg-surface)',
@@ -94,66 +80,55 @@ export const theme = createTheme({
     },
 
     Card: {
-      defaultProps: {
-        p: 'lg',
-        radius: 'md',
-        withBorder: true,
-      },
+      defaultProps: { p: 'lg', radius: 'xl', withBorder: true },
       styles: {
         root: {
           backgroundColor: 'var(--e-bg-surface)',
           borderColor: 'var(--e-border-subtle)',
-          transition: 'box-shadow 0.15s ease, border-color 0.15s ease',
+          boxShadow: 'var(--e-shadow-card)',
+          transition: 'box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease',
         },
       },
     },
 
     Button: {
-      defaultProps: {
-        radius: 'md',
-        size: 'sm',
-      },
+      defaultProps: { radius: 'lg', size: 'sm' },
       styles: {
         root: {
           fontFamily: 'var(--e-font-sans)',
           fontSize: 'var(--e-type-sm)',
           fontWeight: '500',
-          transition: 'all 0.15s ease',
-          height: '36px',
+          transition: 'all 0.12s cubic-bezier(0.4, 0, 0.2, 1)',
+          height: '42px',
+          letterSpacing: '-0.01em',
         },
       },
     },
 
     ActionIcon: {
-      defaultProps: {
-        radius: 'md',
-        variant: 'subtle',
-      },
+      defaultProps: { radius: 'md', variant: 'subtle' },
       styles: {
         root: {
-          transition: 'all 0.1s ease',
+          transition: 'all 0.12s ease',
         },
       },
     },
 
     TextInput: {
-      defaultProps: {
-        radius: 'md',
-        size: 'sm',
-      },
+      defaultProps: { radius: 'lg', size: 'sm' },
       styles: {
         input: {
           backgroundColor: 'var(--e-bg-surface)',
           border: '1px solid var(--e-border)',
           color: 'var(--e-text-primary)',
           fontFamily: 'var(--e-font-sans)',
-          fontSize: 'var(--e-type-sm)',
-          padding: '8px 12px',
-          height: '36px',
-          transition: 'border-color 0.1s ease, box-shadow 0.1s ease',
+          fontSize: 'var(--e-type-base)',
+          padding: '11px 14px',
+          height: '44px',
+          transition: 'border-color 0.12s ease, box-shadow 0.12s ease',
           '&:focus': {
             borderColor: 'var(--e-brand)',
-            boxShadow: '0 0 0 3px rgba(9, 36, 38, 0.08)',
+            boxShadow: '0 0 0 4px rgba(79, 70, 229, 0.1)',
           },
           '&::placeholder': {
             color: 'var(--e-text-muted)',
@@ -163,10 +138,7 @@ export const theme = createTheme({
     },
 
     Badge: {
-      defaultProps: {
-        radius: 'sm',
-        variant: 'light',
-      },
+      defaultProps: { radius: 'sm', variant: 'light' },
       styles: {
         root: {
           fontFamily: 'var(--e-font-mono)',
@@ -181,11 +153,7 @@ export const theme = createTheme({
     },
 
     Tooltip: {
-      defaultProps: {
-        withArrow: true,
-        arrowSize: 6,
-        radius: 'sm',
-      },
+      defaultProps: { withArrow: true, arrowSize: 6, radius: 'sm' },
       styles: {
         tooltip: {
           fontFamily: 'var(--e-font-mono)',
@@ -193,16 +161,13 @@ export const theme = createTheme({
           fontWeight: '500',
           letterSpacing: '0.03em',
           padding: '6px 10px',
-          backgroundColor: '#0A0B0F',
+          backgroundColor: '#111827',
         },
       },
     },
 
     Modal: {
-      defaultProps: {
-        radius: 'lg',
-        centered: true,
-      },
+      defaultProps: { radius: 'xl', centered: true },
       styles: {
         header: {
           fontFamily: 'var(--e-font-display)',
@@ -217,18 +182,18 @@ export const theme = createTheme({
     NavLink: {
       styles: {
         root: {
-          borderRadius: 'var(--e-radius-md)',
+          borderRadius: 'var(--e-radius-lg)',
           fontFamily: 'var(--e-font-sans)',
           fontSize: 'var(--e-type-sm)',
           fontWeight: '500',
-          padding: '8px 12px',
-          transition: 'all 0.1s ease',
+          padding: '9px 14px',
+          transition: 'all 0.12s ease',
           '&:hover': {
             backgroundColor: 'var(--e-bg-hover)',
           },
           '&[data-active]': {
             backgroundColor: 'var(--e-bg-subtle)',
-            color: 'var(--e-text-primary)',
+            color: 'var(--e-brand)',
             fontWeight: '600',
           },
         },
@@ -238,12 +203,10 @@ export const theme = createTheme({
     ScrollArea: {
       styles: {
         viewport: {
-          '&::-webkit-scrollbar': {
-            width: '8px',
-          },
+          '&::-webkit-scrollbar': { width: '5px' },
           '&::-webkit-scrollbar-thumb': {
             backgroundColor: 'var(--e-border)',
-            borderRadius: '4px',
+            borderRadius: '9999px',
           },
         },
       },
@@ -287,27 +250,13 @@ export const theme = createTheme({
       },
     },
 
-    Text: {
-      defaultProps: {
-        size: 'sm',
-      },
-    },
-
-    Group: {
-      defaultProps: {
-        gap: 'sm',
-      },
-    },
-
-    Stack: {
-      defaultProps: {
-        gap: 'sm',
-      },
-    },
+    Text: { defaultProps: { size: 'sm' } },
+    Group: { defaultProps: { gap: 'sm' } },
+    Stack: { defaultProps: { gap: 'sm' } },
   },
 
   other: {
-    version: '2.2.0',
-    professional: true,
+    version: '3.0',
+    designSystem: 'modern-minimal-luxury',
   },
 });
