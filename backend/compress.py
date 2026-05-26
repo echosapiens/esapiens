@@ -86,7 +86,7 @@ MODEL_CONTEXT_WINDOWS: dict[str, int] = {
     # OpenRouter models — use the largest known context as default
     "default": 128_000,
     "deepseek/deepseek-chat": 128_000,
-    "deepseek/deepseek-v4-flash:exacto": 128_000,
+    "inception/mercury-2": 128_000,
     "openai/gpt-4o": 128_000,
     "openai/gpt-4o-mini": 128_000,
     "anthropic/claude-sonnet-4": 200_000,
@@ -304,7 +304,7 @@ def _summarize_with_llm(
     # Use a fast cheap model for summarization, not the main model
     summarize_model = os.environ.get(
         "ESAPIENS_SUMMARIZE_MODEL",
-        "deepseek/deepseek-v4-flash:exacto"
+        "inception/mercury-2"
     )
     key = api_key or os.environ.get("OPENROUTER_API_KEY", "")
     if not key or key.startswith("sk-or-v1-placeholder"):

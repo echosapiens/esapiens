@@ -145,7 +145,7 @@ def direct_llm_response(query: str) -> str:
 # ── Agent state ──────────────────────────────────────────────────────────────
 
 # set chosen_model from environment variable.
-chosen_model = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash:exacto")
+chosen_model = os.getenv("OPENROUTER_MODEL", "inception/mercury-2")
 class WorkflowState(TypedDict):
     """State passed between nodes in the ReAct loop."""
 
@@ -541,7 +541,7 @@ Last tool result (raw):
         critic_llm = ChatOpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=key,
-            model=os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash:exacto"),
+            model=os.getenv("OPENROUTER_MODEL", "inception/mercury-2"),
             temperature=0.0,
             max_completion_tokens=512,
             timeout=30,
