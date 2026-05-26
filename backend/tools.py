@@ -103,6 +103,7 @@ _ALLOWED_IMPORTS = frozenset({
     "plotly", "plotly_express",
     "json", "math", "re", "datetime", "collections", "itertools",
     "pathlib", "typing",
+    "os",  # allowed via _safe_os (injected into exec ns); also accepted by _safe_import
 })
 
 # Capture the real Python __import__ at module load time (before _SAFE_BUILTINS is built)
