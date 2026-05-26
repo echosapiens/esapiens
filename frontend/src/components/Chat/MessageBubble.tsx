@@ -209,7 +209,6 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
         {/* Thoughts / Neural Engine Trace */}
         {hasThoughts && (
           <div style={{
-            marginBottom: 8,
             maxHeight: thoughtsCollapsed ? 0 : 600,
             overflow: 'hidden',
             transition: isStreaming ? 'none' : 'max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease, margin-bottom 0.4s ease',
