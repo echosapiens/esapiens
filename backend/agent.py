@@ -30,8 +30,13 @@ from prompts import (
     build_tool_definitions_block,
     build_output_format_block,
     build_specialist_guidance,
+    load_env_description,
+    build_env_context_block,
 )
 from compress import compress_messages, should_compress, count_tokens
+from intent_classifier import classify_query, get_classifier
+from skill_loader import get_skill_loader, SkillContextBuilder
+from pathlib import Path
 
 # ── Tiered Query Routing ────────────────────────────────────────────────────
 
@@ -195,10 +200,6 @@ def classify_intent_node(state: WorkflowState) -> dict:
     First node: classify the user query, load relevant skills,
     and inject skill context into the system prompt.
     """
-    from intent_classifier import classify_query
-    from skill_loader import get_skill_loader, SkillContextBuilder
-    from pathlib import Path
-
     query = state["query"]
     skill_paths = classify_query(query)
 
@@ -207,12 +208,18 @@ def classify_intent_node(state: WorkflowState) -> dict:
     builder = SkillContextBuilder(loader)
     skills_context = builder.build_context(skill_paths, max_length=6000)
 
+    # Load environment description
+    env_description = load_env_description()
+
     # Build the system message with skill context
     tool_definitions_str = "\n".join(
         f"  - {t['name']}: {t['description']}" for t in TOOL_DEFINITIONS
     )
     system_content = get_prompt(
         "standard",
+        env_context_block=build_env_context_block(
+            env_description if env_description else "(environment description not available)"
+        ),
         skill_context_block=build_skill_context_block(
             skills_context if skills_context else "(no skill context)"
         ),

@@ -65,6 +65,7 @@ def get_prompt(
     # Block substitution — these are injected only if the placeholder
     # exists in the prompt template (conditional substitution).
     identity: Optional[str] = None,
+    env_context_block: Optional[str] = None,
     skill_context_block: Optional[str] = None,
     tool_definitions_block: Optional[str] = None,
     specialist_guidance: Optional[str] = None,
@@ -108,6 +109,7 @@ def get_prompt(
     subs: dict[str, str] = {}
     for key, value in [
         ("identity", identity),
+        ("env_context_block", env_context_block),
         ("skill_context_block", skill_context_block),
         ("tool_definitions_block", tool_definitions_block),
         ("specialist_guidance", specialist_guidance),
@@ -219,4 +221,29 @@ def build_specialist_guidance(prompt_name: str) -> str:
     """Return the specialist guidance text for a prompt name."""
     data = _load()
     block = data.get("prompt_blocks", {}).get("specialist_guidance", "")
-    return block
+    return block.format(specialist_guidance=block)
+
+
+def build_env_context_block(env_context: str, max_length: int = 2000) -> str:
+    """Wrap environment context string in the standard block header.
+
+    Truncates to max_length characters if needed.
+    """
+    header = "## Environment Awareness\n\n"
+    footer = "\n\n[Environment context end]"
+    available = max_length - len(header) - len(footer) - 10
+    if len(env_context) > available:
+        env_context = env_context[:available] + "\n\n[... environment context truncated ...]"
+    return header + env_context + footer
+
+
+def load_env_description() -> str:
+    """Load the environment self-description from the markdown file.
+
+    Returns the file content, or a fallback string if the file is missing.
+    """
+    from pathlib import Path
+    env_file = Path(__file__).parent / "E.SAPIENS_ENVIRONMENT.md"
+    if env_file.exists():
+        return env_file.read_text(encoding="utf-8")
+    return "(Environment description not available — file missing.)"
