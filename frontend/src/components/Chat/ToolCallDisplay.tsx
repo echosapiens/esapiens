@@ -128,27 +128,113 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({ toolCall }: ToolC
             >
               RESULT
             </Text>
-            <pre
-              style={{
-                fontFamily: "var(--e-font-mono)",
-                fontSize: '0.6rem',
-                color: toolCall.status === 'error' ? 'var(--e-accent-red)' : 'var(--e-accent-green)',
-                backgroundColor: 'var(--e-bg-deep)',
-                padding: '6px 8px',
-                margin: 0,
-                overflow: 'auto',
-                border: '1px solid var(--e-border)',
-                lineHeight: 1.6,
-                maxHeight: '300px',
-              }}
-            >
-              {toolCall.result.length > 3000
-                ? `${toolCall.result.slice(0, 3000)}\n... (result truncated, ${toolCall.result.length} chars)`
-                : toolCall.result}
-            </pre>
+            <ResultRenderer result={toolCall.result} status={toolCall.status} />
           </div>
         )}
       </Accordion.Panel>
     </Accordion.Item>
   );
 });
+
+/* ─── Result renderer — images vs JSON vs raw text ─── */
+function ResultRenderer({ result, status }: { result: string; status?: string }) {
+  // Case 1: data URL (image)
+  if (/^data:image\//.test(result)) {
+    return (
+      <div style={{ padding: '6px 8px', backgroundColor: 'var(--e-bg-deep)', border: '1px solid var(--e-border)' }}>
+        <img
+          src={result}
+          alt="Result visualization"
+          style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 4 }}
+        />
+      </div>
+    );
+  }
+
+  // Case 2: JSON string with image field
+  let parsed: Record<string, unknown> | null = null;
+  try { parsed = JSON.parse(result); } catch { /* not JSON */ }
+
+  if (parsed && typeof parsed === 'object') {
+    const p = parsed as Record<string, unknown>;
+
+    // { type: 'image', image: 'data:image/...' }
+    if (p.type === 'image' && typeof p.image === 'string' && /^data:image\//.test(p.image)) {
+      return (
+        <div style={{ padding: '6px 8px', backgroundColor: 'var(--e-bg-deep)', border: '1px solid var(--e-border)' }}>
+          <img
+            src={p.image}
+            alt="Result visualization"
+            style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 4 }}
+          />
+        </div>
+      );
+    }
+
+    // { type: 'image', data: 'base64,...' } — Some backends flatten it this way
+    if (p.type === 'image' && typeof p.data === 'string') {
+      const raw = p.data as string;
+      if (raw.startsWith('data:image/') || /^[A-Za-z0-9+/=]{40,}$/.test(raw)) {
+        const mime = (p.format as string) || 'image/png';
+        return (
+          <div style={{ padding: '6px 8px', backgroundColor: 'var(--e-bg-deep)', border: '1px solid var(--e-border)' }}>
+            <img
+              src={raw.startsWith('data:') ? raw : `data:${mime};base64,${raw}`}
+              alt="Result visualization"
+              style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 4 }}
+            />
+          </div>
+        );
+      }
+    }
+
+    // Case 3: Structured JSON (non-image) — pretty-print
+    const jsonStr = JSON.stringify(p, null, 2);
+    const truncated = jsonStr.length > 3000
+      ? `${jsonStr.slice(0, 3000)}\n... (result truncated, ${jsonStr.length} chars)`
+      : jsonStr;
+
+    return (
+      <pre
+        style={{
+          fontFamily: "var(--e-font-mono)",
+          fontSize: '0.6rem',
+          color: status === 'error' ? 'var(--e-accent-red)' : 'var(--e-accent-green)',
+          backgroundColor: 'var(--e-bg-deep)',
+          padding: '6px 8px',
+          margin: 0,
+          overflow: 'auto',
+          border: '1px solid var(--e-border)',
+          lineHeight: 1.6,
+          maxHeight: '300px',
+        }}
+      >
+        {truncated}
+      </pre>
+    );
+  }
+
+  // Case 4: Plain text — truncate
+  const truncated = result.length > 3000
+    ? `${result.slice(0, 3000)}\n... (result truncated, ${result.length} chars)`
+    : result;
+
+  return (
+    <pre
+      style={{
+        fontFamily: "var(--e-font-mono)",
+        fontSize: '0.6rem',
+        color: status === 'error' ? 'var(--e-accent-red)' : 'var(--e-accent-green)',
+        backgroundColor: 'var(--e-bg-deep)',
+        padding: '6px 8px',
+        margin: 0,
+        overflow: 'auto',
+        border: '1px solid var(--e-border)',
+        lineHeight: 1.6,
+        maxHeight: '300px',
+      }}
+    >
+      {truncated}
+    </pre>
+  );
+}
