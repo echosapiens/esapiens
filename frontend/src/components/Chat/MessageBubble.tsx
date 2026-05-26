@@ -1,5 +1,5 @@
 import { memo, useState, useEffect } from 'react';
-import { Group, Text, Badge, Tooltip, Collapse, UnstyledButton, Accordion } from '@mantine/core';
+import { Group, Text, Badge, Tooltip, UnstyledButton, Accordion } from '@mantine/core';
 import { IconChevronDown, IconChevronUp, IconTerminal2 } from '@tabler/icons-react';
 import Markdown from 'react-markdown';
 import remarkMath from 'remark-math';
@@ -75,7 +75,30 @@ function RoleLabel({ role, accent }: { role: 'user' | 'assistant'; accent: strin
 export const MessageBubble = memo(function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const isStreaming = message.isStreaming;
+  const hasThoughts = message.thoughts && message.thoughts.length > 0;
+
+  // Auto-show thoughts during streaming, auto-collapse when done
   const [showThoughts, setShowThoughts] = useState(false);
+  const [thoughtsCollapsed, setThoughtsCollapsed] = useState(false);
+
+  // While streaming: keep thoughts expanded
+  useEffect(() => {
+    if (isStreaming && hasThoughts) {
+      setShowThoughts(true);
+      setThoughtsCollapsed(false);
+    }
+  }, [isStreaming, hasThoughts]);
+
+  // When streaming ends and we have thoughts: collapse them after a brief delay
+  useEffect(() => {
+    if (!isStreaming && hasThoughts && showThoughts) {
+      const timer = setTimeout(() => {
+        setThoughtsCollapsed(true);
+        // Wait for collapse animation to finish, then fully hide
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [isStreaming, hasThoughts, showThoughts]);
 
   /* ─── Typewriter effect for streaming assistant content ─── */
   const { displayText, isAnimating, skipToEnd } = useTypewriter(
@@ -182,55 +205,106 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
         </div>
 
         {/* Thoughts / Neural Engine Trace */}
-        {message.thoughts && message.thoughts.length > 0 && (
-          <div style={{ marginBottom: 8 }}>
-            <UnstyledButton
-              onClick={() => setShowThoughts((v) => !v)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '3px 0',
-                color: 'var(--e-text-tertiary)',
+        {hasThoughts && (
+          <div style={{
+            marginBottom: 8,
+            maxHeight: thoughtsCollapsed ? 0 : 600,
+            overflow: 'hidden',
+            transition: isStreaming ? 'none' : 'max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease, margin-bottom 0.4s ease',
+            opacity: thoughtsCollapsed ? 0 : 1,
+            marginBottom: thoughtsCollapsed ? 0 : 8,
+          }}>
+            {/* Thought stream header — always visible when expanded */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              marginBottom: 4,
+            }}>
+              <div style={{
+                width: 5,
+                height: 5,
+                borderRadius: '50%',
+                backgroundColor: isStreaming ? 'var(--e-accent-blue)' : 'var(--e-success)',
+                animation: isStreaming ? 'pulse-dot 1.2s ease-in-out infinite' : 'none',
+                transition: 'background-color 0.3s ease',
+              }} />
+              <Text style={{
                 fontFamily: 'var(--e-font-mono)',
                 fontSize: '0.5625rem',
                 fontWeight: 600,
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
-                transition: 'color 0.15s ease',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--e-accent-blue)')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--e-text-tertiary)')}
-            >
-              <IconTerminal2 size={11} stroke={1.5} style={{ color: 'var(--e-accent-blue)' }} />
-              Neural Trace
-              {showThoughts
-                ? <IconChevronUp size={10} stroke={1.5} />
-                : <IconChevronDown size={10} stroke={1.5} />}
-            </UnstyledButton>
-            <Collapse in={showThoughts}>
-              <div
-                style={{
-                  marginTop: 4,
-                  padding: '8px 12px',
-                  backgroundColor: 'var(--e-bg-subtle)',
-                  borderRadius: 'var(--e-radius-sm)',
-                  border: '1px solid var(--e-border-subtle)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 3,
-                }}
-              >
-                {message.thoughts.map((log, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                color: isStreaming ? 'var(--e-accent-blue)' : 'var(--e-success)',
+              }}>
+                {isStreaming ? 'Neural Trace — Streaming' : 'Neural Trace — Complete'}
+              </Text>
+              <Text style={{
+                fontFamily: 'var(--e-font-mono)',
+                fontSize: '0.5rem',
+                color: 'var(--e-text-muted)',
+                letterSpacing: '0.04em',
+              }}>
+                ({message.thoughts!.length})
+              </Text>
+              {/* Collapse button for completed thoughts */}
+              {!isStreaming && (
+                <UnstyledButton
+                  onClick={() => setThoughtsCollapsed(true)}
+                  style={{
+                    marginLeft: 'auto',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 3,
+                    padding: '1px 4px',
+                    color: 'var(--e-text-muted)',
+                    fontFamily: 'var(--e-font-mono)',
+                    fontSize: '0.5rem',
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    transition: 'color 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--e-accent-blue)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--e-text-muted)')}
+                >
+                  Collapse
+                  <IconChevronUp size={9} stroke={1.5} />
+                </UnstyledButton>
+              )}
+            </div>
+
+            {/* Thought entries */}
+            <div style={{
+              padding: '8px 12px',
+              backgroundColor: 'var(--e-bg-subtle)',
+              borderRadius: 'var(--e-radius-sm)',
+              border: `1px solid ${isStreaming ? 'var(--e-accent-blue)' : 'var(--e-border-subtle)'}`,
+              transition: 'border-color 0.3s ease',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 3,
+            }}>
+              {message.thoughts!.map((log, i) => {
+                const isLatest = isStreaming && i === message.thoughts!.length - 1;
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      display: 'flex',
+                      gap: 8,
+                      alignItems: 'flex-start',
+                      animation: isLatest ? 'fade-in-up 0.25s ease-out' : 'none',
+                    }}
+                  >
                     <Text
                       style={{
                         fontFamily: "var(--e-font-mono)",
                         fontSize: '0.5625rem',
-                        color: 'var(--e-text-muted)',
+                        color: isLatest ? 'var(--e-accent-blue)' : 'var(--e-text-muted)',
                         marginTop: 2,
                         flexShrink: 0,
                         letterSpacing: '0.04em',
+                        transition: 'color 0.3s ease',
                       }}
                     >
                       {String(i + 1).padStart(2, '0')}
@@ -239,34 +313,65 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
                       style={{
                         fontFamily: "var(--e-font-mono)",
                         fontSize: '0.6875rem',
-                        color: 'var(--e-text-secondary)',
+                        color: isLatest ? 'var(--e-text-primary)' : 'var(--e-text-secondary)',
                         lineHeight: 1.5,
+                        transition: 'color 0.3s ease',
                       }}
                     >
                       {log}
                     </Text>
                   </div>
-                ))}
-                {isStreaming && (
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', opacity: 0.5 }}>
-                    <div style={{
-                      width: 3, height: 3, borderRadius: '50%',
-                      backgroundColor: 'var(--e-accent-blue)',
-                      animation: 'pulse-dot 1.2s ease-in-out infinite'
-                    }} />
-                    <Text style={{
-                      fontFamily: "var(--e-font-mono)",
-                      fontSize: '0.625rem',
-                      color: 'var(--e-text-muted)',
-                      fontStyle: 'italic',
-                    }}>
-                      allocating...
-                    </Text>
-                  </div>
-                )}
-              </div>
-            </Collapse>
+                );
+              })}
+              {isStreaming && (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', opacity: 0.5 }}>
+                  <div style={{
+                    width: 3, height: 3, borderRadius: '50%',
+                    backgroundColor: 'var(--e-accent-blue)',
+                    animation: 'pulse-dot 1.2s ease-in-out infinite'
+                  }} />
+                  <Text style={{
+                    fontFamily: "var(--e-font-mono)",
+                    fontSize: '0.625rem',
+                    color: 'var(--e-text-muted)',
+                    fontStyle: 'italic',
+                  }}>
+                    allocating...
+                  </Text>
+                </div>
+              )}
+            </div>
           </div>
+        )}
+
+        {/* Post-collapse: subtle expandable label for completed thoughts */}
+        {hasThoughts && thoughtsCollapsed && !isStreaming && (
+          <UnstyledButton
+            onClick={() => {
+              setThoughtsCollapsed(false);
+              setShowThoughts(true);
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '2px 0',
+              marginBottom: 8,
+              color: 'var(--e-text-tertiary)',
+              fontFamily: 'var(--e-font-mono)',
+              fontSize: '0.5625rem',
+              fontWeight: 600,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              transition: 'color 0.15s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--e-accent-blue)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--e-text-tertiary)')}
+          >
+            <IconTerminal2 size={11} stroke={1.5} />
+            Neural Trace ({message.thoughts!.length})
+            <IconChevronDown size={10} stroke={1.5} />
+          </UnstyledButton>
         )}
 
         {/* Skills badge */}
