@@ -5,6 +5,8 @@ import Markdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
+import rehypeHighlight from 'rehype-highlight';
 import type { Message } from '../../lib/api';
 import { ToolCallDisplay } from './ToolCallDisplay';
 import { VisualizationPanel } from '../Visualizations';
@@ -144,7 +146,7 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
           <div className="markdown-content" style={{ wordBreak: 'break-word' }}>
             <Markdown
               remarkPlugins={[remarkMath, remarkGfm]}
-              rehypePlugins={[rehypeKatex]}
+              rehypePlugins={[rehypeKatex, rehypeRaw, rehypeHighlight]}
             >
               {message.content}
             </Markdown>
@@ -423,7 +425,7 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
           <div className="markdown-content" style={{ wordBreak: 'break-word' }}>
             <Markdown
               remarkPlugins={[remarkMath, remarkGfm]}
-              rehypePlugins={[rehypeKatex]}
+              rehypePlugins={[rehypeKatex, rehypeRaw, rehypeHighlight]}
               components={{
                 img: ({ src, alt }) => (
                   <img

@@ -226,11 +226,6 @@ small { font-size: 0.8125rem; color: var(--e-text-secondary); }
   --e-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-[data-mantine-color-scheme='dark'] .markdown-content pre {
-  background: #0D0E12 !important;
-  border: 1px solid var(--e-border);
-}
-[data-mantine-color-scheme='dark'] .markdown-content pre code { color: #D4D4D8; }
 [data-mantine-color-scheme='dark'] .e-header {
   background: rgba(19, 21, 26, 0.85);
   backdrop-filter: blur(12px);
@@ -365,6 +360,10 @@ small { font-size: 0.8125rem; color: var(--e-text-secondary); }
 /* ══════════════════════════════════════════════════════════════════════════
    MARKDOWN CONTENT
    ══════════════════════════════════════════════════════════════════════════ */
+
+/* Highlight.js theme import for code syntax coloring */
+@import 'highlight.js/styles/github-dark.css';
+
 .markdown-content {
   font-family: var(--e-font-sans);
   font-size: 0.9375rem;
@@ -375,6 +374,40 @@ small { font-size: 0.8125rem; color: var(--e-text-secondary); }
 .markdown-content p:last-child { margin-bottom: 0; }
 .markdown-content strong { font-weight: 600; color: var(--e-text-primary); }
 .markdown-content em { font-style: italic; }
+
+/* Headings — only h2/h3 used (prompt enforces no h1) */
+.markdown-content h2 {
+  font-family: var(--e-font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--e-text-primary);
+  margin: var(--e-space-6) 0 var(--e-space-3) 0;
+  letter-spacing: -0.01em;
+  border-bottom: 1px solid var(--e-border-subtle);
+  padding-bottom: var(--e-space-2);
+}
+.markdown-content h3 {
+  font-family: var(--e-font-display);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--e-text-primary);
+  margin: var(--e-space-5) 0 var(--e-space-2) 0;
+}
+.markdown-content h4 {
+  font-family: var(--e-font-display);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--e-text-secondary);
+  margin: var(--e-space-4) 0 var(--e-space-2) 0;
+}
+
+/* Horizontal rules */
+.markdown-content hr {
+  border: none;
+  height: 1px;
+  background: var(--e-border-subtle);
+  margin: var(--e-space-6) 0;
+}
 
 /* Inline code */
 .markdown-content code:not(pre code) {
@@ -387,7 +420,7 @@ small { font-size: 0.8125rem; color: var(--e-text-secondary); }
   border: 1px solid var(--e-border-subtle);
 }
 
-/* Code blocks */
+/* Code blocks — with language label and copy-friendly styling */
 .markdown-content pre {
   background: #1E1E1E !important;
   border-radius: var(--e-radius-lg);
@@ -395,6 +428,7 @@ small { font-size: 0.8125rem; color: var(--e-text-secondary); }
   overflow-x: auto;
   margin: var(--e-space-5) 0;
   box-shadow: var(--e-shadow-md);
+  position: relative;
 }
 .markdown-content pre code {
   font-family: var(--e-font-mono);
@@ -404,6 +438,20 @@ small { font-size: 0.8125rem; color: var(--e-text-secondary); }
   background: none;
   border: none;
   padding: 0;
+}
+
+/* Code block language label */
+.markdown-content pre[class*="language-"]::before {
+  content: attr(class);
+  font-family: var(--e-font-mono);
+  font-size: 0.5625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--e-text-muted);
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  opacity: 0.6;
 }
 
 /* Blockquotes */
@@ -449,6 +497,25 @@ small { font-size: 0.8125rem; color: var(--e-text-secondary); }
   transition: border-color var(--e-transition-fast);
 }
 .markdown-content a:hover { border-bottom-color: var(--e-brand); }
+
+/* Dark mode code block overrides */
+[data-mantine-color-scheme='dark'] .markdown-content pre {
+  background: #0D0E12 !important;
+  border: 1px solid var(--e-border);
+}
+[data-mantine-color-scheme='dark'] .markdown-content pre code { color: #D4D4D8; }
+[data-mantine-color-scheme='dark'] .markdown-content h2 {
+  border-bottom-color: var(--e-border);
+}
+
+/* Light mode code block overrides (for non-highlighted code) */
+.markdown-content pre:not([class*="hljs"]) {
+  background: #1E1E1E !important;
+}
+
+/* Inline math and display math */
+.markdown-content .katex { font-size: 1em; }
+.markdown-content .katex-display { margin: var(--e-space-4) 0; overflow-x: auto; }
 
 /* ══════════════════════════════════════════════════════════════════════════
    HEADER STYLING

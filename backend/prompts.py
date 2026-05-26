@@ -208,6 +208,13 @@ def build_tool_definitions_block(tool_definitions: str) -> str:
     return header + tool_definitions
 
 
+def build_output_format_block() -> str:
+    """Return the output format rules block for rendering compliance."""
+    data = _load()
+    block = data.get("prompt_blocks", {}).get("output_format_block", "")
+    return block
+
+
 def build_specialist_guidance(prompt_name: str) -> str:
     """Return the specialist guidance text for a prompt name."""
     data = _load()

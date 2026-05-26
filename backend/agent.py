@@ -26,6 +26,7 @@ from prompts import (
     get_prompt_meta,
     build_skill_context_block,
     build_tool_definitions_block,
+    build_output_format_block,
     build_specialist_guidance,
 )
 from compress import compress_messages, should_compress, count_tokens
@@ -198,6 +199,7 @@ def classify_intent_node(state: WorkflowState) -> dict:
             skills_context if skills_context else "(no skill context)"
         ),
         tool_definitions_block=build_tool_definitions_block(tool_definitions_str),
+        output_format_block=build_output_format_block(),
         specialist_guidance=build_specialist_guidance("standard"),
     )
 

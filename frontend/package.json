@@ -26,7 +26,9 @@
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.4.1",
     "react-markdown": "^9.0.1",
+    "rehype-highlight": "^7.0.2",
     "rehype-katex": "^7.0.1",
+    "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0"
   },
