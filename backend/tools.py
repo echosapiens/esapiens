@@ -1157,7 +1157,7 @@ def run_custom_script(
             memory=memory_mb,
             timeout=timeout,
             volumes={"/data": _data_vol},
-            container_idle_timeout=120,
+            scaledown_window=120,
         )
         def _run_script() -> dict[str, Any]:
             import traceback

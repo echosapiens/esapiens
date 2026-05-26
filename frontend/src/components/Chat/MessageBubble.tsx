@@ -123,21 +123,20 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'flex-end',
-          marginBottom: 16,
-          animation: 'fade-in-up 0.2s ease-out',
+          marginBottom: 'var(--e-space-6)', animation: 'fade-in-up 0.2s ease-out',
         }}
       >
         <div
           style={{
             maxWidth: '80%',
-            padding: '8px 16px',
+            padding: 'var(--e-space-4) var(--e-space-6)',
             borderRight: '2px solid var(--e-accent-blue)',
             backgroundColor: 'rgba(37, 99, 235, 0.04)',
             borderRadius: 'var(--e-radius-md)',
           }}
         >
           {/* Header row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--e-space-4)', marginBottom: 4 }}>
             <RoleLabel role="user" accent="var(--e-accent-blue)" />
             <TimeLabel ts={message.timestamp} />
             <CharCount text={message.content} />
@@ -165,8 +164,7 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-start',
-        marginBottom: 16,
-        animation: 'fade-in-up 0.25s ease-out',
+        marginBottom: 'var(--e-space-6)', animation: 'fade-in-up 0.25s ease-out',
       }}
     >
       <div
@@ -184,7 +182,7 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
         title={isAnimating ? 'Click to reveal full response' : undefined}
       >
         {/* Header row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--e-space-4)', marginBottom: 6 }}>
           <RoleLabel
             role="assistant"
             accent={isAnimating ? 'var(--e-accent-blue)' : 'var(--e-text-secondary)'}
@@ -292,8 +290,7 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
                     key={i}
                     style={{
                       display: 'flex',
-                      gap: 8,
-                      alignItems: 'flex-start',
+                      gap: 'var(--e-space-4)', alignItems: 'flex-start',
                       animation: isLatest ? 'fade-in-up 0.25s ease-out' : 'none',
                     }}
                   >
@@ -325,7 +322,7 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
                 );
               })}
               {isStreaming && (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', opacity: 0.5 }}>
+                <div style={{ display: 'flex', gap: 'var(--e-space-4)', alignItems: 'center', opacity: 0.5 }}>
                   <div style={{
                     width: 3, height: 3, borderRadius: '50%',
                     backgroundColor: 'var(--e-accent-blue)',

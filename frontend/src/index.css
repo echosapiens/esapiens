@@ -59,28 +59,8 @@
   --e-font-mono:    'JetBrains Mono', monospace;
 
   /* Type scale */
-  --e-type-xs:   0.6875rem;  /* 11px */
-  --e-type-sm:   0.8125rem;  /* 13px */
-  --e-type-base: 0.9375rem;  /* 15px */
-  --e-type-md:   1.0625rem;  /* 17px */
-  --e-type-lg:   1.1875rem;  /* 19px */
-  --e-type-xl:   1.375rem;   /* 22px */
-  --e-type-2xl:  1.625rem;   /* 26px */
-  --e-type-3xl:  2rem;       /* 32px */
-
-  /* Spacing — 4pt grid */
-  --e-space-1:  4px;
-  --e-space-2:  8px;
-  --e-space-3:  12px;
-  --e-space-4:  16px;
-  --e-space-5:  20px;
-  --e-space-6:  24px;
-  --e-space-8:  32px;
-  --e-space-10: 40px;
-  --e-space-12: 48px;
-  --e-space-16: 64px;
-
-  /* Radius — modern, generous */
+  /* Type scale — multiples of 4px */  --e-type-xs:   0.75rem;  /* 12px */  --e-type-sm:   1rem;     /* 16px */  --e-type-base: 1.25rem;  /* 20px */  --e-type-md:   1.5rem;   /* 24px */  --e-type-lg:   1.75rem;  /* 28px */  --e-type-xl:   2rem;     /* 32px */  --e-type-2xl:  2.25rem;  /* 36px */  --e-type-3xl:  2.5rem;   /* 40px */  /* Spacing — 4pt grid */
+  /* Spacing — 8pt grid for layout, 4pt for internal tuning */  --e-space-1:  8px;  --e-space-2:  8px;  --e-space-3:  16px;  --e-space-4:  16px;  --e-space-5:  24px;  --e-space-6:  24px;  --e-space-8:  32px;  --e-space-10: 40px;  --e-space-12: 48px;  --e-space-16: 64px;  /* Radius — modern, generous */
   --e-radius-xs:   6px;
   --e-radius-sm:   8px;
   --e-radius-md:   10px;

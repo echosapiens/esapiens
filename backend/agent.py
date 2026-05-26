@@ -74,6 +74,12 @@ _HEAVY_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# Actionable patterns — queries that contain task keywords (run, plot, align, simulate, etc.)
+_ACTIONABLE_PATTERNS = re.compile(
+    r"\b(run|execute|plot|graph|align|simulate|analyze|compute|perform|generate|create|download|fetch|retrieve|search|query|build|write|calculate|estimate|predict|classify|cluster|group|match|compare|contrast|visualize|plot|chart|graph|diagram|map|model|train|test|evaluate|optimize|minimize|maximize|solve|resolve|fix|repair|debug|troubleshoot|investigate|explore|discover|find|identify|detect|recognize)\b",
+    re.IGNORECASE,
+)
+
 
 def classify_tier(query: str, skill_paths: list[str] | None = None) -> QueryTier:
     """Classify a query into DIRECT / STANDARD / HEAVY.
@@ -88,7 +94,10 @@ def classify_tier(query: str, skill_paths: list[str] | None = None) -> QueryTier
 
     # 1. Pure greetings / meta → DIRECT
     if _DIRECT_PATTERNS.match(q):
-        return QueryTier.DIRECT
+        # If the query contains actionable intent (run, plot, align, etc.), treat as STANDARD
+        if not _ACTIONABLE_PATTERNS.search(q):
+            return QueryTier.DIRECT
+        # Otherwise fall through to STANDARD
 
     # Determine skill match count
     num_skills = len(skill_paths) if skill_paths else 0
@@ -148,7 +157,7 @@ def direct_llm_response(query: str) -> str:
 # ── Agent state ──────────────────────────────────────────────────────────────
 
 # set chosen_model from environment variable.
-chosen_model = os.getenv("OPENROUTER_MODEL", "inception/mercury-2")
+chosen_model = os.getenv("OPENROUTER_MODEL", "arcee-ai/trinity-large-thinking")
 
 
 class WorkflowState(TypedDict):
@@ -583,7 +592,7 @@ Last tool result (raw):
         critic_llm = ChatOpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=key,
-            model=os.getenv("OPENROUTER_MODEL", "inception/mercury-2"),
+            model=os.getenv("OPENROUTER_MODEL", "arcee-ai/trinity-large-thinking"),
             temperature=0.0,
             max_completion_tokens=512,
             timeout=30,

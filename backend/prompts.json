@@ -217,13 +217,13 @@
     "base_url": "https://openrouter.ai/api/v1",
     "referer": "https://echosapiens.bio",
     "title": "E.sapiens v2 Agent",
-    "default_model": "inception/mercury-2",
-    "direct_fallback_model": "inception/mercury-2",
-    "heavy_model": "inception/mercury-2",
+    "default_model": "arcee-ai/trinity-large-thinking",
+    "direct_fallback_model": "arcee-ai/trinity-large-thinking",
+    "heavy_model": "arcee-ai/trinity-large-thinking",
     "domain_models": {
-      "protein_structure": "inception/mercury-2",
-      "transcriptomics": "inception/mercury-2",
-      "literature_research": "inception/mercury-2"
+      "protein_structure": "arcee-ai/trinity-large-thinking",
+      "transcriptomics": "arcee-ai/trinity-large-thinking",
+      "literature_research": "arcee-ai/trinity-large-thinking"
     }
   },
   "prompt_blocks": {
