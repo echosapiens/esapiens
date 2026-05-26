@@ -981,10 +981,20 @@ from dynamic_tools import create_tool as _create_tool_impl, load_dynamic_tools a
 
 
 @register_tool("create_tool")
-@timed
-def create_tool_handler(**kwargs) -> ToolResult:
+@register_tool("create_tool")
+def create_tool_handler(
+    name: str,
+    description: str,
+    parameters: dict,
+    code: str,
+) -> ToolResult:
     """Create a new VPS-level tool at runtime. Useful when a capability is missing."""
-    return _create_tool_impl(**kwargs)
+    return _create_tool_impl(
+        name=name,
+        description=description,
+        parameters=parameters,
+        code=code,
+    )
 
 
 # ── Tool execution dispatcher ──────────────────────────────────────────────────
