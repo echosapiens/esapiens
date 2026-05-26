@@ -260,64 +260,62 @@ def download_tcga_survival(cohort: str,
 @timed
 def run_bio_pipeline(command: str, name: str,
                      estimated_duration: str = "unknown") -> ToolResult:
-    """Run a long-running VPS pipeline in detached mode. Returns a job_id immediately."""
+    """Dispatch a long-running bio task to Modal cloud (via biocontainers).
+    Returns a job_id immediately. All compute happens on Modal.com — never local.
+    """
     job_id = f"job_{int(time.time())}_{os.urandom(4).hex()}"
-    workspace = Path(os.environ.get("ESAPIENS_DATA_DIR", "~/esapiens-data")).expanduser()
-    jobs_dir = workspace / "background_jobs"
-    jobs_dir.mkdir(parents=True, exist_ok=True)
-    log_path = jobs_dir / f"{job_id}.log"
 
-    # Record in SQLite storage (primary) + filesystem JSON (backup)
+    # Route to Modal instead of spawning a local subprocess.
+    # Modal runs the command in a BioContainer on Modal cloud infrastructure.
     try:
         from storage import get_storage
-        get_storage().create_job(job_id=job_id, tool="run_bio_pipeline",
-                                  name=name, command=command,
-                                  metadata={"estimated_duration": estimated_duration,
-                                            "log_path": str(log_path)})
+        get_storage().create_job(
+            job_id=job_id, tool="run_bio_pipeline",
+            name=name, command=command,
+            metadata={"estimated_duration": estimated_duration},
+        )
     except Exception as e:
-        # Storage failure must not block job dispatch
         print(f"[run_bio_pipeline] StorageBackend.create_job failed: {e}")
 
-    job_path = jobs_dir / f"{job_id}.json"
-    status_data = {
-        "job_id": job_id, "name": name, "command": command,
-        "status": "running", "start_time": time.time(),
-        "log_path": str(log_path), "estimated_duration": estimated_duration,
-    }
-    job_path.write_text(json.dumps(status_data))
+    # Rehydrate job_type from the command string if possible
+    cmd_lower = command.lower()
+    if "star" in cmd_lower or "alignment" in cmd_lower:
+        job_type = "star_alignment"
+    elif "sra" in cmd_lower or "fasterq" in cmd_lower or "prefetch" in cmd_lower:
+        job_type = "download_sra"
+    elif "deseq2" in cmd_lower or "deseq" in cmd_lower:
+        job_type = "deseq2"
+    else:
+        job_type = "generic"
 
-    def _run():
-        try:
-            with open(log_path, "w") as log:
-                p = subprocess.Popen(command, shell=True, stdout=log, stderr=log, preexec_fn=os.setsid)
-                p.wait()
-                final_status = "completed" if p.returncode == 0 else "failed"
-                # Update both storage and filesystem
-                try:
-                    from storage import get_storage
-                    get_storage().update_job(job_id, status=final_status,
-                                             exit_code=p.returncode,
-                                             result_preview=f"Exit code: {p.returncode}")
-                except Exception:
-                    pass
-                status_data.update({
-                    "status": final_status,
-                    "end_time": time.time(), "exit_code": p.returncode,
-                })
-                job_path.write_text(json.dumps(status_data))
-        except Exception as e:
-            try:
-                from storage import get_storage
-                get_storage().update_job(job_id, status="failed", error=str(e))
-            except Exception:
-                pass
-            status_data.update({"status": "failed", "error": str(e)})
-            job_path.write_text(json.dumps(status_data))
+    # Build Modal params — command is passed as the primary argument
+    params: dict[str, Any] = {"command": command}
+    if job_type == "star_alignment":
+        # Extract sra_accession from command if possible
+        import re
+        m = re.search(r"(SRR|ERR|DRR)\d+", command)
+        if m:
+            params["sra_accession"] = m.group(0)
+    elif job_type == "deseq2":
+        import re
+        m = re.search(r"--count-matrix\s+(\S+)", command)
+        if m:
+            params["count_matrix_path"] = m.group(1)
 
-    threading.Thread(target=_run, daemon=True).start()
-    return ToolResult.ok("run_bio_pipeline",
-                         data={"job_id": job_id, "message": f"Pipeline '{name}' started."},
-                         job_id=job_id)
+    # Use background mode so it returns immediately with a job_id
+    params["background"] = True
+    raw = run_modal_task(job_type, params, workspace=None)
+
+    if isinstance(raw, dict) and raw.get("status") == "detached":
+        return ToolResult.ok("run_bio_pipeline",
+                             data={"job_id": raw.get("job_id", job_id),
+                                   "message": f"Bio task '{name}' dispatched to Modal.",
+                                   "call_id": raw.get("message", "")},
+                             job_id=raw.get("job_id", job_id))
+
+    # Modal unavailable or dispatch failed
+    err_msg = raw.get("error") if isinstance(raw, dict) else str(raw)
+    return ToolResult.err("run_bio_pipeline", str(err_msg))
 
 
 @register_tool("get_job_status")
