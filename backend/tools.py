@@ -28,6 +28,7 @@ from __future__ import annotations
 from typing import Any, Optional
 import os, json, httpx, subprocess, sys, tempfile
 import base64, textwrap, io, types, threading, time
+import modal
 from pathlib import Path
 
 from result import ToolResult, ToolStatus, timed  # noqa: F401
