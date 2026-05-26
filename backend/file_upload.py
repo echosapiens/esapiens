@@ -9,16 +9,14 @@ Provides:
 """
 
 import json
-import os
 import uuid
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
-from fastapi.security import HTTPAuthorizationCredentials
 
-from auth import get_current_user, security_scheme
+from auth import get_current_user
 from storage import get_storage
 
 upload_router = APIRouter(tags=["upload"])
@@ -36,6 +34,7 @@ PREVIEW_JSON_ENTRIES = 100
 # ═══════════════════════════════════════════════════════════════════════════
 # Helpers
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _detect_format(filename: str) -> str:
     """Return normalized format string from file extension."""
@@ -120,7 +119,10 @@ def _parse_json(filepath: Path) -> dict[str, Any]:
         # Single dict — treat keys as columns, values as one row
         columns = list(data.keys())
         rows = 1
-        preview = [json.loads(json.dumps({k: data[k]}, default=str)) for k in list(data.keys())[:PREVIEW_JSON_ENTRIES]]
+        preview = [
+            json.loads(json.dumps({k: data[k]}, default=str))
+            for k in list(data.keys())[:PREVIEW_JSON_ENTRIES]
+        ]
         # Actually, for a dict, show as a single record
         preview = [json.loads(json.dumps(data, default=str))]
         return {

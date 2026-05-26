@@ -1,34 +1,23 @@
-"""
-Modal Compute Service — Optional standalone agent deployment (DEPRECATED primary path)
+# Modal Compute Service - Optional standalone agent deployment (DEPRECATED primary path)
 
-ARCHITECTURE CHANGE (May 2026):
-  The VPS now runs the LangGraph agent loop directly, calling OpenRouter locally.
-  Heavy bio tasks are dispatched to Modal via modal_tasks.py (biocontainers from
-  Quay.io). This file is retained as an optional deployment for running the agent
-  on Modal instead of the VPS (e.g., for isolated testing or failover).
+# Architecture and usage notes (original block omitted for brevity)
 
-  To use this instead of the local agent on VPS:
-    modal deploy backend/modal_compute.py
-    export MODAL_COMPUTE_URL=<deployed-url>
+# Deploy instructions (commented out for module import):
+#   modal secret create esapiens-secrets OPENROUTER_API_KEY=sk-or-v1-... BRAVE_SEARCH_API_KEY=BSA...
+#   modal deploy backend/modal_compute.py
+#
+# The deployed URL becomes MODAL_COMPUTE_URL in the VPS .env.
 
-The deployed URL becomes MODAL_COMPUTE_URL in the VPS .env (optional override).
-"""
-Deploy:
-    modal secret create esapiens-secrets OPENROUTER_API_KEY=sk-or-v1-... BRAVE_SEARCH_API_KEY=BSA...
-    modal deploy backend/modal_compute.py
-
-The deployed URL becomes MODAL_COMPUTE_URL in the VPS .env.
-"""
 
 import modal
 import json
 import sqlite3
 import os
-from typing import Any, Generator, Optional
+from typing import Generator, Optional
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ---------------------------------------------------------------------------
 # Modal App & Image
-# ═══════════════════════════════════════════════════════════════════════════
+# ---------------------------------------------------------------------------
 
 app = modal.App("esapiens-compute")
 
@@ -58,9 +47,10 @@ compute_image = (
 vol = modal.Volume.from_name("esapiens-data", create_if_missing=True)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Compute Engine — Stateful class with lifecycle hooks
-# ═══════════════════════════════════════════════════════════════════════════
+# ---------------------------------------------------------------------------
+# Compute Engine - Stateful class with lifecycle hooks
+# ---------------------------------------------------------------------------
+
 
 @app.cls(
     image=compute_image,
@@ -72,16 +62,23 @@ vol = modal.Volume.from_name("esapiens-data", create_if_missing=True)
     allow_port=8000,
 )
 class ComputeEngine:
-    """Stateful compute engine that loads the agent on container startup."""
+    # Stateful compute engine that loads the agent on container startup.
 
     @modal.enter()
     def setup(self):
-        """Initialize agent graph, tools, and checkpointer on container start."""
+        # Initialize agent graph, tools, and checkpointer on container start.
         import sys
+
         sys.path.insert(0, "/app")
 
-        from agent import WorkflowState, build_agent_graph, classify_tier, direct_llm_response, QueryTier
-        from tools import TOOL_DEFINITIONS, TOOL_IMPLS, execute_tool
+        from agent import (
+            WorkflowState,
+            build_agent_graph,
+            classify_tier,
+            direct_llm_response,
+            QueryTier,
+        )
+        from tools import execute_tool
         from intent_classifier import classify_query
         from skill_loader import get_skill_loader, SkillContextBuilder
         from langgraph.checkpoint.sqlite import SqliteSaver
@@ -113,15 +110,13 @@ class ComputeEngine:
 
     @modal.method()
     def classify_intent(self, query: str) -> list[str]:
-        """Classify query intent and return skill paths."""
+        # Classify query intent and return skill paths.
         return self.classify_query(query)
 
     @modal.method()
     def run_sync(self, query: str, session_id: str, skill_paths: list[str]) -> dict:
-        """Run agent synchronously — returns final result dict.
-
-        Routes DIRECT-tier queries through the fast path (no agent loop).
-        """
+        # Run agent synchronously - returns final result dict.
+        # Routes DIRECT-tier queries through the fast path (no agent loop).
         tier = self.classify_tier(query, skill_paths)
 
         if tier == self.QueryTier.DIRECT:
@@ -152,40 +147,62 @@ class ComputeEngine:
         }
 
     @modal.method()
-    def run_stream_events(self, query: str, session_id: str, skill_paths: list[str]) -> list[dict]:
-        """
-        Run agent and return ALL events as a JSON-serializable list.
-        Used by the VPS orchestrator when SSE proxying is not available.
-        """
+    def run_stream_events(
+        self, query: str, session_id: str, skill_paths: list[str]
+    ) -> list[dict]:
+        # Run agent and return ALL events as a JSON-serializable list. Used by the VPS orchestrator when SSE proxying is not available.
         events = []
         for event in self._stream_generator(query, session_id, skill_paths):
             events.append(event)
         return events
 
-    def _stream_generator(self, query: str, session_id: str, skill_paths: list[str]) -> Generator[dict, None, None]:
-        """Core streaming generator — yields event dicts.
+    def _stream_generator(
+        self, query: str, session_id: str, skill_paths: list[str]
+    ) -> Generator[dict, None, None]:
+        # Core streaming generator - yields event dicts.
 
-        Routes DIRECT-tier queries through the fast path.
-        """
+        # Routes DIRECT-tier queries through the fast path.
+
         tier = self.classify_tier(query, skill_paths)
 
         # ── Fast path: direct LLM, no agent loop ──────────────────────
         if tier == self.QueryTier.DIRECT:
-            yield {"event": "thought", "data": json.dumps({"message": "Direct response — skipping agent loop..."})}
-            yield {"event": "skills_loaded", "data": json.dumps({"skills": skill_paths})}
+            yield {
+                "event": "thought",
+                "data": json.dumps(
+                    {"message": "Direct response - skipping agent loop..."}
+                ),
+            }
+            yield {
+                "event": "skills_loaded",
+                "data": json.dumps({"skills": skill_paths}),
+            }
             response_text = self.direct_llm_response(query)
-            yield {"event": "chunk", "data": json.dumps({"content": response_text, "replace": True})}
-            yield {"event": "done", "data": json.dumps({
-                "response": response_text,
-                "session_id": session_id,
-                "skills": skill_paths,
-                "tool_calls": [],
-                "tier": tier.value,
-            })}
+            yield {
+                "event": "chunk",
+                "data": json.dumps({"content": response_text, "replace": True}),
+            }
+            yield {
+                "event": "done",
+                "data": json.dumps(
+                    {
+                        "response": response_text,
+                        "session_id": session_id,
+                        "skills": skill_paths,
+                        "tool_calls": [],
+                        "tier": tier.value,
+                    }
+                ),
+            }
             return
 
         # ── Standard/Heavy: full agent loop ─────────────────────────────
-        yield {"event": "thought", "data": json.dumps({"message": f"Route: {tier.value} — engaging full agent loop..."})}
+        yield {
+            "event": "thought",
+            "data": json.dumps(
+                {"message": f"Route: {tier.value} - engaging full agent loop..."}
+            ),
+        }
         yield {"event": "skills_loaded", "data": json.dumps({"skills": skill_paths})}
 
         initial_state = {
@@ -205,19 +222,52 @@ class ComputeEngine:
             for event in self.agent_graph.stream(initial_state, run_config):
                 for event_type, event_data in event.items():
                     if "classify_intent" in event_type:
-                        yield {"event": "thought", "data": json.dumps({"message": "Configuring system persona and skill context..."})}
+                        yield {
+                            "event": "thought",
+                            "data": json.dumps(
+                                {
+                                    "message": "Configuring system persona and skill context..."
+                                }
+                            ),
+                        }
                     elif "call_model" in event_type:
-                        yield {"event": "thought", "data": json.dumps({"message": "Consulting large language models for trajectory analysis..."})}
+                        yield {
+                            "event": "thought",
+                            "data": json.dumps(
+                                {
+                                    "message": "Consulting large language models for trajectory analysis..."
+                                }
+                            ),
+                        }
                         node_data = event_data if isinstance(event_data, dict) else {}
                         msgs = node_data.get("messages", [])
                         if msgs:
                             last = msgs[-1]
                             if last.tool_calls:
-                                yield {"event": "thought", "data": json.dumps({"message": f"Planning {len(last.tool_calls)} computation steps: {', '.join(tc['name'] for tc in last.tool_calls)}"})}
+                                yield {
+                                    "event": "thought",
+                                    "data": json.dumps(
+                                        {
+                                            "message": f"Planning {len(last.tool_calls)} computation steps: {', '.join(tc['name'] for tc in last.tool_calls)}"
+                                        }
+                                    ),
+                                }
                             if hasattr(last, "content") and last.content:
-                                yield {"event": "chunk", "data": json.dumps({"content": last.content, "replace": True})}
+                                yield {
+                                    "event": "chunk",
+                                    "data": json.dumps(
+                                        {"content": last.content, "replace": True}
+                                    ),
+                                }
                     elif "tools_node" in event_type:
-                        yield {"event": "thought", "data": json.dumps({"message": "Engaging Modal cloud hardware for tool execution..."})}
+                        yield {
+                            "event": "thought",
+                            "data": json.dumps(
+                                {
+                                    "message": "Engaging Modal cloud hardware for tool execution..."
+                                }
+                            ),
+                        }
                         node_data = event_data if isinstance(event_data, dict) else {}
                         for tc in node_data.get("tool_calls", []):
                             name = tc["name"]
@@ -226,39 +276,82 @@ class ComputeEngine:
 
                             safe_result = result_str
                             if len(safe_result) > 15000:
-                                safe_result = safe_result[:15000] + "\n\n[... output truncated for history persistence ...]"
+                                safe_result = (
+                                    safe_result[:15000]
+                                    + "\n\n[... output truncated for history persistence ...]"
+                                )
 
-                            collected_tool_calls.append({
-                                "id": tc.get("id", ""),
-                                "name": name,
-                                "args": args,
-                                "result": safe_result,
-                                "status": "success",
-                            })
+                            collected_tool_calls.append(
+                                {
+                                    "id": tc.get("id", ""),
+                                    "name": name,
+                                    "args": args,
+                                    "result": safe_result,
+                                    "status": "success",
+                                }
+                            )
 
-                            yield {"event": "thought", "data": json.dumps({"message": f"Executing tool: {name}"})}
-                            yield {"event": "tool_call", "data": json.dumps({"name": name, "args": args})}
+                            yield {
+                                "event": "thought",
+                                "data": json.dumps(
+                                    {"message": f"Executing tool: {name}"}
+                                ),
+                            }
+                            yield {
+                                "event": "tool_call",
+                                "data": json.dumps({"name": name, "args": args}),
+                            }
 
                             vis_data = None
                             if result_str:
                                 try:
                                     result_parsed = json.loads(result_str)
-                                    vis_data = result_parsed.get("visualization") if isinstance(result_parsed, dict) else None
+                                    vis_data = (
+                                        result_parsed.get("visualization")
+                                        if isinstance(result_parsed, dict)
+                                        else None
+                                    )
                                 except (json.JSONDecodeError, TypeError):
                                     pass
                             if vis_data:
                                 collected_visualization = vis_data
-                                yield {"event": "visualization", "data": json.dumps(vis_data)}
+                                yield {
+                                    "event": "visualization",
+                                    "data": json.dumps(vis_data),
+                                }
 
-                            yield {"event": "tool_result", "data": json.dumps({"id": tc.get("id", ""), "name": name, "result": result_str, "status": "success"})}
+                            yield {
+                                "event": "tool_result",
+                                "data": json.dumps(
+                                    {
+                                        "id": tc.get("id", ""),
+                                        "name": name,
+                                        "result": result_str,
+                                        "status": "success",
+                                    }
+                                ),
+                            }
                     elif "finalize" in event_type:
-                        yield {"event": "thought", "data": json.dumps({"message": "Synthesizing final scientific report..."})}
+                        yield {
+                            "event": "thought",
+                            "data": json.dumps(
+                                {"message": "Synthesizing final scientific report..."}
+                            ),
+                        }
                         if isinstance(event_data, dict):
-                            collected_skills = event_data.get("loaded_skills", collected_skills)
+                            collected_skills = event_data.get(
+                                "loaded_skills", collected_skills
+                            )
         except Exception as e:
             import logging
+
             logging.getLogger(__name__).exception("Modal compute stream error")
-            yield {"event": "error", "data": json.dumps({"message": f"An internal error occurred: {str(e)}"})}
+            yield {
+                "event": "error",
+                "data": json.dumps(
+                    {"message": f"An internal error occurred: {str(e)}"}
+                ),
+            }
             return
 
         # Get final result
@@ -270,19 +363,24 @@ class ComputeEngine:
         except Exception:
             result_text = ""
 
-        yield {"event": "done", "data": json.dumps({
-            "response": result_text,
-            "session_id": session_id,
-            "skills": collected_skills,
-            "tool_calls": collected_tool_calls,
-            "visualization": collected_visualization,
-            "tier": tier.value,
-        })}
+        yield {
+            "event": "done",
+            "data": json.dumps(
+                {
+                    "response": result_text,
+                    "session_id": session_id,
+                    "skills": collected_skills,
+                    "tool_calls": collected_tool_calls,
+                    "visualization": collected_visualization,
+                    "tier": tier.value,
+                }
+            ),
+        }
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# ASGI Web Endpoint — for direct SSE streaming from Modal
-# ═══════════════════════════════════════════════════════════════════════════
+# ---------------------------------------------------------------------------
+# ASGI Web Endpoint - for direct SSE streaming from Modal
+# ---------------------------------------------------------------------------
 
 from pathlib import Path
 
@@ -298,19 +396,21 @@ from pathlib import Path
 )
 @modal.asgi_app()
 def compute_api():
-    """
-    FastAPI app deployed on Modal for SSE streaming agent execution.
-    The VPS orchestrator calls this endpoint to proxy events to the frontend.
-    """
+    # FastAPI app deployed on Modal for SSE streaming agent execution. The VPS orchestrator calls this endpoint to proxy events to the frontend.
     import sys
+
     sys.path.insert(0, "/app")
 
     from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
     from pydantic import BaseModel, Field
     from sse_starlette.sse import EventSourceResponse
-    from agent import WorkflowState, build_agent_graph, classify_tier, direct_llm_response, QueryTier
-    from tools import TOOL_DEFINITIONS, TOOL_IMPLS, execute_tool
+    from agent import (
+        build_agent_graph,
+        classify_tier,
+        direct_llm_response,
+        QueryTier,
+    )
     from intent_classifier import classify_query
     from skill_loader import get_skill_loader, SkillContextBuilder
     from langgraph.checkpoint.sqlite import SqliteSaver
@@ -327,7 +427,9 @@ def compute_api():
     )
 
     # ── Setup agent on module load ──────────────────────────────────────
-    _conn = sqlite3.connect("/data/checkpoints/agent_checkpoints.db", check_same_thread=False)
+    _conn = sqlite3.connect(
+        "/data/checkpoints/agent_checkpoints.db", check_same_thread=False
+    )
     _conn.execute("PRAGMA journal_mode=WAL")
     os.makedirs("/data/checkpoints", exist_ok=True)
     _checkpointer = SqliteSaver(_conn)
@@ -395,30 +497,61 @@ def compute_api():
 
     @api.post("/compute/stream")
     async def compute_stream(req: ComputeRequest):
-        """Run the agent and stream SSE events. Routes DIRECT queries through fast path."""
+        # Run the agent and stream SSE events. Routes DIRECT queries through fast path.
         skill_paths = req.skill_paths or classify_query(req.query)
         tier = classify_tier(req.query, skill_paths)
 
         def _stream():
             # ── Fast path: DIRECT tier ─────────────────────────────────────
             if tier == QueryTier.DIRECT:
-                yield {"event": "thought", "data": json.dumps({"message": "Direct response — skipping agent loop..."})}
-                yield {"event": "skills_loaded", "data": json.dumps({"skills": skill_paths, "tier": tier.value})}
+                yield {
+                    "event": "thought",
+                    "data": json.dumps(
+                        {"message": "Direct response - skipping agent loop..."}
+                    ),
+                }
+                yield {
+                    "event": "skills_loaded",
+                    "data": json.dumps({"skills": skill_paths, "tier": tier.value}),
+                }
                 response_text = direct_llm_response(req.query)
-                yield {"event": "chunk", "data": json.dumps({"content": response_text, "replace": True})}
-                yield {"event": "done", "data": json.dumps({
-                    "response": response_text,
-                    "session_id": req.session_id,
-                    "skills": skill_paths,
-                    "tool_calls": [],
-                    "tier": tier.value,
-                })}
+                yield {
+                    "event": "chunk",
+                    "data": json.dumps({"content": response_text, "replace": True}),
+                }
+                yield {
+                    "event": "done",
+                    "data": json.dumps(
+                        {
+                            "response": response_text,
+                            "session_id": req.session_id,
+                            "skills": skill_paths,
+                            "tool_calls": [],
+                            "tier": tier.value,
+                        }
+                    ),
+                }
                 return
 
             # ── Standard/Heavy: full agent loop ─────────────────────────────
-            yield {"event": "thought", "data": json.dumps({"message": f"Route: {tier.value} — engaging full agent loop..."})}
-            yield {"event": "skills_loaded", "data": json.dumps({"skills": skill_paths, "tier": tier.value})}
-            yield {"event": "thought", "data": json.dumps({"message": "Allocating neural engine threads for scientific reasoning..."})}
+            yield {
+                "event": "thought",
+                "data": json.dumps(
+                    {"message": f"Route: {tier.value} - engaging full agent loop..."}
+                ),
+            }
+            yield {
+                "event": "skills_loaded",
+                "data": json.dumps({"skills": skill_paths, "tier": tier.value}),
+            }
+            yield {
+                "event": "thought",
+                "data": json.dumps(
+                    {
+                        "message": "Allocating neural engine threads for scientific reasoning..."
+                    }
+                ),
+            }
 
             initial_state = {
                 "messages": [],
@@ -437,20 +570,57 @@ def compute_api():
                 for event in _agent_graph.stream(initial_state, run_config):
                     for event_type, event_data in event.items():
                         if "classify_intent" in event_type:
-                            yield {"event": "thought", "data": json.dumps({"message": "Configuring system persona and skill context..."})}
+                            yield {
+                                "event": "thought",
+                                "data": json.dumps(
+                                    {
+                                        "message": "Configuring system persona and skill context..."
+                                    }
+                                ),
+                            }
                         elif "call_model" in event_type:
-                            yield {"event": "thought", "data": json.dumps({"message": "Consulting large language models for trajectory analysis..."})}
-                            node_data = event_data if isinstance(event_data, dict) else {}
+                            yield {
+                                "event": "thought",
+                                "data": json.dumps(
+                                    {
+                                        "message": "Consulting large language models for trajectory analysis..."
+                                    }
+                                ),
+                            }
+                            node_data = (
+                                event_data if isinstance(event_data, dict) else {}
+                            )
                             msgs = node_data.get("messages", [])
                             if msgs:
                                 last = msgs[-1]
                                 if last.tool_calls:
-                                    yield {"event": "thought", "data": json.dumps({"message": f"Planning {len(last.tool_calls)} computation steps: {', '.join(tc['name'] for tc in last.tool_calls)}"})}
+                                    yield {
+                                        "event": "thought",
+                                        "data": json.dumps(
+                                            {
+                                                "message": f"Planning {len(last.tool_calls)} computation steps: {', '.join(tc['name'] for tc in last.tool_calls)}"
+                                            }
+                                        ),
+                                    }
                                 if hasattr(last, "content") and last.content:
-                                    yield {"event": "chunk", "data": json.dumps({"content": last.content, "replace": True})}
+                                    yield {
+                                        "event": "chunk",
+                                        "data": json.dumps(
+                                            {"content": last.content, "replace": True}
+                                        ),
+                                    }
                         elif "tools_node" in event_type:
-                            yield {"event": "thought", "data": json.dumps({"message": "MODAL.COM • Engaging cloud hardware for tool execution..."})}
-                            node_data = event_data if isinstance(event_data, dict) else {}
+                            yield {
+                                "event": "thought",
+                                "data": json.dumps(
+                                    {
+                                        "message": "MODAL.COM • Engaging cloud hardware for tool execution..."
+                                    }
+                                ),
+                            }
+                            node_data = (
+                                event_data if isinstance(event_data, dict) else {}
+                            )
                             for tc in node_data.get("tool_calls", []):
                                 name = tc["name"]
                                 args = tc.get("args", {})
@@ -458,39 +628,84 @@ def compute_api():
 
                                 safe_result = result_str
                                 if len(safe_result) > 15000:
-                                    safe_result = safe_result[:15000] + "\n\n[... output truncated ...]"
+                                    safe_result = (
+                                        safe_result[:15000]
+                                        + "\n\n[... output truncated ...]"
+                                    )
 
-                                collected_tool_calls.append({
-                                    "id": tc.get("id", ""),
-                                    "name": name,
-                                    "args": args,
-                                    "result": safe_result,
-                                    "status": "success",
-                                })
+                                collected_tool_calls.append(
+                                    {
+                                        "id": tc.get("id", ""),
+                                        "name": name,
+                                        "args": args,
+                                        "result": safe_result,
+                                        "status": "success",
+                                    }
+                                )
 
-                                yield {"event": "thought", "data": json.dumps({"message": f"MODAL.COM • Executing tool: {name}"})}
-                                yield {"event": "tool_call", "data": json.dumps({"name": name, "args": args})}
+                                yield {
+                                    "event": "thought",
+                                    "data": json.dumps(
+                                        {
+                                            "message": f"MODAL.COM • Executing tool: {name}"
+                                        }
+                                    ),
+                                }
+                                yield {
+                                    "event": "tool_call",
+                                    "data": json.dumps({"name": name, "args": args}),
+                                }
 
                                 vis_data = None
                                 if result_str:
                                     try:
                                         result_parsed = json.loads(result_str)
-                                        vis_data = result_parsed.get("visualization") if isinstance(result_parsed, dict) else None
+                                        vis_data = (
+                                            result_parsed.get("visualization")
+                                            if isinstance(result_parsed, dict)
+                                            else None
+                                        )
                                     except (json.JSONDecodeError, TypeError):
                                         pass
                                 if vis_data:
                                     collected_visualization = vis_data
-                                    yield {"event": "visualization", "data": json.dumps(vis_data)}
+                                    yield {
+                                        "event": "visualization",
+                                        "data": json.dumps(vis_data),
+                                    }
 
-                                yield {"event": "tool_result", "data": json.dumps({"id": tc.get("id", ""), "name": name, "result": result_str, "status": "success"})}
+                                yield {
+                                    "event": "tool_result",
+                                    "data": json.dumps(
+                                        {
+                                            "id": tc.get("id", ""),
+                                            "name": name,
+                                            "result": result_str,
+                                            "status": "success",
+                                        }
+                                    ),
+                                }
                         elif "finalize" in event_type:
-                            yield {"event": "thought", "data": json.dumps({"message": "Synthesizing final scientific report..."})}
+                            yield {
+                                "event": "thought",
+                                "data": json.dumps(
+                                    {
+                                        "message": "Synthesizing final scientific report..."
+                                    }
+                                ),
+                            }
                             if isinstance(event_data, dict):
-                                collected_skills = event_data.get("loaded_skills", collected_skills)
+                                collected_skills = event_data.get(
+                                    "loaded_skills", collected_skills
+                                )
             except Exception as e:
                 import logging
+
                 logging.getLogger(__name__).exception("Modal compute stream error")
-                yield {"event": "error", "data": json.dumps({"message": f"Modal compute error: {str(e)}"})}
+                yield {
+                    "event": "error",
+                    "data": json.dumps({"message": f"Modal compute error: {str(e)}"}),
+                }
                 return
 
             # Final result
@@ -502,27 +717,33 @@ def compute_api():
             except Exception:
                 result_text = ""
 
-            yield {"event": "done", "data": json.dumps({
-                "response": result_text,
-                "session_id": req.session_id,
-                "skills": collected_skills,
-                "tool_calls": collected_tool_calls,
-                "visualization": collected_visualization,
-                "tier": tier.value,
-            })}
+            yield {
+                "event": "done",
+                "data": json.dumps(
+                    {
+                        "response": result_text,
+                        "session_id": req.session_id,
+                        "skills": collected_skills,
+                        "tool_calls": collected_tool_calls,
+                        "visualization": collected_visualization,
+                        "tier": tier.value,
+                    }
+                ),
+            }
 
         return EventSourceResponse(_stream())
 
     return api
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Local entrypoint — for testing with `modal run`
-# ═══════════════════════════════════════════════════════════════════════════
+# ---------------------------------------------------------------------------
+# Local entrypoint - for testing with `modal run`
+# ---------------------------------------------------------------------------
+
 
 @app.local_entrypoint()
 def test_compute(query: str = "What is the structure of hemoglobin?"):
-    """Test the compute engine locally with `modal run modal_compute.py`"""
+    # Test the compute engine locally with `modal run modal_compute.py`
     engine = ComputeEngine()
     skills = engine.classify_intent.remote(query)
     print(f"Skills: {skills}")

@@ -22,6 +22,7 @@ from typing import Any
 # Try importing modal — if not installed, tasks will fail gracefully
 try:
     import modal
+
     MODAL_AVAILABLE = True
 except ImportError:
     MODAL_AVAILABLE = False
@@ -31,8 +32,9 @@ except ImportError:
 # Modal Authentication — support headless/VPS deployment
 # =============================================================================
 
+
 def _init_modal_client():
-    '''Validate Modal environment and return credential status.
+    """Validate Modal environment and return credential status.
 
     On a headless VPS (Hostinger), there is no browser for `modal setup`.
     Set MODAL_TOKEN_ID and MODAL_TOKEN_SECRET in .env or environment.
@@ -40,7 +42,7 @@ def _init_modal_client():
     no explicit client setup required.
 
     Returns True if Modal SDK is importable, False otherwise.
-    '''
+    """
     if not MODAL_AVAILABLE:
         return False
 
@@ -154,37 +156,27 @@ if MODAL_AVAILABLE:
     # Python dependencies are pip-installed separately on top.
 
     # STAR 2.7.11b aligner via BioContainers
-    _star_image = (
-        modal.Image.from_registry(
-            "quay.io/biocontainers/star:2.7.11b--h5ca1c30_8",
-            add_python="3.11",
-        )
-        .pip_install("pysam")
-    )
+    _star_image = modal.Image.from_registry(
+        "quay.io/biocontainers/star:2.7.11b--h5ca1c30_8",
+        add_python="3.11",
+    ).pip_install("pysam")
 
     # SRA Toolkit 3.4.1 (fasterq-dump, prefetch) via BioContainers
-    _sra_image = (
-        modal.Image.from_registry(
-            "quay.io/biocontainers/sra-tools:3.4.1--h4304569_1",
-            add_python="3.11",
-        )
-        .pip_install("pysam")
-    )
+    _sra_image = modal.Image.from_registry(
+        "quay.io/biocontainers/sra-tools:3.4.1--h4304569_1",
+        add_python="3.11",
+    ).pip_install("pysam")
 
     # DESeq2 1.50.2 (R 4.5 / Bioconductor 3.21) via BioContainers
     # Ships R + BiocManager + DESeq2 pre-installed. No apt installs needed.
-    _deseq2_image = (
-        modal.Image.from_registry(
-            "quay.io/biocontainers/bioconductor-deseq2:1.50.2--r45ha27e39d_0",
-            add_python="3.11",
-        )
-        .pip_install("pandas", "numpy", "httpx")
-    )
+    _deseq2_image = modal.Image.from_registry(
+        "quay.io/biocontainers/bioconductor-deseq2:1.50.2--r45ha27e39d_0",
+        add_python="3.11",
+    ).pip_install("pandas", "numpy", "httpx")
 
     # General GPU image for ML tasks (no biocontainer — PyTorch from pip)
-    _gpu_image = (
-        modal.Image.debian_slim(python_version="3.11")
-        .pip_install("torch", "transformers", "scanpy", "anndata")
+    _gpu_image = modal.Image.debian_slim(python_version="3.11").pip_install(
+        "torch", "transformers", "scanpy", "anndata"
     )
 
     # ---- Modal App Definitions ----
@@ -203,7 +195,7 @@ if MODAL_AVAILABLE:
     @_star_app.function(
         cpu=16,
         memory=128 * 1024,  # 128 GB RAM
-        timeout=7200,        # 2-hour max
+        timeout=7200,  # 2-hour max
         volumes={"/data": _data_volume},
     )
     def run_star_alignment(
@@ -227,18 +219,36 @@ if MODAL_AVAILABLE:
             # Step 1: Download FASTQ
             print(f"[STAR] Downloading {sra_accession}...")
             dl_result = subprocess.run(
-                ["fasterq-dump", "--split-files", "--threads", "4", sra_accession, "--outdir", work_dir],
-                capture_output=True, text=True, timeout=3600,
+                [
+                    "fasterq-dump",
+                    "--split-files",
+                    "--threads",
+                    "4",
+                    sra_accession,
+                    "--outdir",
+                    work_dir,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=3600,
             )
             if dl_result.returncode != 0:
                 return {"error": f"fasterq-dump failed: {dl_result.stderr[-2000:]}"}
 
-            fastq_files = [f for f in os.listdir(work_dir) if f.endswith(".fastq") or f.endswith(".fastq.gz")]
+            fastq_files = [
+                f
+                for f in os.listdir(work_dir)
+                if f.endswith(".fastq") or f.endswith(".fastq.gz")
+            ]
             if not fastq_files:
-                return {"error": f"No FASTQ files found after download of {sra_accession}"}
+                return {
+                    "error": f"No FASTQ files found after download of {sra_accession}"
+                }
 
             # Step 2: Build STAR command
-            read_files_param = " ".join([os.path.join(work_dir, f) for f in sorted(fastq_files)])
+            read_files_param = " ".join(
+                [os.path.join(work_dir, f) for f in sorted(fastq_files)]
+            )
             if star_index_path:
                 index_param = f"--genomeDir {star_index_path}"
             else:
@@ -255,7 +265,11 @@ if MODAL_AVAILABLE:
 
             print(f"[STAR] Running alignment for {sra_accession}...")
             star_result = subprocess.run(
-                star_cmd, shell=True, capture_output=True, text=True, timeout=7200,
+                star_cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=7200,
             )
 
             result = {
@@ -310,13 +324,25 @@ if MODAL_AVAILABLE:
         try:
             if format == "fastq":
                 result = subprocess.run(
-                    ["fasterq-dump", "--split-files", "--threads", "4", sra_accession, "--outdir", out_dir],
-                    capture_output=True, text=True, timeout=3600,
+                    [
+                        "fasterq-dump",
+                        "--split-files",
+                        "--threads",
+                        "4",
+                        sra_accession,
+                        "--outdir",
+                        out_dir,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=3600,
                 )
             else:
                 result = subprocess.run(
                     ["prefetch", sra_accession, "--max-size", "100G", "-o", out_dir],
-                    capture_output=True, text=True, timeout=3600,
+                    capture_output=True,
+                    text=True,
+                    timeout=3600,
                 )
 
             files = os.listdir(out_dir) if os.path.exists(out_dir) else []
@@ -377,7 +403,9 @@ cat("DESeq2 completed\\n")
         try:
             result = subprocess.run(
                 ["Rscript", r_script_path],
-                capture_output=True, text=True, timeout=3600,
+                capture_output=True,
+                text=True,
+                timeout=3600,
             )
 
             output_exists = os.path.exists(output_path)
@@ -472,7 +500,9 @@ def create_modal_task(
             param_list.append(pname)
         else:
             default = pdef.get("default")
-            param_list.append(f"{pname}={repr(default) if default is not None else 'None'}")
+            param_list.append(
+                f"{pname}={repr(default) if default is not None else 'None'}"
+            )
 
     params_sig = ", ".join(param_list)
 
@@ -530,23 +560,30 @@ def {safe_name}({params_sig}):
 def _validate_sra_accession(acc: str) -> str:
     """Validate SRA accession format to prevent shell injection."""
     import re as _re
-    if not _re.match(r'^[A-Z]{1,3}RR\d+$', acc):
-        raise ValueError(f"Invalid SRA accession: {acc!r}. Must match pattern like SRR1234567.")
+
+    if not _re.match(r"^[A-Z]{1,3}RR\d+$", acc):
+        raise ValueError(
+            f"Invalid SRA accession: {acc!r}. Must match pattern like SRR1234567."
+        )
     return acc
+
 
 def _sanitize_r_param(param: str) -> str:
     """Remove shell injection characters from R parameters (design_formula, contrast)."""
     import re as _re
+
     # Remove semicolons, backticks, and any attempt to close/break R strings
-    cleaned = _re.sub(r'[;`]', '', param)
+    cleaned = _re.sub(r"[;`]", "", param)
     # Remove obvious R code injection (system calls, file operations)
-    cleaned = _re.sub(r'\bsystem\s*\(', '', cleaned, flags=_re.IGNORECASE)
-    cleaned = _re.sub(r'\bfile\s*\(', '', cleaned, flags=_re.IGNORECASE)
-    cleaned = _re.sub(r'\bpipe\s*\(', '', cleaned, flags=_re.IGNORECASE)
+    cleaned = _re.sub(r"\bsystem\s*\(", "", cleaned, flags=_re.IGNORECASE)
+    cleaned = _re.sub(r"\bfile\s*\(", "", cleaned, flags=_re.IGNORECASE)
+    cleaned = _re.sub(r"\bpipe\s*\(", "", cleaned, flags=_re.IGNORECASE)
     return cleaned.strip()
 
 
-def run_modal_task(job_type: str, params: dict[str, Any], workspace: Path | None = None) -> dict[str, Any]:
+def run_modal_task(
+    job_type: str, params: dict[str, Any], workspace: Path | None = None
+) -> dict[str, Any]:
     """Execute a registered Modal task with detached job support."""
     if not MODAL_AVAILABLE:
         return {"error": "Modal SDK not installed.", "status": "error"}
@@ -559,7 +596,10 @@ def run_modal_task(job_type: str, params: dict[str, Any], workspace: Path | None
     func = task["function"]
 
     if app is None or func is None:
-        return {"error": f"Task '{job_type}' is registered but Modal SDK not available to run it.", "status": "error"}
+        return {
+            "error": f"Task '{job_type}' is registered but Modal SDK not available to run it.",
+            "status": "error",
+        }
 
     # ── Background Execution Logic ──
     is_background = params.pop("background", False)
@@ -568,7 +608,7 @@ def run_modal_task(job_type: str, params: dict[str, Any], workspace: Path | None
         jobs_dir = workspace / "background_jobs"
         jobs_dir.mkdir(parents=True, exist_ok=True)
         job_path = jobs_dir / f"{job_id}.json"
-        
+
         try:
             with app.run():
                 call = func.spawn(**params)
@@ -583,7 +623,7 @@ def run_modal_task(job_type: str, params: dict[str, Any], workspace: Path | None
                 return {
                     "status": "detached",
                     "job_id": job_id,
-                    "message": f"Detached Modal job '{job_type}' spawned. Monitor Call ID: {call.object_id}"
+                    "message": f"Detached Modal job '{job_type}' spawned. Monitor Call ID: {call.object_id}",
                 }
         except Exception as e:
             return {"error": f"Failed to spawn Modal task: {e}", "status": "error"}
@@ -592,7 +632,11 @@ def run_modal_task(job_type: str, params: dict[str, Any], workspace: Path | None
     try:
         with app.run():
             result = func.remote(**params)
-            return result if isinstance(result, dict) else {"status": "success", "result": str(result)}
+            return (
+                result
+                if isinstance(result, dict)
+                else {"status": "success", "result": str(result)}
+            )
     except Exception as e:
         return {
             "error": f"Modal task '{job_type}' failed: {e}",

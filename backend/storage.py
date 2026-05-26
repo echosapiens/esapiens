@@ -126,9 +126,9 @@ class StorageBackend:
     """
 
     def __init__(self, data_dir: str | Path | None = None):
-        self._data_dir = Path(data_dir or os.environ.get(
-            "ESAPIENS_DATA_DIR", "./data"
-        )).resolve()
+        self._data_dir = Path(
+            data_dir or os.environ.get("ESAPIENS_DATA_DIR", "./data")
+        ).resolve()
         self._db_path = self._data_dir / "esapiens.db"
         self._checkpoints_dir = self._data_dir / "checkpoints"
         self._workspaces_root = self._data_dir / "workspaces"
@@ -168,26 +168,30 @@ class StorageBackend:
         cursor = self._conn.execute("PRAGMA table_info(messages)")
         cols = [row["name"] for row in cursor.fetchall()]
         if "thoughts" not in cols:
-            self._conn.execute("ALTER TABLE messages ADD COLUMN thoughts TEXT NOT NULL DEFAULT '[]'")
+            self._conn.execute(
+                "ALTER TABLE messages ADD COLUMN thoughts TEXT NOT NULL DEFAULT '[]'"
+            )
             self._conn.commit()
         if "visualization" not in cols:
             self._conn.execute("ALTER TABLE messages ADD COLUMN visualization TEXT")
             self._conn.commit()
         if "skills" not in cols:
-            self._conn.execute("ALTER TABLE messages ADD COLUMN skills TEXT NOT NULL DEFAULT '[]'")
+            self._conn.execute(
+                "ALTER TABLE messages ADD COLUMN skills TEXT NOT NULL DEFAULT '[]'"
+            )
             self._conn.commit()
 
         # Migration: Add user_id to background_jobs if missing
         cursor = self._conn.execute("PRAGMA table_info(background_jobs)")
         bj_cols = [row["name"] for row in cursor.fetchall()]
         if "user_id" not in bj_cols:
-            self._conn.execute("ALTER TABLE background_jobs ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'")
+            self._conn.execute(
+                "ALTER TABLE background_jobs ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'"
+            )
             self._conn.commit()
 
         # Track schema version
-        cur = self._conn.execute(
-            "SELECT value FROM _meta WHERE key = 'schema_version'"
-        )
+        cur = self._conn.execute("SELECT value FROM _meta WHERE key = 'schema_version'")
         row = cur.fetchone()
         if row is None:
             self._conn.execute(
@@ -229,11 +233,11 @@ class StorageBackend:
 
     # ── Session CRUD ──────────────────────────────────────────────────
 
-    def ensure_session(self, session_id: str, user_id: str = "default") -> dict[str, Any]:
+    def ensure_session(
+        self, session_id: str, user_id: str = "default"
+    ) -> dict[str, Any]:
         """Get or create a session. Returns session dict."""
-        cursor = self.conn.execute(
-            "SELECT * FROM sessions WHERE id = ?", (session_id,)
-        )
+        cursor = self.conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,))
         row = cursor.fetchone()
 
         if row is not None:
@@ -244,7 +248,13 @@ class StorageBackend:
             self.conn.execute(
                 """INSERT INTO sessions (id, title, user_id, created_at, updated_at, message_count, metadata)
                    VALUES (?, ?, ?, ?, ?, 0, '{}')""",
-                (session_id, f"Session {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}", user_id, now, now),
+                (
+                    session_id,
+                    f"Session {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}",
+                    user_id,
+                    now,
+                    now,
+                ),
             )
             self.conn.commit()
 
@@ -263,9 +273,7 @@ class StorageBackend:
 
     def get_session(self, session_id: str) -> Optional[dict[str, Any]]:
         """Return full session dict with messages, or None."""
-        cursor = self.conn.execute(
-            "SELECT * FROM sessions WHERE id = ?", (session_id,)
-        )
+        cursor = self.conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -273,8 +281,12 @@ class StorageBackend:
         session = dict(row)
         session["metadata"] = json.loads(session.get("metadata", "{}"))
         # Convert Unix timestamps to ISO strings for API
-        session["created_at"] = datetime.fromtimestamp(session["created_at"], tz=timezone.utc).isoformat()
-        session["updated_at"] = datetime.fromtimestamp(session["updated_at"], tz=timezone.utc).isoformat()
+        session["created_at"] = datetime.fromtimestamp(
+            session["created_at"], tz=timezone.utc
+        ).isoformat()
+        session["updated_at"] = datetime.fromtimestamp(
+            session["updated_at"], tz=timezone.utc
+        ).isoformat()
 
         # Load messages
         msg_cursor = self.conn.execute(
@@ -282,8 +294,10 @@ class StorageBackend:
             (session_id,),
         )
         msg_rows = msg_cursor.fetchall()
-        print(f"[Storage] Fetching session {session_id}: Found {len(msg_rows)} messages in DB")
-        
+        print(
+            f"[Storage] Fetching session {session_id}: Found {len(msg_rows)} messages in DB"
+        )
+
         messages = []
         for msg_row in msg_rows:
             try:
@@ -298,7 +312,7 @@ class StorageBackend:
                             msg[col] = [] if col != "visualization" else None
                     else:
                         msg[col] = [] if col != "visualization" else None
-                
+
                 # Messages timestamp stored as Unix seconds → convert to ms for JS Date
                 msg["timestamp"] = int(msg["timestamp"] * 1000)
                 messages.append(msg)
@@ -321,8 +335,12 @@ class StorageBackend:
         for row in cursor.fetchall():
             d = dict(row)
             # Convert Unix timestamps → ISO strings for the API
-            d["created_at"] = datetime.fromtimestamp(d["created_at"], tz=timezone.utc).isoformat()
-            d["updated_at"] = datetime.fromtimestamp(d["updated_at"], tz=timezone.utc).isoformat()
+            d["created_at"] = datetime.fromtimestamp(
+                d["created_at"], tz=timezone.utc
+            ).isoformat()
+            d["updated_at"] = datetime.fromtimestamp(
+                d["updated_at"], tz=timezone.utc
+            ).isoformat()
             results.append(d)
         return results
 
@@ -344,7 +362,9 @@ class StorageBackend:
 
         with self._write_lock:
             with self.conn:
-                self.conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+                self.conn.execute(
+                    "DELETE FROM messages WHERE session_id = ?", (session_id,)
+                )
                 self.conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
 
         # Remove workspace directory
@@ -354,7 +374,9 @@ class StorageBackend:
     def reset_session(self, session_id: str) -> dict[str, Any]:
         """Clear all messages in a session but keep the session record."""
         with self._write_lock:
-            self.conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+            self.conn.execute(
+                "DELETE FROM messages WHERE session_id = ?", (session_id,)
+            )
             self.conn.execute(
                 "UPDATE sessions SET message_count = 0, updated_at = ? WHERE id = ?",
                 (time.time(), session_id),
@@ -447,11 +469,16 @@ class StorageBackend:
         # Write meta file if not exists
         meta_path = path / ".meta.json"
         if not meta_path.exists():
-            meta_path.write_text(json.dumps({
-                "user_id": user_id,
-                "session_id": session_id,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-            }, indent=2))
+            meta_path.write_text(
+                json.dumps(
+                    {
+                        "user_id": user_id,
+                        "session_id": session_id,
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                    },
+                    indent=2,
+                )
+            )
 
         return path
 
@@ -462,6 +489,7 @@ class StorageBackend:
     def _remove_workspace(self, session_id: str) -> None:
         """Remove workspace directory for a session (best-effort)."""
         import shutil
+
         # Search across all users for this session
         if not self._workspaces_root.exists():
             return
@@ -479,10 +507,15 @@ class StorageBackend:
 
         meta_path = user_dir / ".meta.json"
         if not meta_path.exists():
-            meta_path.write_text(json.dumps({
-                "user_id": user_id,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-            }, indent=2))
+            meta_path.write_text(
+                json.dumps(
+                    {
+                        "user_id": user_id,
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                    },
+                    indent=2,
+                )
+            )
 
         return user_dir
 
@@ -560,14 +593,23 @@ class StorageBackend:
         if row is None:
             return None
         return {
-            "job_id": row[0], "tool": row[1], "name": row[2], "command": row[3],
-            "status": row[4], "start_time": row[5], "end_time": row[6],
-            "exit_code": row[7], "log_path": row[8], "result_preview": row[9],
+            "job_id": row[0],
+            "tool": row[1],
+            "name": row[2],
+            "command": row[3],
+            "status": row[4],
+            "start_time": row[5],
+            "end_time": row[6],
+            "exit_code": row[7],
+            "log_path": row[8],
+            "result_preview": row[9],
             "error": row[10],
             "metadata": json.loads(row[11]) if row[11] else {},
         }
 
-    def list_jobs(self, status: str | None = None, limit: int = 50, user_id: str | None = None) -> list[dict]:
+    def list_jobs(
+        self, status: str | None = None, limit: int = 50, user_id: str | None = None
+    ) -> list[dict]:
         """List background jobs, optionally filtered by status and/or user_id."""
         assert self._conn is not None
         # Check if user_id column exists in background_jobs
@@ -601,8 +643,15 @@ class StorageBackend:
             )
         rows = cur.fetchall()
         return [
-            {"job_id": r[0], "tool": r[1], "name": r[2], "status": r[3],
-             "start_time": r[4], "end_time": r[5], "error": r[6]}
+            {
+                "job_id": r[0],
+                "tool": r[1],
+                "name": r[2],
+                "status": r[3],
+                "start_time": r[4],
+                "end_time": r[5],
+                "error": r[6],
+            }
             for r in rows
         ]
 

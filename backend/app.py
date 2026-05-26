@@ -18,6 +18,7 @@ from streaming import router as chat_router
 # with Gradio 5+ which ships as a namespace package.
 try:
     from gradio_app import mount_gradio
+
     HAS_GRADIO = True
 except ImportError:
     HAS_GRADIO = False

@@ -25,10 +25,13 @@ def main():
         f.write("    cmd = [sys.executable, script_path, pdb_id, str(steps)]\n")
         f.write("    out = subprocess.check_output(cmd)\n")
         f.write("    return json.loads(out.decode())\n")
-        f.write("ui = gr.Interface(fn=run_md, inputs=[gr.Textbox(label='PDB ID'), gr.Number(label='Steps', value=5000)], outputs=gr.JSON())\n")
+        f.write(
+            "ui = gr.Interface(fn=run_md, inputs=[gr.Textbox(label='PDB ID'), gr.Number(label='Steps', value=5000)], outputs=gr.JSON())\n"
+        )
         f.write("ui.launch(server_name='0.0.0.0', server_port=int(port))\n")
     # Execute the temporary Gradio app.
     subprocess.run([sys.executable, temp_file])
+
 
 if __name__ == "__main__":
     main()

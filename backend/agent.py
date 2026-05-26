@@ -15,17 +15,19 @@ from typing import Annotated, Any, Literal, Sequence, TypedDict
 
 import operator
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
-from langgraph.prebuilt import ToolNode
 
 from tools import TOOL_DEFINITIONS, execute_tool
 from prompts import (
     get_prompt,
-    get_model_config,
-    get_style_rules,
-    get_prompt_meta,
     build_skill_context_block,
     build_tool_definitions_block,
     build_output_format_block,
@@ -34,7 +36,7 @@ from prompts import (
     build_env_context_block,
 )
 from compress import compress_messages, should_compress, count_tokens
-from intent_classifier import classify_query, get_classifier
+from intent_classifier import classify_query
 from skill_loader import get_skill_loader, SkillContextBuilder
 from pathlib import Path
 
@@ -48,6 +50,7 @@ class QueryTier(str, Enum):
     STANDARD — bio queries that need tools → full ReAct loop with skill context
     HEAVY    — multi-step pipelines, plots → full ReAct loop (may iterate)
     """
+
     DIRECT = "direct"
     STANDARD = "standard"
     HEAVY = "heavy"
@@ -146,6 +149,8 @@ def direct_llm_response(query: str) -> str:
 
 # set chosen_model from environment variable.
 chosen_model = os.getenv("OPENROUTER_MODEL", "inception/mercury-2")
+
+
 class WorkflowState(TypedDict):
     """State passed between nodes in the ReAct loop."""
 
@@ -163,13 +168,14 @@ class WorkflowState(TypedDict):
 
 class DebugEntry(TypedDict, total=False):
     """Single entry in the working-memory debug log."""
-    tool: str                          # which tool was called
-    approach: str                      # short label for what was tried (e.g. "index-22-pam50")
-    strategy: str                      # overall strategy (e.g. "index_access", "name_search")
-    succeeded: bool                    # did this approach produce useful output?
-    result_preview: str                # first ~120 chars of the result for LLM to review
-    failure_reason: str | None         # why it failed (empty output, wrong data, error)
-    switch_triggered: bool             # did a strategy switch fire at this entry?
+
+    tool: str  # which tool was called
+    approach: str  # short label for what was tried (e.g. "index-22-pam50")
+    strategy: str  # overall strategy (e.g. "index_access", "name_search")
+    succeeded: bool  # did this approach produce useful output?
+    result_preview: str  # first ~120 chars of the result for LLM to review
+    failure_reason: str | None  # why it failed (empty output, wrong data, error)
+    switch_triggered: bool  # did a strategy switch fire at this entry?
 
 
 # ── LLM setup ────────────────────────────────────────────────────────────────
@@ -218,7 +224,9 @@ def classify_intent_node(state: WorkflowState) -> dict:
     system_content = get_prompt(
         "standard",
         env_context_block=build_env_context_block(
-            env_description if env_description else "(environment description not available)"
+            env_description
+            if env_description
+            else "(environment description not available)"
         ),
         skill_context_block=build_skill_context_block(
             skills_context if skills_context else "(no skill context)"
@@ -232,7 +240,9 @@ def classify_intent_node(state: WorkflowState) -> dict:
         content=system_content,
     )
     # Only add system message if not already present in state
-    has_system = any(isinstance(msg, SystemMessage) for msg in state.get("messages", []))
+    has_system = any(
+        isinstance(msg, SystemMessage) for msg in state.get("messages", [])
+    )
     new_messages: list[BaseMessage] = []
     if not has_system:
         new_messages.append(system_msg)
@@ -241,7 +251,7 @@ def classify_intent_node(state: WorkflowState) -> dict:
     return {
         "messages": new_messages,
         "loaded_skills": skill_paths,
-        "debug_log": [],          # initialize working memory
+        "debug_log": [],  # initialize working memory
     }
 
 
@@ -295,8 +305,10 @@ def call_model(state: WorkflowState) -> dict:
             openrouter_api_key=_openrouter_api_key,
         )
         if len(compressed) < len(messages):
-            print(f"[Compress] {len(messages)} msgs → {len(compressed)} "
-                  f"({count_tokens(messages)} → {count_tokens(compressed)} tokens)")
+            print(
+                f"[Compress] {len(messages)} msgs → {len(compressed)} "
+                f"({count_tokens(messages)} → {count_tokens(compressed)} tokens)"
+            )
             messages = compressed
 
     # Bind tools so the model can request function calls
@@ -307,15 +319,29 @@ def call_model(state: WorkflowState) -> dict:
         err_str = str(e)
         # If provider rejects the tool definitions, try without tools
         if "400" in err_str or "BadRequest" in err_str or "tool" in err_str.lower():
-            print(f"[Agent] Tool binding rejected by provider ({e.__class__.__name__}), retrying without tools")
+            print(
+                f"[Agent] Tool binding rejected by provider ({e.__class__.__name__}), retrying without tools"
+            )
             try:
                 response = llm.invoke(messages)
             except Exception as e2:
                 print(f"[Agent] LLM invocation failed: {e2}")
-                return {"messages": [AIMessage(content="I encountered an error processing your request. Please try again.")]}
+                return {
+                    "messages": [
+                        AIMessage(
+                            content="I encountered an error processing your request. Please try again."
+                        )
+                    ]
+                }
         else:
             print(f"[Agent] LLM invocation failed: {e}")
-            return {"messages": [AIMessage(content="I encountered an error processing your request. Please try again.")]}
+            return {
+                "messages": [
+                    AIMessage(
+                        content="I encountered an error processing your request. Please try again."
+                    )
+                ]
+            }
     return {"messages": [response]}
 
 
@@ -355,9 +381,12 @@ def _classify_approach(name: str, args: dict, result_str: str) -> tuple[str, str
     return ("unknown", "generic")
 
 
-_STRATEGY_SWITCH_THRESHOLD = 3   # switch after 3 consecutive failures of same strategy
+_STRATEGY_SWITCH_THRESHOLD = 3  # switch after 3 consecutive failures of same strategy
 _STUCK_PATTERNS = (
-    re.compile(r"'nan'|value_counts\(\).*dtype|Series\(\[\].*dtype|surv_df.*0\s*$", re.IGNORECASE),
+    re.compile(
+        r"'nan'|value_counts\(\).*dtype|Series\(\[\].*dtype|surv_df.*0\s*$",
+        re.IGNORECASE,
+    ),
     re.compile(r"len\(df\)\s*==\s*0|Total\s+evaluable\s+samples:\s*0", re.IGNORECASE),
 )
 
@@ -376,7 +405,9 @@ def _is_failed_output(result_str: str) -> bool:
                 return True
             if isinstance(v, pd.DataFrame) and len(v) == 0:
                 return True
-    return bool(_STUCK_PATTERNS[0].search(result_str) or _STUCK_PATTERNS[1].search(result_str))
+    return bool(
+        _STUCK_PATTERNS[0].search(result_str) or _STUCK_PATTERNS[1].search(result_str)
+    )
 
 
 def tools_node(state: WorkflowState) -> dict:
@@ -390,7 +421,11 @@ def tools_node(state: WorkflowState) -> dict:
     """
     last_message = state["messages"][-1]
     if not isinstance(last_message, AIMessage) or not last_message.tool_calls:
-        return {"messages": [], "tool_calls": [], "debug_log": state.get("debug_log", [])}
+        return {
+            "messages": [],
+            "tool_calls": [],
+            "debug_log": state.get("debug_log", []),
+        }
 
     tool_messages: list[ToolMessage] = []
     tool_calls_record: list[dict] = []
@@ -400,7 +435,9 @@ def tools_node(state: WorkflowState) -> dict:
     strategy_failures: dict[str, int] = {}
     for entry in debug_log:
         if not entry.get("succeeded") and entry.get("strategy"):
-            strategy_failures[entry["strategy"]] = strategy_failures.get(entry["strategy"], 0) + 1
+            strategy_failures[entry["strategy"]] = (
+                strategy_failures.get(entry["strategy"], 0) + 1
+            )
 
     for tc in last_message.tool_calls:
         name = tc["name"]
@@ -447,7 +484,11 @@ def tools_node(state: WorkflowState) -> dict:
         }
         debug_log.append(entry)
 
-    return {"messages": tool_messages, "tool_calls": tool_calls_record, "debug_log": debug_log}
+    return {
+        "messages": tool_messages,
+        "tool_calls": tool_calls_record,
+        "debug_log": debug_log,
+    }
 
 
 # ── Edge: should_continue ────────────────────────────────────────────────────
@@ -538,6 +579,7 @@ Last tool result (raw):
 
     try:
         from langchain_openai import ChatOpenAI
+
         critic_llm = ChatOpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=key,
@@ -546,13 +588,22 @@ Last tool result (raw):
             max_completion_tokens=512,
             timeout=30,
         )
-        response = critic_llm.invoke([
-            {"role": "system", "content": "You are a strict critic. Only output a strategy switch block if the agent is clearly stuck. Otherwise output nothing."},
-            {"role": "user", "content": prompt},
-        ])
+        response = critic_llm.invoke(
+            [
+                {
+                    "role": "system",
+                    "content": "You are a strict critic. Only output a strategy switch block if the agent is clearly stuck. Otherwise output nothing.",
+                },
+                {"role": "user", "content": prompt},
+            ]
+        )
         raw = response.content if hasattr(response, "content") else str(response)
         # content can be str | list[dict] — normalize to str
-        content = raw if isinstance(raw, str) else str(raw[0]) if isinstance(raw, list) and raw else ""
+        content = (
+            raw
+            if isinstance(raw, str)
+            else str(raw[0]) if isinstance(raw, list) and raw else ""
+        )
         if content and "[STRATEGY SWITCH]" in content:
             return content
     except Exception as e:
@@ -574,7 +625,10 @@ def critic_node(state: WorkflowState) -> dict:
     # Inject the switch directive as a new HumanMessage — forces the next
     # call_model to process the switch instruction before its own reasoning
     from langchain_core.messages import HumanMessage
-    return {"messages": [HumanMessage(content=f"[WORKING MEMORY CRITIC]\n{switch_msg}")]}
+
+    return {
+        "messages": [HumanMessage(content=f"[WORKING MEMORY CRITIC]\n{switch_msg}")]
+    }
 
 
 # ── Graph builder ────────────────────────────────────────────────────────────
@@ -614,6 +668,7 @@ def build_agent_graph(checkpointer=None) -> StateGraph:
     if checkpointer is None:
         import sqlite3
         from langgraph.checkpoint.sqlite import SqliteSaver
+
         conn = sqlite3.connect(":memory:", check_same_thread=False)
         checkpointer = SqliteSaver(conn)
 

@@ -5,7 +5,6 @@ Simplified port from Sprint-1. Provides caching and context building
 for injecting skill patterns into the LLM prompt.
 """
 
-import os
 import threading
 from pathlib import Path
 from typing import Optional
@@ -40,7 +39,9 @@ class SkillLoader:
             print(f"[SkillLoader] Error loading skill {skill_path}: {e}")
             return None
 
-    def load_skills(self, skill_paths: list[str], use_cache: bool = True) -> dict[str, str]:
+    def load_skills(
+        self, skill_paths: list[str], use_cache: bool = True
+    ) -> dict[str, str]:
         """Load multiple skills at once. Returns dict of path→content."""
         results = {}
         for sp in skill_paths:
@@ -74,7 +75,9 @@ class SkillContextBuilder:
         sections: list[str] = []
         total = 0
         for path, content in skills_content.items():
-            section = f"\n\n## Skill: {path}\n\n{content}" if include_header else content
+            section = (
+                f"\n\n## Skill: {path}\n\n{content}" if include_header else content
+            )
             if total + len(section) > max_length:
                 remaining = max_length - total - 50
                 if remaining > 0:

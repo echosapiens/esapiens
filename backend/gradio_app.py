@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # Always use: `import gradio as gr`
 try:
     import gradio as gr
+
     GRADIO_AVAILABLE = True
 except ImportError:
     GRADIO_AVAILABLE = False
@@ -45,10 +46,12 @@ def _build_interface() -> "gr.Blocks":
     with gr.Blocks(
         title="E.sapiens — AI Bioinformatics Agent",
     ) as demo:
-        gr.HTML("""<style>
+        gr.HTML(
+            """<style>
         footer { display: none !important; }
         .gradio-container { max-width: 900px !important; margin: auto !important; }
-        </style>""")
+        </style>"""
+        )
         gr.Markdown(
             """
             # 🧬 E.sapiens
@@ -100,6 +103,7 @@ def _build_interface() -> "gr.Blocks":
             # Keep a stable session per Gradio session
             if not sid or sid == "default":
                 import uuid
+
                 sid = f"gradio_{uuid.uuid4().hex[:8]}"
 
             chat_history = chat_history or []
@@ -114,9 +118,11 @@ def _build_interface() -> "gr.Blocks":
 
                 # Append tool info as a subtle detail if tools were used
                 if tool_calls:
-                    tool_summary = "  \n*Tools used: " + ", ".join(
-                        t["name"] for t in tool_calls
-                    ) + "*"
+                    tool_summary = (
+                        "  \n*Tools used: "
+                        + ", ".join(t["name"] for t in tool_calls)
+                        + "*"
+                    )
                     response_text += tool_summary
 
                 chat_history[-1] = (message, response_text)
@@ -131,12 +137,17 @@ def _build_interface() -> "gr.Blocks":
         def clear_chat() -> tuple:
             """Reset chat and generate a new session."""
             import uuid
+
             new_sid = f"gradio_{uuid.uuid4().hex[:8]}"
             return [], new_sid
 
         # Wire up events
-        msg.submit(respond, [msg, chatbot, session_state], [msg, chatbot, session_state])
-        submit_btn.click(respond, [msg, chatbot, session_state], [msg, chatbot, session_state])
+        msg.submit(
+            respond, [msg, chatbot, session_state], [msg, chatbot, session_state]
+        )
+        submit_btn.click(
+            respond, [msg, chatbot, session_state], [msg, chatbot, session_state]
+        )
         clear_btn.click(clear_chat, None, [chatbot, session_state])
 
     return demo
@@ -159,7 +170,9 @@ def mount_gradio(app) -> object:
     mount_path = os.environ.get("GRADIO_MOUNT_PATH", "/gradio")
     demo = _build_interface()
     gr.mount_gradio_app(
-        app, demo, path=mount_path,
+        app,
+        demo,
+        path=mount_path,
         theme=gr.themes.Soft(primary_hue="blue", neutral_hue="slate"),
     )
     logger.info("Gradio interface mounted at %s", mount_path)

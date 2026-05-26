@@ -15,7 +15,6 @@ Architecture:
 
 import json
 import logging
-import os
 from typing import Any, Generator, Optional
 
 from dotenv import load_dotenv
@@ -47,7 +46,9 @@ agent_graph = build_agent_graph(checkpointer=storage.checkpoint_saver)
 
 def _ensure_session(session_id: str, user_id: str = "default") -> dict[str, Any]:
     """Get or create a session, returning the session dict with messages."""
-    return storage.get_session(session_id) or storage.ensure_session(session_id, user_id=user_id)
+    return storage.get_session(session_id) or storage.ensure_session(
+        session_id, user_id=user_id
+    )
 
 
 # ============================================================================
@@ -100,7 +101,11 @@ def run(
                 "session_id": session_id,
                 "skills": graph_result.get("loaded_skills", skill_paths),
                 "tool_calls": [
-                    {"name": tc["name"], "args": tc.get("args", {}), "result": tc.get("result", "")}
+                    {
+                        "name": tc["name"],
+                        "args": tc.get("args", {}),
+                        "result": tc.get("result", ""),
+                    }
                     for tc in tcs
                 ],
                 "tier": tier.value,
@@ -161,7 +166,10 @@ def run_stream(
         else f"Route: {tier.value} -- classifying intent and loading protocols..."
     )
     yield {"event": "thought", "data": json.dumps({"message": thought1})}
-    yield {"event": "skills_loaded", "data": json.dumps({"skills": skill_paths, "tier": tier.value})}
+    yield {
+        "event": "skills_loaded",
+        "data": json.dumps({"skills": skill_paths, "tier": tier.value}),
+    }
 
     # Step 2: Persist user message
     storage.add_message(session_id, "user", query)
@@ -172,7 +180,9 @@ def run_stream(
         collected_thoughts.append("Executing agent loop on VPS...")
 
     assistant_msg_id = storage.add_message(
-        session_id, "assistant", "",
+        session_id,
+        "assistant",
+        "",
         skills=skill_paths,
         thoughts=collected_thoughts,
     )
@@ -184,7 +194,9 @@ def run_stream(
         storage.update_session_title(session_id, title)
 
     # Helper to update assistant message in DB
-    def update_assistant(content=None, tool_calls=None, thoughts=None, visualization=None, skills=None):
+    def update_assistant(
+        content=None, tool_calls=None, thoughts=None, visualization=None, skills=None
+    ):
         try:
             conn = storage.conn
             updates = []
@@ -221,12 +233,14 @@ def run_stream(
         update_assistant(content=text)
         yield {
             "event": "done",
-            "data": json.dumps({
-                "response": text,
-                "session_id": session_id,
-                "skills": skill_paths,
-                "tool_calls": [],
-            }),
+            "data": json.dumps(
+                {
+                    "response": text,
+                    "session_id": session_id,
+                    "skills": skill_paths,
+                    "tool_calls": [],
+                }
+            ),
         }
         return
 
@@ -239,7 +253,8 @@ def run_stream(
     result_text = ""
 
     try:
-        for step in agent_graph.stream({
+        for step in agent_graph.stream(
+            {
                 "query": query,
                 "messages": [],
                 "result": "",
@@ -257,11 +272,13 @@ def run_stream(
                             for tc in msg.tool_calls:
                                 yield {
                                     "event": "tool_call",
-                                    "data": json.dumps({
-                                        "id": tc.get("id", ""),
-                                        "name": tc["name"],
-                                        "args": tc.get("args", {}),
-                                    }),
+                                    "data": json.dumps(
+                                        {
+                                            "id": tc.get("id", ""),
+                                            "name": tc["name"],
+                                            "args": tc.get("args", {}),
+                                        }
+                                    ),
                                 }
                                 collected_thoughts.append(f"Executing {tc['name']}...")
                                 update_assistant(thoughts=collected_thoughts)
@@ -271,21 +288,27 @@ def run_stream(
                     for tc in tcs:
                         safe_result = tc.get("result", "")
                         if len(safe_result) > 15000:
-                            safe_result = safe_result[:15000] + "\n\n[... truncated ...]"
-                        collected_tool_calls.append({
-                            "id": tc.get("id", ""),
-                            "name": tc.get("name", ""),
-                            "args": tc.get("args", {}),
-                            "result": safe_result,
-                            "status": "success",
-                        })
+                            safe_result = (
+                                safe_result[:15000] + "\n\n[... truncated ...]"
+                            )
+                        collected_tool_calls.append(
+                            {
+                                "id": tc.get("id", ""),
+                                "name": tc.get("name", ""),
+                                "args": tc.get("args", {}),
+                                "result": safe_result,
+                                "status": "success",
+                            }
+                        )
                         yield {
                             "event": "tool_result",
-                            "data": json.dumps({
-                                "name": tc.get("name", ""),
-                                "result": safe_result,
-                                "id": tc.get("id", ""),
-                            }),
+                            "data": json.dumps(
+                                {
+                                    "name": tc.get("name", ""),
+                                    "result": safe_result,
+                                    "id": tc.get("id", ""),
+                                }
+                            ),
                         }
 
                         # Extract visualization from tool result JSON
@@ -299,7 +322,11 @@ def run_stream(
                                 if isinstance(parsed, dict):
                                     if "visualization" in parsed:
                                         vis_data = parsed["visualization"]
-                                    elif "data" in parsed and isinstance(parsed["data"], dict) and "visualization" in parsed["data"]:
+                                    elif (
+                                        "data" in parsed
+                                        and isinstance(parsed["data"], dict)
+                                        and "visualization" in parsed["data"]
+                                    ):
                                         vis_data = parsed["data"]["visualization"]
                                 if vis_data:
                                     collected_visualization = vis_data
@@ -310,17 +337,27 @@ def run_stream(
                             except (json.JSONDecodeError, TypeError):
                                 pass
 
-                        collected_thoughts.append(f"\u2713 {tc.get('name', '')} completed")
-                        update_assistant(tool_calls=collected_tool_calls, thoughts=collected_thoughts)
+                        collected_thoughts.append(
+                            f"\u2713 {tc.get('name', '')} completed"
+                        )
+                        update_assistant(
+                            tool_calls=collected_tool_calls, thoughts=collected_thoughts
+                        )
 
                 elif node_name == "finalize":
                     result_text = state.get("result", "")
 
     except Exception as e:
         logging.getLogger(__name__).exception("Agent stream execution error")
-        yield {"event": "error", "data": json.dumps({"message": f"\u26a0\ufe0f Agent error: {str(e)}"})}
+        yield {
+            "event": "error",
+            "data": json.dumps({"message": f"\u26a0\ufe0f Agent error: {str(e)}"}),
+        }
         update_assistant(content=f"Error: {str(e)}", thoughts=collected_thoughts)
-        yield {"event": "done", "data": json.dumps({"response": "", "session_id": session_id})}
+        yield {
+            "event": "done",
+            "data": json.dumps({"response": "", "session_id": session_id}),
+        }
         return
 
     # Emit final response as chunks for streaming feel
@@ -339,13 +376,15 @@ def run_stream(
 
     yield {
         "event": "done",
-        "data": json.dumps({
-            "response": result_text,
-            "session_id": session_id,
-            "skills": collected_skills,
-            "tool_calls": collected_tool_calls,
-            "visualization": collected_visualization,
-        }),
+        "data": json.dumps(
+            {
+                "response": result_text,
+                "session_id": session_id,
+                "skills": collected_skills,
+                "tool_calls": collected_tool_calls,
+                "visualization": collected_visualization,
+            }
+        ),
     }
 
 
@@ -395,7 +434,7 @@ def reset_session(session_id: str) -> dict[str, Any]:
 
 def get_workspace_path(user_id: str, session_id: str):
     """Return the workspace directory path for a user's session."""
-    from pathlib import Path
+
     return storage.get_workspace_path(user_id, session_id)
 
 
@@ -406,5 +445,5 @@ def create_user_profile(user_id: str):
 
 def get_data_dir():
     """Return the root data directory path."""
-    from pathlib import Path
+
     return storage.get_data_dir()

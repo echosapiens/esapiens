@@ -40,6 +40,7 @@ def _ensure_jwt_secret() -> str:
         raise ValueError("JWT_SECRET environment variable is required. Set it in .env")
     return JWT_SECRET
 
+
 security_scheme = HTTPBearer()
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
@@ -51,6 +52,7 @@ auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
 class UserCreate(BaseModel):
     """Registration request body."""
+
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
     full_name: str = Field("", max_length=128)
@@ -58,12 +60,14 @@ class UserCreate(BaseModel):
 
 class UserLogin(BaseModel):
     """Login request body."""
+
     email: EmailStr
     password: str
 
 
 class UserResponse(BaseModel):
     """User data returned in API responses (no password)."""
+
     id: str
     email: str
     full_name: str
@@ -72,6 +76,7 @@ class UserResponse(BaseModel):
 
 class TokenResponse(BaseModel):
     """JWT token response."""
+
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
@@ -213,7 +218,9 @@ def authenticate_user(email: str, password: str) -> Optional[dict]:
         "id": row["id"],
         "email": row["email"],
         "full_name": row["full_name"],
-        "created_at": datetime.fromtimestamp(row["created_at"], tz=timezone.utc).isoformat(),
+        "created_at": datetime.fromtimestamp(
+            row["created_at"], tz=timezone.utc
+        ).isoformat(),
     }
 
 
@@ -234,7 +241,9 @@ def get_user_by_id(user_id: str) -> Optional[dict]:
         "id": row["id"],
         "email": row["email"],
         "full_name": row["full_name"],
-        "created_at": datetime.fromtimestamp(row["created_at"], tz=timezone.utc).isoformat(),
+        "created_at": datetime.fromtimestamp(
+            row["created_at"], tz=timezone.utc
+        ).isoformat(),
     }
 
 
@@ -321,9 +330,11 @@ async def login(body: UserLogin) -> dict:
 @auth_router.get("/me", response_model=UserResponse)
 async def get_me(current_user: dict = Depends(get_current_user)) -> dict:
     """Return the authenticated user's profile."""
-    return UserResponse(**{
-        "id": current_user["id"],
-        "email": current_user["email"],
-        "full_name": current_user["full_name"],
-        "created_at": current_user["created_at"],
-    })
+    return UserResponse(
+        **{
+            "id": current_user["id"],
+            "email": current_user["email"],
+            "full_name": current_user["full_name"],
+            "created_at": current_user["created_at"],
+        }
+    )

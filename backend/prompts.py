@@ -37,8 +37,6 @@ Prompt tiers:
 """
 
 import json
-import os
-import re
 from pathlib import Path
 from typing import Any, Optional
 
@@ -200,7 +198,9 @@ def build_skill_context_block(skill_context: str, max_length: int = 6000) -> str
     footer = "\n\n[Skill context end]"
     available = max_length - len(header) - len(footer) - 10
     if len(skill_context) > available:
-        skill_context = skill_context[:available] + "\n\n[... skill context truncated ...]"
+        skill_context = (
+            skill_context[:available] + "\n\n[... skill context truncated ...]"
+        )
     return header + skill_context + footer
 
 
@@ -233,7 +233,9 @@ def build_env_context_block(env_context: str, max_length: int = 2000) -> str:
     footer = "\n\n[Environment context end]"
     available = max_length - len(header) - len(footer) - 10
     if len(env_context) > available:
-        env_context = env_context[:available] + "\n\n[... environment context truncated ...]"
+        env_context = (
+            env_context[:available] + "\n\n[... environment context truncated ...]"
+        )
     return header + env_context + footer
 
 
@@ -243,6 +245,7 @@ def load_env_description() -> str:
     Returns the file content, or a fallback string if the file is missing.
     """
     from pathlib import Path
+
     env_file = Path(__file__).parent / "E.SAPIENS_ENVIRONMENT.md"
     if env_file.exists():
         return env_file.read_text(encoding="utf-8")

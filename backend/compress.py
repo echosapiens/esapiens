@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import tiktoken
+
     _ENC = tiktoken.encoding_for_model("gpt-4o")
     _TICKTOK_AVAILABLE = True
 except Exception:
@@ -68,7 +69,11 @@ def count_tokens(messages: list[BaseMessage]) -> int:
         # Tool calls have extra token overhead
         if isinstance(msg, AIMessage) and msg.tool_calls:
             for tc in msg.tool_calls:
-                total += len(_ENC.encode(str(tc))) if (_TICKTOK_AVAILABLE and _ENC) else max(1, len(str(tc)) // 4)
+                total += (
+                    len(_ENC.encode(str(tc)))
+                    if (_TICKTOK_AVAILABLE and _ENC)
+                    else max(1, len(str(tc)) // 4)
+                )
         if isinstance(msg, ToolMessage):
             total += 4  # Tool message metadata overhead
     return total
@@ -122,7 +127,11 @@ def get_context_window(model_name: str) -> int:
         if model_name == key:
             return window
     for key, window in MODEL_CONTEXT_WINDOWS.items():
-        if model_name.startswith(key.split("/")[0]) if "/" in key else model_name == key:
+        if (
+            model_name.startswith(key.split("/")[0])
+            if "/" in key
+            else model_name == key
+        ):
             return window
     return MODEL_CONTEXT_WINDOWS["default"]
 
@@ -133,8 +142,10 @@ def should_compress(messages: list[BaseMessage], model_name: str) -> bool:
     threshold = int(context_window * COMPRESSION_THRESHOLD)
     token_count = count_tokens(messages)
     if token_count > threshold:
-        logger.info(f"[Compress] Token count {token_count} exceeds threshold {threshold} "
-                     f"({context_window} window x {COMPRESSION_THRESHOLD:.0%}). Compressing.")
+        logger.info(
+            f"[Compress] Token count {token_count} exceeds threshold {threshold} "
+            f"({context_window} window x {COMPRESSION_THRESHOLD:.0%}). Compressing."
+        )
         return True
     return False
 
@@ -165,25 +176,35 @@ def compress_messages(
     system_msgs: list[BaseMessage] = []
     conv_msgs: list[BaseMessage] = []
     for msg in messages:
-        if isinstance(msg, SystemMessage) and COMPRESSION_MARKER not in (msg.content or ""):
+        if isinstance(msg, SystemMessage) and COMPRESSION_MARKER not in (
+            msg.content or ""
+        ):
             system_msgs.append(msg)
         else:
             conv_msgs.append(msg)
 
     system_tokens = count_tokens(system_msgs)
-    budget = max_tokens - system_tokens - MAX_SUMMARY_TOKENS - 200  # 200 token safety margin
+    budget = (
+        max_tokens - system_tokens - MAX_SUMMARY_TOKENS - 200
+    )  # 200 token safety margin
 
     if budget < 1000:
         # Even with aggressive compression, barely fits. Just keep system + last 2 exchanges.
-        logger.warning("[Compress] Extremely tight budget. Keeping only last 2 exchanges.")
-        recent = conv_msgs[-(MIN_RECENT_MESSAGES * 2):]  # last N messages
-        summary = _build_truncation_summary(conv_msgs[:-(MIN_RECENT_MESSAGES * 2)])
+        logger.warning(
+            "[Compress] Extremely tight budget. Keeping only last 2 exchanges."
+        )
+        recent = conv_msgs[-(MIN_RECENT_MESSAGES * 2) :]  # last N messages
+        summary = _build_truncation_summary(conv_msgs[: -(MIN_RECENT_MESSAGES * 2)])
         return system_msgs + ([summary] if summary else []) + recent
 
     # Step 2: Remove any prior compression summaries from conv_msgs
-    conv_msgs = [m for m in conv_msgs if not (
-        isinstance(m, SystemMessage) and COMPRESSION_MARKER in (m.content or "")
-    )]
+    conv_msgs = [
+        m
+        for m in conv_msgs
+        if not (
+            isinstance(m, SystemMessage) and COMPRESSION_MARKER in (m.content or "")
+        )
+    ]
 
     # Step 3: Estimate if simple pruning is sufficient
     #  Keep the most recent messages that fit within budget
@@ -199,16 +220,34 @@ def compress_messages(
 
     # If we can keep > 50% of messages via simple pruning, just prune
     if keep_from_end >= len(conv_msgs) * 0.5:
-        logger.info(f"[Compress] Pruning: keeping {keep_from_end}/{len(conv_msgs)} recent messages.")
-        pruned = conv_msgs[-keep_from_end:] if keep_from_end > 0 else conv_msgs[-MIN_RECENT_MESSAGES:]
-        summary = _build_truncation_summary(conv_msgs[:-keep_from_end] if keep_from_end < len(conv_msgs) else [])
+        logger.info(
+            f"[Compress] Pruning: keeping {keep_from_end}/{len(conv_msgs)} recent messages."
+        )
+        pruned = (
+            conv_msgs[-keep_from_end:]
+            if keep_from_end > 0
+            else conv_msgs[-MIN_RECENT_MESSAGES:]
+        )
+        summary = _build_truncation_summary(
+            conv_msgs[:-keep_from_end] if keep_from_end < len(conv_msgs) else []
+        )
         return system_msgs + ([summary] if summary else []) + pruned
 
     # Step 4: Summarize older messages using LLM
-    logger.info(f"[Compress] Summarizing: {len(conv_msgs) - keep_from_end} older messages, "
-                f"keeping {keep_from_end} recent.")
-    older_msgs = conv_msgs[:-keep_from_end] if keep_from_end > 0 else conv_msgs[:-MIN_RECENT_MESSAGES]
-    recent_msgs = conv_msgs[-keep_from_end:] if keep_from_end > 0 else conv_msgs[-MIN_RECENT_MESSAGES:]
+    logger.info(
+        f"[Compress] Summarizing: {len(conv_msgs) - keep_from_end} older messages, "
+        f"keeping {keep_from_end} recent."
+    )
+    older_msgs = (
+        conv_msgs[:-keep_from_end]
+        if keep_from_end > 0
+        else conv_msgs[:-MIN_RECENT_MESSAGES]
+    )
+    recent_msgs = (
+        conv_msgs[-keep_from_end:]
+        if keep_from_end > 0
+        else conv_msgs[-MIN_RECENT_MESSAGES:]
+    )
 
     summary = _summarize_with_llm(older_msgs, openrouter_api_key, model_name)
     if summary:
@@ -223,8 +262,10 @@ def compress_messages(
     final_tokens = count_tokens(result)
     if final_tokens > max_tokens:
         # Still over — aggressively trim the recent messages
-        logger.warning(f"[Compress] Still over budget after summarize ({final_tokens}/{max_tokens}). "
-                       "Falling back to aggressive prune.")
+        logger.warning(
+            f"[Compress] Still over budget after summarize ({final_tokens}/{max_tokens}). "
+            "Falling back to aggressive prune."
+        )
         while final_tokens > max_tokens and len(recent_msgs) > MIN_RECENT_MESSAGES:
             recent_msgs = recent_msgs[1:]  # drop oldest of recent
             result = system_msgs + ([summary_msg] if summary_msg else []) + recent_msgs
@@ -262,7 +303,10 @@ def _build_truncation_summary(messages: list[BaseMessage]) -> Optional[SystemMes
             # Look for decision-like sentences
             for line in content.split("\n"):
                 line = line.strip()
-                if any(kw in line.lower() for kw in ["decided", "chose", "selected", "concluded", "result:"]):
+                if any(
+                    kw in line.lower()
+                    for kw in ["decided", "chose", "selected", "concluded", "result:"]
+                ):
                     decisions.append(line[:150])
         elif isinstance(msg, ToolMessage):
             # Note tool usage without repeating content
@@ -302,10 +346,7 @@ def _summarize_with_llm(
         return None
 
     # Use a fast cheap model for summarization, not the main model
-    summarize_model = os.environ.get(
-        "ESAPIENS_SUMMARIZE_MODEL",
-        "inception/mercury-2"
-    )
+    summarize_model = os.environ.get("ESAPIENS_SUMMARIZE_MODEL", "inception/mercury-2")
     key = api_key or os.environ.get("OPENROUTER_API_KEY", "")
     if not key or key.startswith("sk-or-v1-placeholder"):
         return None
@@ -329,12 +370,19 @@ def _summarize_with_llm(
         # Build a compact representation of the messages for summarization
         convo_lines = []
         for msg in messages:
-            if isinstance(msg, SystemMessage) and COMPRESSION_MARKER in (msg.content or ""):
+            if isinstance(msg, SystemMessage) and COMPRESSION_MARKER in (
+                msg.content or ""
+            ):
                 continue  # Skip old summaries
-            role = "user" if isinstance(msg, HumanMessage) else \
-                   "assistant" if isinstance(msg, AIMessage) else \
-                   "tool" if isinstance(msg, ToolMessage) else \
-                   "system"
+            role = (
+                "user"
+                if isinstance(msg, HumanMessage)
+                else (
+                    "assistant"
+                    if isinstance(msg, AIMessage)
+                    else "tool" if isinstance(msg, ToolMessage) else "system"
+                )
+            )
             content = msg.content if isinstance(msg.content, str) else str(msg.content)
             # Truncate very long tool/tool result messages
             if len(content) > 2000:
@@ -368,5 +416,7 @@ def _summarize_with_llm(
         return content if isinstance(content, str) and content.strip() else None
 
     except Exception as e:
-        logger.warning(f"[Compress] LLM summarization failed: {e}. Falling back to truncation.")
+        logger.warning(
+            f"[Compress] LLM summarization failed: {e}. Falling back to truncation."
+        )
         return None

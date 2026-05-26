@@ -12,7 +12,6 @@ Provides:
 All endpoints require authentication via Depends(get_current_user).
 """
 
-import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -36,7 +35,9 @@ router = APIRouter(tags=["chat"])
 
 
 class ChatRequest(BaseModel):
-    query: str = Field(..., max_length=10000, description="User query (max 10,000 characters)")
+    query: str = Field(
+        ..., max_length=10000, description="User query (max 10,000 characters)"
+    )
     session_id: str = Field("default", max_length=128, pattern=r"^[a-zA-Z0-9_-]+$")
     file_context: str | None = Field(
         None,
@@ -44,12 +45,14 @@ class ChatRequest(BaseModel):
         description="Parsed data summary from an uploaded file, prepended to the query for agent context",
     )
 
+
 class ChatResponse(BaseModel):
     response: str
     session_id: str
     skills: list[str] = []
     tool_calls: list[dict[str, Any]] = []
     error: str | None = None
+
 
 # ── Sync endpoint ────────────────────────────────────────────────────────────
 
@@ -100,7 +103,9 @@ async def chat_stream(
     # iterate_in_threadpool, so we can pass run_stream directly.
     # We use a generator expression to inject the user_id.
     def _stream():
-        yield from run_stream(query=query, session_id=req.session_id, user_id=current_user["id"])
+        yield from run_stream(
+            query=query, session_id=req.session_id, user_id=current_user["id"]
+        )
 
     return EventSourceResponse(_stream())
 
@@ -122,13 +127,15 @@ async def sessions_get(
     current_user: dict = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Get full session data including messages (requires auth)."""
-    from storage import get_storage as _get_storage
+
     session = get_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
     # Ownership check: session must belong to the current user
     if session.get("user_id") != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Not authorized to access this session")
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access this session"
+        )
     return session
 
 
@@ -143,7 +150,9 @@ async def sessions_delete(
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
     if session.get("user_id") != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Not authorized to delete this session")
+        raise HTTPException(
+            status_code=403, detail="Not authorized to delete this session"
+        )
     if not delete_session(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
     return {"status": "deleted", "session_id": session_id}
@@ -163,6 +172,7 @@ async def jobs_list(
     Scoped to the current user's jobs only.
     """
     from storage import get_storage
+
     return get_storage().list_jobs(status=status, limit=100, user_id=current_user["id"])
 
 
@@ -173,6 +183,7 @@ async def jobs_get(
 ) -> dict[str, Any]:
     """Get full details of a single background job. Scoped to current user."""
     from storage import get_storage
+
     record = get_storage().get_job(job_id)
     if record is None:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")

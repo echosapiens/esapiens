@@ -20,16 +20,15 @@ execute_tool() serializes it to JSON for the LLM's tool_obs node.
 from __future__ import annotations
 
 import time
-import traceback
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass
 from typing import Any, Optional
 from enum import Enum
 
 
 class ToolStatus(Enum):
     SUCCESS = "success"
-    ERROR   = "error"
-    PENDING = "pending"   # background job, not yet complete
+    ERROR = "error"
+    PENDING = "pending"  # background job, not yet complete
 
 
 @dataclass
@@ -48,12 +47,12 @@ class ToolResult:
     """
 
     status: ToolStatus
-    data:   Optional[Any]     = None
-    error:  Optional[str]     = None
-    tool:   Optional[str]     = None
-    job_id: Optional[str]     = None
-    elapsed_ms: float         = 0.0
-    traceback: Optional[str]  = None
+    data: Optional[Any] = None
+    error: Optional[str] = None
+    tool: Optional[str] = None
+    job_id: Optional[str] = None
+    elapsed_ms: float = 0.0
+    traceback: Optional[str] = None
     visualization: Optional[dict] = None  # Renderable chart/image/structure
 
     def __post_init__(self):
@@ -113,6 +112,7 @@ class ToolResult:
         tb_str: Optional[str] = None
         if exc_info is not None:
             import traceback as tb_mod
+
             tb_str = "".join(tb_mod.format_exception(*exc_info))
         return cls(
             status=ToolStatus.ERROR,
@@ -165,6 +165,7 @@ def timed(fn):
             ...
     """
     import functools
+
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         with _Timer() as t:
@@ -175,4 +176,5 @@ def timed(fn):
             # Backward compat: wrap plain dicts (should migrate to ToolResult)
             result["elapsed_ms"] = t.elapsed_ms
         return result
+
     return wrapper
