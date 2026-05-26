@@ -172,7 +172,12 @@ def register_tool(name: str):
 @timed
 def download_pdb(pdb_id: str, format: str = "pdb",
                  representation: str = "cartoon") -> ToolResult:
-    """Download a PDB structure from RCSB PDB and return visualization data."""
+    """Download a PDB structure from RCSB PDB and return visualization data.
+    
+    Saves the file to WORKSPACE/pdb/<pdb_id>.pdb so parse_structure can read it.
+    """
+    WORKSPACE = Path(os.environ.get("ESAPIENS_DATA_DIR", os.path.expanduser("~/esapiens-data")))
+    pdb_dir = WORKSPACE / "pdb"
     try:
         url = f"https://files.rcsb.org/download/{pdb_id.upper()}.pdb"
         resp = httpx.get(url, headers=HEADERS, timeout=30)
@@ -180,7 +185,12 @@ def download_pdb(pdb_id: str, format: str = "pdb",
             return ToolResult.err("download_pdb", f"PDB ID '{pdb_id}' not found at RCSB.")
         resp.raise_for_status()
         pdb_content = resp.text
-        # Return both the content (for parse_structure) and the full raw for visualization
+
+        # Always save to WORKSPACE/pdb/ so parse_structure can find it
+        pdb_dir.mkdir(parents=True, exist_ok=True)
+        local_path = pdb_dir / f"{pdb_id.upper()}.pdb"
+        local_path.write_text(pdb_content)
+
         return ToolResult.ok(
             "download_pdb",
             data={
@@ -189,6 +199,7 @@ def download_pdb(pdb_id: str, format: str = "pdb",
                 "format": format,
                 "representation": representation,
                 "source_url": url,
+                "local_path": str(local_path),
             },
         )
     except httpx.TimeoutException:
@@ -202,11 +213,27 @@ def download_pdb(pdb_id: str, format: str = "pdb",
 @register_tool("parse_structure")
 @timed
 def parse_structure(file_path: str) -> ToolResult:
-    """Parse a PDB/mmCIF file and extract structure information."""
+    """Parse a PDB/mmCIF file and extract structure information.
+    
+    If only a PDB ID is provided (e.g. "4MNE"), searches WORKSPACE/pdb/<pdb_id>.pdb
+    in addition to the literal path. This allows calling parse_structure("4MNE")
+    after download_pdb("4MNE") has run.
+    """
+    WORKSPACE = Path(os.environ.get("ESAPIENS_DATA_DIR", os.path.expanduser("~/esapiens-data")))
+    pdb_dir = WORKSPACE / "pdb"
+
+    path = Path(file_path).expanduser()
+
+    # If the file doesn't exist and the input looks like a bare PDB ID,
+    # try the standard download location before failing
+    if not path.exists() and file_path.upper() == file_path and len(file_path) == 4:
+        candidate = pdb_dir / f"{file_path.upper()}.pdb"
+        if candidate.exists():
+            path = candidate
+
+    if not path.exists():
+        return ToolResult.err("parse_structure", f"File not found: {file_path}")
     try:
-        path = Path(file_path).expanduser()
-        if not path.exists():
-            return ToolResult.err("parse_structure", f"File not found: {file_path}")
         content = path.read_text()
         lines = [l for l in content.split("\n") if l.startswith("ATOM") or l.startswith("HETATM")]
         if not lines:
