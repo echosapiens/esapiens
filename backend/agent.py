@@ -22,6 +22,15 @@ from langgraph.graph import END, StateGraph
 from langgraph.prebuilt import ToolNode
 
 from tools import TOOL_DEFINITIONS, execute_tool
+from prompts import (
+    get_prompt,
+    get_model_config,
+    get_style_rules,
+    get_prompt_meta,
+    build_skill_context_block,
+    build_tool_definitions_block,
+    build_specialist_guidance,
+)
 
 load_dotenv()
 
@@ -91,11 +100,6 @@ def classify_tier(query: str, skill_paths: list[str] | None = None) -> QueryTier
 
 # ── Fast-path: direct LLM call (no tools, minimal prompt) ────────────────────
 
-_DIRECT_SYSTEM_PROMPT = (
-    "You are E.sapiens, a professional bioinformatics research assistant. "
-    "Respond concisely and accurately. No emojis. Formal scientific tone."
-)
-
 DIRECT_MODEL = os.getenv("OPENROUTER_DIRECT_MODEL", "")  # optional fast model override
 
 
@@ -107,7 +111,11 @@ def direct_llm_response(query: str) -> str:
     """
     key = os.getenv("OPENROUTER_API_KEY", "")
     if not key or key.startswith("sk-or-v1-placeholder"):
-        return "I'm running in offline/demo mode. Please set OPENROUTER_API_KEY for full functionality."
+        return get_prompt(
+            "mock_response",
+            query=query,
+            tool_names=", ".join(t["name"] for t in TOOL_DEFINITIONS),
+        )
 
     model = DIRECT_MODEL or chosen_model
     llm = ChatOpenAI(
@@ -123,7 +131,7 @@ def direct_llm_response(query: str) -> str:
         },
     )
     messages = [
-        SystemMessage(content=_DIRECT_SYSTEM_PROMPT),
+        SystemMessage(content=get_prompt("direct")),
         HumanMessage(content=query),
     ]
     response = llm.invoke(messages)
@@ -185,37 +193,17 @@ def classify_intent_node(state: WorkflowState) -> dict:
     skills_context = builder.build_context(skill_paths, max_length=6000)
 
     # Build the system message with skill context
-    system_content = (
-        "You are E.sapiens, a professional bioinformatics research assistant.\n\n"
-        "STYLE RULES — MANDATORY:\n"
-        "- NEVER use emojis, icons, or decorative symbols. This is strictly prohibited.\n"
-        "- NO SYNTHETIC DATA: Never use synthetic, mock, or example data. Everything must be real-world data downloaded from biological databases.\n"
-        "- Write in clear, formal scientific prose. Prefer precise technical language over casual phrasing.\n"
-        "- Use standard hierarchy: title case for headings, sentence case for body text.\n"
-        "- Structure responses with numbered steps or concise paragraphs, not stream-of-consciousness.\n"
-        "- When presenting data, favor tables, lists, and structured formats over walls of text.\n"
-        "- Do not use filler phrases like 'Great question!' or 'Let me help you with that.' — get to the point.\n"
-        "- Do not use exclamation marks.\n\n"
-        "You have access to the following tools. Use them when needed.\n\n"
-        "Available tools:\n"
-        + "\n".join(f"  - {t['name']}: {t['description']}" for t in TOOL_DEFINITIONS)
-        + "\n\n"
-        "TOOL CREATION: If you need a capability that does not exist among your tools "
-        "(e.g. downloading from GEO, SRA, ArrayExpress, Ensembl, or other bioinformatics databases), "
-        "use the 'create_tool' function to create it. \\n\\n"
-        "Guidelines for successful tool creation:\\n"
-        "- Signature: Always include **kwargs (e.g., `def my_tool(param1, **kwargs):`).\\n"
-        "- Dependencies: Use `httpx` for networking and Biopython (`Bio`) for sequences.\\n"
-        "- Persistence: Use the `WORKSPACE` global (Path object) for all file operations.\\n"
-        "- Output: Always return a dict. Catch all exceptions and return `{'error': str(e)}`.\\n"
-        "- Verification: Never call a tool with empty arguments `{}` if it requires parameters.\\n"
-        "- Do NOT tell the user you cannot do something — create the tool yourself.\\n\\n"
-        "CODE EXECUTION: For data analysis, file processing, or computations that don't need "
-        "a dedicated tool, use 'execute_python'. This gives you a full Python environment with "
-        "pandas, numpy, scipy, httpx, and Bio (biopython)."
+    tool_definitions_str = "\n".join(
+        f"  - {t['name']}: {t['description']}" for t in TOOL_DEFINITIONS
     )
-    if skills_context:
-        system_content += f"\n\nRelevant skill context loaded:\n{skills_context}"
+    system_content = get_prompt(
+        "standard",
+        skill_context_block=build_skill_context_block(
+            skills_context if skills_context else "(no skill context)"
+        ),
+        tool_definitions_block=build_tool_definitions_block(tool_definitions_str),
+        specialist_guidance=build_specialist_guidance("standard"),
+    )
 
     system_msg = SystemMessage(
         content=system_content,
@@ -245,21 +233,19 @@ def _is_placeholder_key() -> bool:
 def _mock_llm_response(state: WorkflowState) -> AIMessage:
     """Return a mock response when no real LLM key is configured."""
     query = state.get("query", "")
-    # Extract last user message content
+    # Extract last user message content — handle LangChain's list content type
     for msg in reversed(state["messages"]):
         if isinstance(msg, HumanMessage) and msg.content:
-            query = msg.content
+            raw = msg.content
+            query = raw if isinstance(raw, str) else str(raw[0]) if raw else ""
             break
 
-    mock = (
-        f"I'm running in offline/demo mode (no OpenRouter API key configured). "
-        f"You asked: \"{query}\".\n\n"
-        f"In production, I would use the appropriate bioinformatics tools to "
-        f"answer this. Available tools include: "
-        f"{', '.join(t['name'] for t in TOOL_DEFINITIONS)}.\n\n"
-        f"Please set the OPENROUTER_API_KEY environment variable for full functionality."
+    content = get_prompt(
+        "mock_response",
+        query=query,
+        tool_names=", ".join(t["name"] for t in TOOL_DEFINITIONS),
     )
-    return AIMessage(content=mock)
+    return AIMessage(content=content)
 
 
 def call_model(state: WorkflowState) -> dict:

@@ -1,0 +1,38 @@
+{
+  "Human": {
+    "error": "Client error '400 Bad Request' for url 'https://rest.uniprot.org/uniprotkb/search?query=gene%3ABax+AND+organism%3AHomo+sapiens&format=json&size=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+  },
+  "Mouse": {
+    "error": "Client error '400 Bad Request' for url 'https://rest.uniprot.org/uniprotkb/search?query=gene%3ABax+AND+organism%3AMus+musculus&format=json&size=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+  },
+  "Rat": {
+    "error": "Client error '400 Bad Request' for url 'https://rest.uniprot.org/uniprotkb/search?query=gene%3ABax+AND+organism%3ARattus+norvegicus&format=json&size=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+  },
+  "Cow": {
+    "error": "Client error '400 Bad Request' for url 'https://rest.uniprot.org/uniprotkb/search?query=gene%3ABax+AND+organism%3ABos+taurus&format=json&size=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+  },
+  "Pig": {
+    "error": "Client error '400 Bad Request' for url 'https://rest.uniprot.org/uniprotkb/search?query=gene%3ABax+AND+organism%3ASus+scrofa&format=json&size=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+  },
+  "Dog": {
+    "error": "Client error '400 Bad Request' for url 'https://rest.uniprot.org/uniprotkb/search?query=gene%3ABax+AND+organism%3ACanis+lupus+familiaris&format=json&size=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+  },
+  "Chicken": {
+    "error": "Client error '400 Bad Request' for url 'https://rest.uniprot.org/uniprotkb/search?query=gene%3ABax+AND+organism%3AGallus+gallus&format=json&size=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+  },
+  "Zebrafish": {
+    "error": "Client error '400 Bad Request' for url 'https://rest.uniprot.org/uniprotkb/search?query=gene%3ABax+AND+organism%3ADanio+rerio&format=json&size=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+  },
+  "Frog": {
+    "error": "Client error '400 Bad Request' for url 'https://rest.uniprot.org/uniprotkb/search?query=gene%3ABax+AND+organism%3AXenopus+tropicalis&format=json&size=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+  },
+  "Chimpanzee": {
+    "error": "Client error '400 Bad Request' for url 'https://rest.uniprot.org/uniprotkb/search?query=gene%3ABax+AND+organism%3APan+troglodytes&format=json&size=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+  },
+  "Macaque": {
+    "error": "Client error '400 Bad Request' for url 'https://rest.uniprot.org/uniprotkb/search?query=gene%3ABax+AND+organism%3AMacaca+mulatta&format=json&size=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+  },
+  "Opossum": {
+    "error": "Client error '400 Bad Request' for url 'https://rest.uniprot.org/uniprotkb/search?query=gene%3ABax+AND+organism%3AMonodelphis+domestica&format=json&size=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+  }
+}
