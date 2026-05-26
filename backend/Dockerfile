@@ -12,11 +12,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend source code
-COPY . .
+COPY backend/ /app/
+
+# Copy bioSkills (build context is repo root, so bioSkills/ is accessible)
+COPY bioSkills /app/bioSkills
 
 # Expose FastAPI port
 EXPOSE 8000

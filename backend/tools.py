@@ -18,7 +18,8 @@ Tool categories
   Local (VPS):      download_pdb, parse_structure, search_literature,
                     download_tcga_survival, run_python_plot, plotly_plot,
                     execute_python, create_tool, run_bio_pipeline
-  Modal (cloud):    run_modal_job, create_modal_tool
+  Modal (cloud):    run_modal_job, create_modal_tool, find_biocontainer,
+                    run_custom_script
   Meta:             get_job_status, list_available_tools
 """
 
@@ -34,6 +35,15 @@ from result import ToolResult, ToolStatus, timed  # noqa: F401
 # ── Shared HTTP headers for NCBI/GDC API compliance ───────────────────────────
 
 HEADERS = {"User-Agent": "E.sapiens/1.0 (contact: research@example.edu)"}
+
+
+def _count_chains(pdb_content: str) -> int:
+    """Quick count of unique chain IDs in a PDB file."""
+    chains = set()
+    for line in pdb_content.splitlines():
+        if line.startswith("ATOM") or line.startswith("HETATM"):
+            chains.add(line[21])
+    return len(chains) or 1
 
 # ════════════════════════════════════════════════════════════════════════════════
 # Secret Hygiene — prevent agent code-exec tools from leaking API keys
@@ -195,13 +205,12 @@ def download_pdb(pdb_id: str, format: str = "pdb",
             "download_pdb",
             data={
                 "pdb_id": pdb_id.upper(),
-                "content": pdb_content,
                 "format": format,
                 "representation": representation,
                 "source_url": url,
                 "local_path": str(local_path),
+                "chains_saved": _count_chains(pdb_content),
             },
-            # Surface as a structure visualization for the frontend
             visualization={
                 "type": "structure",
                 "pdb_id": pdb_id.upper(),
@@ -273,7 +282,96 @@ def parse_structure(file_path: str) -> ToolResult:
 @timed
 def search_literature(query: str, source: str = "all",
                       max_results: int = 10) -> ToolResult:
-    """Search scientific literature (PubMed, arXiv, bioRxiv)."""
+    """Search the web using Brave Search API. Covers scientific papers, protocols,
+    software docs, and general web content. Use this when you need current
+    information or when PubMed/arXiv don't return enough results.
+
+    Args:
+        query: Search query (can include Boolean operators, site: filters, etc.)
+        source: 'web' (default), 'pubmed', 'arxiv', or 'all'
+        max_results: Number of results to return (default 10, max 50)
+    """
+    brave_key = os.environ.get("BRAVE_SEARCH_API_KEY", "").strip()
+    if not brave_key:
+        # Fall back to basic PubMed/arXiv if no Brave key
+        return _search_literature_fallback(query, source, max_results)
+
+    try:
+        results = []
+        sources_to_search = ["web"] if source == "all" else [source]
+
+        for src in sources_to_search:
+            if src == "web":
+                try:
+                    resp = httpx.get(
+                        "https://api.search.brave.com/rest/search",
+                        params={"q": query, "count": max_results, "safesearch": "moderate"},
+                        headers={
+                            "Accept": "application/json",
+                            "X-Subscription-Token": brave_key,
+                            "User-Agent": "E.sapiens/1.0",
+                        },
+                        timeout=20,
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        web_results = data.get("web", {}).get("results", [])
+                        for r in web_results[:max_results]:
+                            results.append({
+                                "source": "web",
+                                "title": r.get("title", ""),
+                                "url": r.get("url", ""),
+                                "description": r.get("description", ""),
+                                "age": r.get("age", ""),
+                            })
+                    elif resp.status_code == 401:
+                        return ToolResult.err("search_literature", "BRAVE_SEARCH_API_KEY is invalid or expired.")
+                    else:
+                        results.append({"source": "web", "error": f"Brave API returned {resp.status_code}"})
+                except Exception as e:
+                    results.append({"source": "web", "error": str(e)})
+
+            elif src == "pubmed":
+                try:
+                    esearch = httpx.get(
+                        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+                        params={"db": "pubmed", "term": query, "retmax": max_results, "retmode": "json"},
+                        headers=HEADERS, timeout=20,
+                    )
+                    ids = esearch.json().get("esearchresult", {}).get("idlist", [])
+                    if ids:
+                        efetch = httpx.get(
+                            "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
+                            params={"db": "pubmed", "id": ",".join(ids[:5]), "retmode": "xml"},
+                            headers=HEADERS, timeout=20,
+                        )
+                        results.append({"source": "pubmed", "raw": efetch.text[:3000]})
+                except Exception as e:
+                    results.append({"source": "pubmed", "error": str(e)})
+
+            elif src == "arxiv":
+                try:
+                    arxiv_resp = httpx.get(
+                        "http://export.arxiv.org/api/query",
+                        params={"search_query": f"all:{query}", "max_results": max_results},
+                        headers=HEADERS, timeout=20,
+                    )
+                    results.append({"source": "arxiv", "raw": arxiv_resp.text[:4000]})
+                except Exception as e:
+                    results.append({"source": "arxiv", "error": str(e)})
+
+        return ToolResult.ok("search_literature", data={
+            "query": query,
+            "source": source,
+            "num_results": len(results),
+            "results": results,
+        })
+    except Exception as e:
+        return ToolResult.err("search_literature", str(e), exc_info=sys.exc_info())
+
+
+def _search_literature_fallback(query: str, source: str, max_results: int) -> ToolResult:
+    """Basic PubMed/arXiv search when Brave Search API is not configured."""
     try:
         results = []
         if source in ("pubmed", "all"):
@@ -305,8 +403,7 @@ def search_literature(query: str, source: str = "all",
                 results.append({"source": "arxiv", "error": str(e)})
         return ToolResult.ok("search_literature", data={
             "query": query, "source": source,
-            "num_results": len(results),
-            "results": results,
+            "num_results": len(results), "results": results,
         })
     except Exception as e:
         return ToolResult.err("search_literature", str(e), exc_info=sys.exc_info())
@@ -569,6 +666,266 @@ def run_modal_job(job_type: str, params: dict, background: bool = False) -> Tool
 def create_modal_tool_handler(**kwargs) -> ToolResult:
     """Dynamically create a new Modal BioContainer task at runtime."""
     return create_modal_tool(**kwargs)
+
+
+# ── BioContainer Discovery ───────────────────────────────────────────────────
+
+@register_tool("find_biocontainer")
+@timed
+def find_biocontainer(query: str, exact_match: bool = False) -> ToolResult:
+    """Search Quay.io for BioContainer images matching a bioinformatics tool or
+    workflow. Returns image tags, descriptions, and recommended usage.
+
+    Args:
+        query: Tool name or keyword to search for (e.g. 'star', 'deseq2', 'scanpy')
+        exact_match: If True, only return images whose name contains the query exactly.
+                     If False, return all images with query as a substring.
+    """
+    import re as _re
+
+    try:
+        # Search Quay.io API for containers
+        resp = httpx.get(
+            "https://quay.io/api/v1/repository",
+            params={"namespace": "biocontainers", "repository": query, "last_modified": "true"},
+            headers={"Accept": "application/json", "User-Agent": "E.sapiens/1.0"},
+            timeout=30,
+        )
+
+        # If exact repo not found, search via filter endpoint
+        if resp.status_code == 404 or not resp.json().get("repositories"):
+            resp = httpx.get(
+                "https://quay.io/api/v1/repository",
+                params={"namespace": "biocontainers", "filter": query, "last_modified": "true"},
+                headers={"Accept": "application/json", "User-Agent": "E.sapiens/1.0"},
+                timeout=30,
+            )
+
+        if resp.status_code not in (200, 404):
+            return ToolResult.err("find_biocontainer", f"Quay.io API returned {resp.status_code}")
+
+        data = resp.json()
+        repos = data.get("repositories", []) or []
+
+        matches = []
+        for repo in repos:
+            name = repo.get("name", "")
+            if exact_match and query.lower() not in name.lower():
+                continue
+            # Get description for each repo
+            try:
+                desc_resp = httpx.get(
+                    f"https://quay.io/api/v1/repository/biocontainers/{name}",
+                    headers={"Accept": "application/json", "User-Agent": "E.sapiens/1.0"},
+                    timeout=15,
+                )
+                desc = ""
+                if desc_resp.status_code == 200:
+                    desc = desc_resp.json().get("description", "") or ""
+            except Exception:
+                desc = ""
+
+            # Get some popular tags
+            try:
+                tags_resp = httpx.get(
+                    f"https://quay.io/api/v1/repository/biocontainers/{name}/tag",
+                    params={"limit": 5, "page": 1},
+                    headers={"Accept": "application/json", "User-Agent": "E.sapiens/1.0"},
+                    timeout=15,
+                )
+                tags = []
+                if tags_resp.status_code == 200:
+                    tags = [t.get("name") for t in tags_resp.json().get("tags", []) or []]
+            except Exception:
+                tags = []
+
+            matches.append({
+                "name": name,
+                "description": desc,
+                "quay_url": f"https://quay.io/repository/biocontainers/{name}",
+                "pull_cmd": f"docker pull quay.io/biocontainers/{name}:latest",
+                "modal_image": f"quay.io/biocontainers/{name}",
+                "tags": tags[:5],
+            })
+
+        if not matches:
+            return ToolResult.ok("find_biocontainer", data={
+                "query": query,
+                "matches": [],
+                "message": f"No BioContainer images found for '{query}' on Quay.io.",
+            })
+
+        return ToolResult.ok("find_biocontainer", data={
+            "query": query,
+            "num_matches": len(matches),
+            "matches": matches,
+        })
+
+    except httpx.TimeoutException:
+        return ToolResult.err("find_biocontainer", "Timeout contacting Quay.io API.")
+    except Exception as e:
+        return ToolResult.err("find_biocontainer", str(e), exc_info=sys.exc_info())
+
+
+# ── Custom Script Runner ──────────────────────────────────────────────────────
+
+@register_tool("run_custom_script")
+@timed
+def run_custom_script(
+    script: str,
+    language: str = "python",
+    image: str = "python:3.11-slim",
+    biocontainer: str = "",
+    apt_packages: str = "",
+    pip_packages: str = "",
+    cpu: float = 2.0,
+    memory_mb: int = 4096,
+    timeout: int = 3600,
+    background: bool = False,
+) -> ToolResult:
+    """Execute a custom Python or R script on Modal, optionally within a BioContainer.
+    The script has access to /data volume and can be used for one-off analyses,
+    data processing pipelines, or any custom computation.
+
+    Args:
+        script: The source code to execute. Python (with numpy/pandas available)
+                or R (with Bioconductor packages) are supported.
+        language: 'python' (default) or 'r'
+        image: Docker image to use. Provide either this OR biocontainer (not both).
+               Examples: 'python:3.11-slim', 'ubuntu:22.04'
+        biocontainer: Quay.io BioContainer image name (e.g. 'star:2.7.11b--h5ca1c30_8').
+                      When set, overrides 'image'. Modal will pull it automatically.
+        apt_packages: Space-separated system packages to apt-install (e.g. 'vim curl git')
+        pip_packages: Space-separated pip packages to install (e.g. 'numpy pandas scanpy')
+        cpu: CPU cores to allocate (default 2.0, max 16)
+        memory_mb: Memory in MB (default 4096, max 128000)
+        timeout: Max runtime in seconds (default 3600, max 7200)
+        background: If True, run detached and return a job_id immediately
+    """
+    if not MODAL_AVAILABLE:
+        return ToolResult.err("run_custom_script", "Modal SDK not installed on this server.")
+
+    # Resolve image
+    if biocontainer:
+        resolved_image = f"quay.io/biocontainers/{biocontainer}"
+    elif image:
+        resolved_image = image
+    else:
+        resolved_image = "python:3.11-slim"
+
+    safe_name = f"custom_{language}_{int(time.time())}"
+
+    try:
+        # Build Modal image
+        modal_image = modal.Image.debian_slim(python_version="3.11")
+        if resolved_image.startswith("quay.io/"):
+            modal_image = modal.Image.from_registry(resolved_image, add_python="3.11")
+        else:
+            modal_image = modal.Image.from_registry(resolved_image)
+
+        if apt_packages:
+            modal_image = modal_image.apt_install(*apt_packages.split())
+        if pip_packages:
+            modal_image = modal_image.pip_install(*pip_packages.split())
+
+        _data_vol = modal.Volume.from_name("esapiens-data", create_if_missing=True)
+
+        app = modal.App(f"esapiens-{safe_name}", image=modal_image)
+
+        @app.function(
+            cpu=cpu,
+            memory=memory_mb,
+            timeout=timeout,
+            volumes={"/data": _data_vol},
+            container_idle_timeout=120,
+        )
+        def _run_script() -> dict[str, Any]:
+            import sys, json, traceback, io, contextlib
+
+            work_dir = "/data/custom_scripts"
+            import os
+            os.makedirs(work_dir, exist_ok=True)
+
+            script_path = os.path.join(work_dir, f"{safe_name}.{language}")
+            with open(script_path, "w") as f:
+                f.write(script)
+
+            result: dict[str, Any] = {"status": "success", "exit_code": None, "stdout": "", "stderr": "", "output_files": []}
+
+            try:
+                if language == "python":
+                    stdout_buf = io.StringIO()
+                    stderr_buf = io.StringIO()
+                    with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(stderr_buf):
+                        exec(compile(script, script_path, "exec"), {"__builtins__": __builtins__})
+                    result["stdout"] = stdout_buf.getvalue()
+                    result["stderr"] = stderr_buf.getvalue()
+                elif language == "r":
+                    r_script_path = os.path.join(work_dir, f"{safe_name}.R")
+                    with open(r_script_path, "w") as f:
+                        f.write(script)
+                    proc = __import__("subprocess").run(
+                        ["Rscript", r_script_path],
+                        capture_output=True, text=True, timeout=timeout,
+                    )
+                    result["stdout"] = proc.stdout
+                    result["stderr"] = proc.stderr
+                    result["exit_code"] = proc.returncode
+
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
+                result["traceback"] = traceback.format_exc()[-2000:]
+
+            # List output files written to /data
+            try:
+                out_dir = os.path.join(work_dir, safe_name)
+                if os.path.exists(out_dir):
+                    result["output_files"] = os.listdir(out_dir)
+            except Exception:
+                pass
+
+            return result
+
+        # ── Run or spawn ──────────────────────────────────────────────────────
+        if background:
+            job_id = f"custom_{int(time.time())}"
+            jobs_dir = Path(os.environ.get("ESAPIENS_DATA_DIR", "~/esapiens-data")).expanduser() / "background_jobs"
+            jobs_dir.mkdir(parents=True, exist_ok=True)
+            job_path = jobs_dir / f"{job_id}.json"
+
+            with app.run():
+                call = _run_script.spawn()
+                job_path.write_text(json.dumps({
+                    "job_id": job_id,
+                    "modal_call_id": call.object_id,
+                    "script_name": safe_name,
+                    "language": language,
+                    "image": resolved_image,
+                    "status": "running",
+                    "start_time": time.time(),
+                }))
+            return ToolResult.ok("run_custom_script", data={
+                "job_id": job_id,
+                "status": "detached",
+                "message": f"Script '{safe_name}' running in background on Modal. Job ID: {job_id}",
+                "modal_call_id": call.object_id,
+            })
+        else:
+            with app.run():
+                result = _run_script.remote()
+            return ToolResult.ok("run_custom_script", data={
+                "status": result.get("status", "completed"),
+                "exit_code": result.get("exit_code"),
+                "stdout": result.get("stdout", "")[:5000],
+                "stderr": result.get("stderr", "")[:2000],
+                "output_files": result.get("output_files", []),
+                "image": resolved_image,
+                "language": language,
+            })
+
+    except Exception as e:
+        return ToolResult.err("run_custom_script", str(e), exc_info=sys.exc_info())
 
 
 # ── Dynamic tools ──────────────────────────────────────────────────────────────
