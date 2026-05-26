@@ -293,8 +293,15 @@ def run_stream(
                         if raw_result:
                             try:
                                 parsed = json.loads(raw_result)
-                                if isinstance(parsed, dict) and "visualization" in parsed:
-                                    vis_data = parsed["visualization"]
+                                # Visualization can be at the top level (direct dict)
+                                # or inside parsed["data"]["visualization"] (ToolResult format)
+                                vis_data = None
+                                if isinstance(parsed, dict):
+                                    if "visualization" in parsed:
+                                        vis_data = parsed["visualization"]
+                                    elif "data" in parsed and isinstance(parsed["data"], dict) and "visualization" in parsed["data"]:
+                                        vis_data = parsed["data"]["visualization"]
+                                if vis_data:
                                     collected_visualization = vis_data
                                     yield {
                                         "event": "visualization",

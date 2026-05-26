@@ -80,6 +80,35 @@ _SAFE_BUILTINS = {
     "True": True, "False": False, "None": None,
 }
 
+# Whitelist-safe __import__ — only allows known scientific packages.
+# This restores import capability within exec() without compromising the sandbox.
+# The user can still only access packages we explicitly allow here.
+_ALLOWED_IMPORTS = frozenset({
+    "numpy", "np",
+    "pandas", "pd",
+    "matplotlib", "mpl",
+    "seaborn", "sns",
+    "sklearn", "scipy", "statsmodels",
+    "bioframe", "pyBigWig",
+    "plotly", "plotly_express",
+    "json", "math", "re", "datetime", "collections", "itertools",
+    "pathlib", "typing",
+})
+
+# Capture the real Python __import__ at module load time (before _SAFE_BUILTINS is built)
+_real_import = __builtins__["__import__"]
+
+
+def _safe_import(name: str, *args, **kwargs):
+    root = name.split(".")[0]
+    if root not in _ALLOWED_IMPORTS:
+        raise ImportError(f"Sandbox restriction: '{root}' is not allowed. Allowed: {sorted(_ALLOWED_IMPORTS)}")
+    return _real_import(name, *args, **kwargs)
+
+
+# Add to _SAFE_BUILTINS so exec() sandboxes can do `import numpy` freely
+_SAFE_BUILTINS["__import__"] = _safe_import
+
 # ════════════════════════════════════════════════════════════════════════════════
 # Tool Registry — decorator-based (not a manual dict)
 # ════════════════════════════════════════════════════════════════════════════════
