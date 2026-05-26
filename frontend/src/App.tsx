@@ -152,7 +152,7 @@ function MainApp() {
     window.addEventListener('mousedown', handleEvents);
     resetInactivityTimer();
 
-    return () => {
+  const handleGenerateReport = useCallback(() => {      // Create a printable HTML representation of the conversation      const html = `        <!DOCTYPE html>        <html>        <head>          <meta charset="utf-8" />          <title>E.sapiens Conversation Report</title>          <style>            body {              font-family: var(--e-font-sans);              color: var(--e-text-primary);              line-height: 1.6;              margin: 40px;              background: var(--e-bg-base);            }            h1, h2, h3 {              color: var(--e-brand);              font-family: var(--e-font-display);            }            .message {              margin-bottom: 24px;              padding-left: 16px;              border-left: 3px solid var(--e-border-subtle);            }            .message.user {              border-left-color: var(--e-accent-blue);            }            .message.assistant {              border-left-color: var(--e-brand);            }            .message-header {              display: flex;              justify-content: space-between;              font-weight: 600;              margin-bottom: 4px;              font-size: 0.9rem;            }            .message-content {              white-space: pre-wrap;              font-family: var(--e-font-sans);            }            .timestamp {              color: var(--e-text-muted);              font-size: 0.8rem;            }          </style>        </head>        <body>          <h1>E.sapiens Conversation Report</h1>          <p>Generated on: new Date().toLocaleString()</p>          messages.map(msg => {            const role = msg.role === 'user' ? 'User' : 'E.SAPIENS';            const timestamp = new Date(msg.timestamp).toLocaleTimeString();            const content = msg.content || '';            return `              <div class="message ${msg.role}">                <div class="message-header">                  <span>${role}</span>                  <span class="timestamp">${timestamp}</span>                </div>                <div class="message-content">${content}</div>              </div>            ";          }).join('')}        </body>        </html>      `;      const printWindow = window.open('', '_blank');      printWindow.document.write(html);      printWindow.document.close();      printWindow.focus();      // Wait for content to load then print      printWindow.onload = () => {        printWindow.print();      }    }, [messages]);    return () => {
       window.removeEventListener('mousemove', handleEvents);
       window.removeEventListener('keydown', handleEvents);
       window.removeEventListener('mousedown', handleEvents);
@@ -354,7 +354,7 @@ function MainApp() {
   return (
     <>
       <a href="#chat-content" className="e-skip-link">Skip to content</a>
-      <CommandPalette opened={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} onNewChat={handleNewChat} onToggleSidebar={toggleSidebar} onOpenShortcuts={() => setShortcutsOpen(true)} />
+      <CommandPalette opened={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} onNewChat={handleNewChat} onToggleSidebar={toggleSidebar} onOpenShortcuts={() => setShortcutsOpen(true)}  onGenerateReport={handleGenerateReport} />
       <KeyboardShortcuts opened={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <JobMonitor opened={jobMonitorOpen} onClose={() => setJobMonitorOpen(false)} />
 

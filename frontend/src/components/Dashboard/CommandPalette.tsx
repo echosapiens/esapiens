@@ -15,6 +15,7 @@ interface CommandPaletteProps {
   onNewChat: () => void;
   onToggleSidebar: () => void;
   onOpenShortcuts: () => void;
+  onGenerateReport: () => void;
 }
 
 /* ─── Categories ─── */
@@ -42,6 +43,7 @@ export function CommandPalette({ opened, onClose, onNewChat, onToggleSidebar, on
     { id: 'toggle-sidebar', label: 'Toggle sidebar', shortcut: '⌘B', category: 'navigation', action: () => { onToggleSidebar(); onClose(); } },
     { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: '?', category: 'system', action: () => { onOpenShortcuts(); onClose(); } },
     { id: 'clear-chat', label: 'Clear current chat', shortcut: '', category: 'session', action: () => { onNewChat(); onClose(); } },
+    { id: 'generate-report', label: 'Generate PDF report', shortcut: '', category: 'system', action: () => { onGenerateReport(); onClose(); } },
   ];
 
   const filtered = query
