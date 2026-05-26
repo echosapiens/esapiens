@@ -215,6 +215,9 @@ if MODAL_AVAILABLE:
         import subprocess
         import os
 
+        # Validate SRA accession to prevent shell injection
+        sra_accession = _validate_sra_accession(sra_accession)
+
         work_dir = f"/data/star_jobs/{sra_accession}"
         os.makedirs(work_dir, exist_ok=True)
         output_dir = os.path.join(work_dir, "output")
@@ -298,6 +301,9 @@ if MODAL_AVAILABLE:
         import subprocess
         import os
 
+        # Validate SRA accession to prevent shell injection
+        sra_accession = _validate_sra_accession(sra_accession)
+
         out_dir = f"/data/sra_downloads/{sra_accession}"
         os.makedirs(out_dir, exist_ok=True)
 
@@ -343,6 +349,11 @@ if MODAL_AVAILABLE:
         """Run DESeq2 differential expression analysis on a count matrix."""
         import subprocess
         import os
+
+        # Sanitize R parameters to prevent code injection
+        design_formula = _sanitize_r_param(design_formula)
+        if contrast:
+            contrast = [_sanitize_r_param(c) for c in contrast]
 
         work_dir = os.path.dirname(count_matrix_path)
         output_path = os.path.join(work_dir, "deseq2_results.csv")
@@ -514,6 +525,25 @@ def {safe_name}({params_sig}):
         "gpu": gpu,
         "timeout": timeout,
     }
+
+
+def _validate_sra_accession(acc: str) -> str:
+    """Validate SRA accession format to prevent shell injection."""
+    import re as _re
+    if not _re.match(r'^[A-Z]{1,3}RR\d+$', acc):
+        raise ValueError(f"Invalid SRA accession: {acc!r}. Must match pattern like SRR1234567.")
+    return acc
+
+def _sanitize_r_param(param: str) -> str:
+    """Remove shell injection characters from R parameters (design_formula, contrast)."""
+    import re as _re
+    # Remove semicolons, backticks, and any attempt to close/break R strings
+    cleaned = _re.sub(r'[;`]', '', param)
+    # Remove obvious R code injection (system calls, file operations)
+    cleaned = _re.sub(r'\bsystem\s*\(', '', cleaned, flags=_re.IGNORECASE)
+    cleaned = _re.sub(r'\bfile\s*\(', '', cleaned, flags=_re.IGNORECASE)
+    cleaned = _re.sub(r'\bpipe\s*\(', '', cleaned, flags=_re.IGNORECASE)
+    return cleaned.strip()
 
 
 def run_modal_task(job_type: str, params: dict[str, Any], workspace: Path | None = None) -> dict[str, Any]:

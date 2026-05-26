@@ -14,6 +14,7 @@ Architecture:
 """
 
 import json
+import logging
 import os
 from typing import Any, Generator, Optional
 
@@ -105,7 +106,6 @@ def run(
                 "tier": tier.value,
             }
         except Exception as e:
-            import logging
             logging.getLogger(__name__).exception("Agent sync execution error")
             result = {
                 "response": f"\u26a0\ufe0f Agent error: {str(e)}",
@@ -209,7 +209,6 @@ def run_stream(
                 params.append(assistant_msg_id)
                 conn.execute(sql, tuple(params))
                 conn.commit()
-                conn.execute("PRAGMA wal_checkpoint(PASSIVE)")
         except Exception as e:
             print(f"[Persistence] Error updating assistant message: {e}")
 
@@ -311,7 +310,6 @@ def run_stream(
                     result_text = state.get("result", "")
 
     except Exception as e:
-        import logging
         logging.getLogger(__name__).exception("Agent stream execution error")
         yield {"event": "error", "data": json.dumps({"message": f"\u26a0\ufe0f Agent error: {str(e)}"})}
         update_assistant(content=f"Error: {str(e)}", thoughts=collected_thoughts)

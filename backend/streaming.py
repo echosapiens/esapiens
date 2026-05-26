@@ -122,9 +122,13 @@ async def sessions_get(
     current_user: dict = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Get full session data including messages (requires auth)."""
+    from storage import get_storage as _get_storage
     session = get_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
+    # Ownership check: session must belong to the current user
+    if session.get("user_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized to access this session")
     return session
 
 
@@ -134,6 +138,12 @@ async def sessions_delete(
     current_user: dict = Depends(get_current_user),
 ) -> dict[str, str]:
     """Delete a session (requires auth)."""
+    # Ownership check: verify session belongs to current user before deleting
+    session = get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.get("user_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this session")
     if not delete_session(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
     return {"status": "deleted", "session_id": session_id}
@@ -150,9 +160,10 @@ async def jobs_list(
     """
     List background jobs, optionally filtered by status.
     Returns job_id, tool, name, status, start_time, end_time, error.
+    Scoped to the current user's jobs only.
     """
     from storage import get_storage
-    return get_storage().list_jobs(status=status, limit=100)
+    return get_storage().list_jobs(status=status, limit=100, user_id=current_user["id"])
 
 
 @router.get("/jobs/{job_id}")
@@ -160,7 +171,7 @@ async def jobs_get(
     job_id: str,
     current_user: dict = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Get full details of a single background job."""
+    """Get full details of a single background job. Scoped to current user."""
     from storage import get_storage
     record = get_storage().get_job(job_id)
     if record is None:

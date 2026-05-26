@@ -27,9 +27,18 @@ from storage import get_storage
 # Configuration
 # ═══════════════════════════════════════════════════════════════════════════
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "change-me-in-production")
+JWT_SECRET = os.environ.get("JWT_SECRET") or os.environ.get("JWT_SECRET", "")
+# Lazy validation: raise only when auth is actually used, not at import time.
+# This allows the module to be imported before dotenv loads (e.g., in app.py startup).
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_SECONDS = int(os.environ.get("JWT_EXPIRATION_SECONDS", 604800))  # 7 days
+
+
+def _ensure_jwt_secret() -> str:
+    """Lazily validate JWT_SECRET. Raises ValueError if not configured."""
+    if not JWT_SECRET:
+        raise ValueError("JWT_SECRET environment variable is required. Set it in .env")
+    return JWT_SECRET
 
 security_scheme = HTTPBearer()
 
@@ -127,13 +136,13 @@ def create_access_token(user_id: str, email: str) -> str:
         "iat": now,
         "exp": now + JWT_EXPIRATION_SECONDS,
     }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return jwt.encode(payload, _ensure_jwt_secret(), algorithm=JWT_ALGORITHM)
 
 
 def decode_access_token(token: str) -> Optional[dict]:
     """Decode & validate a JWT token. Returns payload dict or None."""
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(token, _ensure_jwt_secret(), algorithms=[JWT_ALGORITHM])
         return payload
     except JWTError:
         return None

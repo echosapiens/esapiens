@@ -67,6 +67,20 @@ def _make_safe_os():
 _safe_os = _make_safe_os()
 
 # ════════════════════════════════════════════════════════════════════════════════
+# Restricted builtins — only allow safe names in exec() sandboxes
+# ════════════════════════════════════════════════════════════════════════════════
+
+_SAFE_BUILTINS = {
+    "print": print, "len": len, "range": range, "int": int, "float": float,
+    "str": str, "list": list, "dict": dict, "tuple": tuple, "set": set,
+    "bool": bool, "type": type, "isinstance": isinstance, "enumerate": enumerate,
+    "sorted": sorted, "reversed": reversed, "zip": zip, "map": map, "filter": filter,
+    "min": min, "max": max, "sum": sum, "abs": abs, "round": round,
+    "hasattr": hasattr, "getattr": getattr,
+    "True": True, "False": False, "None": None,
+}
+
+# ════════════════════════════════════════════════════════════════════════════════
 # Tool Registry — decorator-based (not a manual dict)
 # ════════════════════════════════════════════════════════════════════════════════
 
@@ -355,6 +369,7 @@ def run_python_plot(code: str, title: str = "", pretty: bool = True) -> ToolResu
         import matplotlib.pyplot as plt, seaborn as sns
         plt.close('all')
         exec(compile(code.strip("`").replace("python", "", 1), "<run_python_plot>", "exec"), {
+            "__builtins__": _SAFE_BUILTINS,
             "plt": plt, "sns": sns,
             "np": __import__('numpy'), "pd": __import__('pandas'),
             "WORKSPACE": WORKSPACE, "os": _safe_os,
@@ -377,7 +392,7 @@ def plotly_plot(code: str, title: str = "Plot") -> ToolResult:
     WORKSPACE = Path(os.environ.get("ESAPIENS_DATA_DIR", os.path.expanduser("~/esapiens-data")))
     try:
         import plotly.express as px
-        ns = {"px": px, "np": __import__('numpy'), "pd": __import__('pandas'), "WORKSPACE": WORKSPACE}
+        ns = {"__builtins__": _SAFE_BUILTINS, "px": px, "np": __import__('numpy'), "pd": __import__('pandas'), "WORKSPACE": WORKSPACE}
         exec(compile(code.strip("`").replace("python", "", 1), "<plotly>", "exec"), ns)
         fig = ns.get("fig")
         if not fig:
@@ -418,6 +433,8 @@ def execute_python(code: str, description: str = "") -> ToolResult:
         r'\bimport\s+deeptools\b', r'\bfrom\s+deeptools\b',
         # Heavy compute patterns
         r'\bsubprocess\.(run|call|Popen)\b.*\b(star|deseq|sra|fasterq|prefetch|samtools|bwa|bowtie)\b',
+        # Shell injection via os
+        r'\bos\.system\b', r'\bos\.popen\b', r'\bos\.exec\b',
         # Large data download patterns
         r'\bftp://\b.*\b(sra|gb|gds)\b',
         r'\bhttps?://ftp\.ncbi\.nlm\.nih\.gov/',
@@ -435,7 +452,7 @@ def execute_python(code: str, description: str = "") -> ToolResult:
 
     # ── VPS-safe Python sandbox ──
     WORKSPACE = Path(os.environ.get("ESAPIENS_DATA_DIR", os.path.expanduser("~/esapiens-data")))
-    ns = {"os": _safe_os, "np": __import__('numpy', fromlist=['']),
+    ns = {"__builtins__": _SAFE_BUILTINS, "os": _safe_os, "np": __import__('numpy', fromlist=['']),
           "pd": __import__('pandas', fromlist=['']), "WORKSPACE": WORKSPACE}
     try:
         exec(compile(code.strip("`").replace("python", "", 1), "<exec>", "exec"), ns)

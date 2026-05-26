@@ -6,18 +6,15 @@ the graph builder function for the E.sapiens v2 agent,
 and a tiered query router for fast-pathing simple queries.
 """
 
-import json
 import os
 import re
 from enum import Enum
-from typing import Annotated, Any, Callable, Literal, Sequence, TypedDict
+from typing import Annotated, Any, Literal, Sequence, TypedDict
 
 import operator
 
-from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
-from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 from langgraph.prebuilt import ToolNode
 
@@ -31,8 +28,6 @@ from prompts import (
     build_tool_definitions_block,
     build_specialist_guidance,
 )
-
-load_dotenv()
 
 # ── Tiered Query Routing ────────────────────────────────────────────────────
 
@@ -363,6 +358,7 @@ def build_agent_graph(checkpointer=None) -> StateGraph:
     # Use provided checkpointer or create one with persistent connection
     if checkpointer is None:
         import sqlite3
+        from langgraph.checkpoint.sqlite import SqliteSaver
         conn = sqlite3.connect(":memory:", check_same_thread=False)
         checkpointer = SqliteSaver(conn)
 

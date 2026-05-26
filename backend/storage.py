@@ -26,6 +26,7 @@ Directory layout:
 import json
 import os
 import sqlite3
+import threading
 import time
 import uuid
 from datetime import datetime, timezone
@@ -133,6 +134,7 @@ class StorageBackend:
         self._workspaces_root = self._data_dir / "workspaces"
         self._conn: sqlite3.Connection | None = None
         self._checkpoint_saver: SqliteSaver | None = None
+        self._write_lock = threading.Lock()
 
     # ── Initialization ─────────────────────────────────────────────────
 
@@ -173,6 +175,13 @@ class StorageBackend:
             self._conn.commit()
         if "skills" not in cols:
             self._conn.execute("ALTER TABLE messages ADD COLUMN skills TEXT NOT NULL DEFAULT '[]'")
+            self._conn.commit()
+
+        # Migration: Add user_id to background_jobs if missing
+        cursor = self._conn.execute("PRAGMA table_info(background_jobs)")
+        bj_cols = [row["name"] for row in cursor.fetchall()]
+        if "user_id" not in bj_cols:
+            self._conn.execute("ALTER TABLE background_jobs ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'")
             self._conn.commit()
 
         # Track schema version
@@ -231,19 +240,20 @@ class StorageBackend:
             return dict(row)
 
         now = time.time()
-        self.conn.execute(
-            """INSERT INTO sessions (id, title, user_id, created_at, updated_at, message_count, metadata)
-               VALUES (?, ?, ?, ?, ?, 0, '{}')""",
-            (session_id, f"Session {datetime.now().strftime('%Y-%m-%d %H:%M')}", user_id, now, now),
-        )
-        self.conn.commit()
+        with self._write_lock:
+            self.conn.execute(
+                """INSERT INTO sessions (id, title, user_id, created_at, updated_at, message_count, metadata)
+                   VALUES (?, ?, ?, ?, ?, 0, '{}')""",
+                (session_id, f"Session {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}", user_id, now, now),
+            )
+            self.conn.commit()
 
         # Pre-create workspace directory for this session
         self.ensure_workspace(user_id, session_id)
 
         return {
             "id": session_id,
-            "title": f"Session {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "title": f"Session {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}",
             "user_id": user_id,
             "created_at": now,
             "updated_at": now,
@@ -317,11 +327,12 @@ class StorageBackend:
         return results
 
     def update_session_title(self, session_id: str, title: str) -> None:
-        self.conn.execute(
-            "UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?",
-            (title, time.time(), session_id),
-        )
-        self.conn.commit()
+        with self._write_lock:
+            self.conn.execute(
+                "UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?",
+                (title, time.time(), session_id),
+            )
+            self.conn.commit()
 
     def delete_session(self, session_id: str) -> bool:
         """Delete a session and its messages. Returns True if existed."""
@@ -331,9 +342,10 @@ class StorageBackend:
         if cursor.fetchone() is None:
             return False
 
-        self.conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
-        self.conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
-        self.conn.commit()
+        with self._write_lock:
+            with self.conn:
+                self.conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+                self.conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
 
         # Remove workspace directory
         self._remove_workspace(session_id)
@@ -341,12 +353,13 @@ class StorageBackend:
 
     def reset_session(self, session_id: str) -> dict[str, Any]:
         """Clear all messages in a session but keep the session record."""
-        self.conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
-        self.conn.execute(
-            "UPDATE sessions SET message_count = 0, updated_at = ? WHERE id = ?",
-            (time.time(), session_id),
-        )
-        self.conn.commit()
+        with self._write_lock:
+            self.conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+            self.conn.execute(
+                "UPDATE sessions SET message_count = 0, updated_at = ? WHERE id = ?",
+                (time.time(), session_id),
+            )
+            self.conn.commit()
         return self.get_session(session_id) or self.ensure_session(session_id)
 
     def add_message(
@@ -363,34 +376,35 @@ class StorageBackend:
         msg_id = f"msg_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
         now = time.time()
 
-        self.conn.execute(
-            """INSERT INTO messages (id, session_id, role, content, timestamp, skills, tool_calls, thoughts, visualization)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                msg_id,
-                session_id,
-                role,
-                content or "",
-                now,
-                json.dumps(skills or []),
-                json.dumps(tool_calls or []),
-                json.dumps(thoughts or []),
-                json.dumps(visualization) if visualization else None,
-            ),
-        )
+        with self._write_lock:
+            self.conn.execute(
+                """INSERT INTO messages (id, session_id, role, content, timestamp, skills, tool_calls, thoughts, visualization)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    msg_id,
+                    session_id,
+                    role,
+                    content or "",
+                    now,
+                    json.dumps(skills or []),
+                    json.dumps(tool_calls or []),
+                    json.dumps(thoughts or []),
+                    json.dumps(visualization) if visualization else None,
+                ),
+            )
 
-        # Update session message count and timestamp
-        count_cursor = self.conn.execute(
-            "SELECT COUNT(*) as cnt FROM messages WHERE session_id = ?",
-            (session_id,),
-        )
-        count = count_cursor.fetchone()["cnt"]
+            # Update session message count and timestamp
+            count_cursor = self.conn.execute(
+                "SELECT COUNT(*) as cnt FROM messages WHERE session_id = ?",
+                (session_id,),
+            )
+            count = count_cursor.fetchone()["cnt"]
 
-        self.conn.execute(
-            "UPDATE sessions SET message_count = ?, updated_at = ? WHERE id = ?",
-            (count, now, session_id),
-        )
-        self.conn.commit()
+            self.conn.execute(
+                "UPDATE sessions SET message_count = ?, updated_at = ? WHERE id = ?",
+                (count, now, session_id),
+            )
+            self.conn.commit()
 
         return msg_id
 
@@ -411,11 +425,12 @@ class StorageBackend:
 
         msg_id = row["id"]
         existing = row["content"] or ""
-        self.conn.execute(
-            "UPDATE messages SET content = ? WHERE id = ?",
-            (existing + chunk, msg_id),
-        )
-        self.conn.commit()
+        with self._write_lock:
+            self.conn.execute(
+                "UPDATE messages SET content = ? WHERE id = ?",
+                (existing + chunk, msg_id),
+            )
+            self.conn.commit()
 
     # ── Workspace Management ──────────────────────────────────────────
 
@@ -483,13 +498,14 @@ class StorageBackend:
     ) -> None:
         """Insert a new background job record."""
         assert self._conn is not None
-        self._conn.execute(
-            """INSERT INTO background_jobs
-               (job_id, tool, name, command, status, start_time, metadata)
-               VALUES (?, ?, ?, ?, 'running', ?, ?)""",
-            (job_id, tool, name, command, time.time(), json.dumps(metadata or {})),
-        )
-        self._conn.commit()
+        with self._write_lock:
+            self._conn.execute(
+                """INSERT INTO background_jobs
+                   (job_id, tool, name, command, status, start_time, metadata)
+                   VALUES (?, ?, ?, ?, 'running', ?, ?)""",
+                (job_id, tool, name, command, time.time(), json.dumps(metadata or {})),
+            )
+            self._conn.commit()
 
     def update_job(
         self,
@@ -524,11 +540,12 @@ class StorageBackend:
             fields.append("metadata = ?")
             values.append(json.dumps(meta))
         values.append(job_id)
-        self._conn.execute(
-            f"UPDATE background_jobs SET {', '.join(fields)} WHERE job_id = ?",
-            values,
-        )
-        self._conn.commit()
+        with self._write_lock:
+            self._conn.execute(
+                f"UPDATE background_jobs SET {', '.join(fields)} WHERE job_id = ?",
+                values,
+            )
+            self._conn.commit()
 
     def get_job(self, job_id: str) -> dict | None:
         """Fetch a job record by job_id. Returns None if not found."""
@@ -550,10 +567,27 @@ class StorageBackend:
             "metadata": json.loads(row[11]) if row[11] else {},
         }
 
-    def list_jobs(self, status: str | None = None, limit: int = 50) -> list[dict]:
-        """List background jobs, optionally filtered by status (running/completed/failed)."""
+    def list_jobs(self, status: str | None = None, limit: int = 50, user_id: str | None = None) -> list[dict]:
+        """List background jobs, optionally filtered by status and/or user_id."""
         assert self._conn is not None
-        if status:
+        # Check if user_id column exists in background_jobs
+        cursor = self._conn.execute("PRAGMA table_info(background_jobs)")
+        cols = [row["name"] for row in cursor.fetchall()]
+        has_user_id = "user_id" in cols
+
+        if status and has_user_id and user_id:
+            cur = self._conn.execute(
+                "SELECT job_id, tool, name, status, start_time, end_time, error "
+                "FROM background_jobs WHERE status = ? AND user_id = ? ORDER BY start_time DESC LIMIT ?",
+                (status, user_id, limit),
+            )
+        elif has_user_id and user_id:
+            cur = self._conn.execute(
+                "SELECT job_id, tool, name, status, start_time, end_time, error "
+                "FROM background_jobs WHERE user_id = ? ORDER BY start_time DESC LIMIT ?",
+                (user_id, limit),
+            )
+        elif status:
             cur = self._conn.execute(
                 "SELECT job_id, tool, name, status, start_time, end_time, error "
                 "FROM background_jobs WHERE status = ? ORDER BY start_time DESC LIMIT ?",
