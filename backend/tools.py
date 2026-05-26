@@ -201,6 +201,13 @@ def download_pdb(pdb_id: str, format: str = "pdb",
                 "source_url": url,
                 "local_path": str(local_path),
             },
+            # Surface as a structure visualization for the frontend
+            visualization={
+                "type": "structure",
+                "pdb_id": pdb_id.upper(),
+                "pdb_file": pdb_content,
+                "representation": representation,
+            },
         )
     except httpx.TimeoutException:
         return ToolResult.err("download_pdb", f"Timeout fetching PDB '{pdb_id}' from RCSB.")
@@ -253,6 +260,10 @@ def parse_structure(file_path: str) -> ToolResult:
             "chains": len(set(l[21:22] for l in lines if len(l) > 21)),
             "model_count": len([l for l in content.split("\n") if l.startswith("MODEL")]),
             "preview": content[:500],
+        }, visualization={
+            "type": "structure",
+            "pdb_id": path.stem.upper(),
+            "pdb_file": content,
         })
     except Exception as e:
         return ToolResult.err("parse_structure", str(e), exc_info=sys.exc_info())
@@ -436,7 +447,14 @@ def run_python_plot(code: str, title: str = "", pretty: bool = True) -> ToolResu
         buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=150); b64 = base64.b64encode(buf.getvalue()).decode()
         plt.close('all')
         return ToolResult.ok("run_python_plot",
-                             data={"type": "image", "image": f"data:image/png;base64,{b64}", "title": title})
+                             data={
+                                 "title": title,
+                                 "visualization": {
+                                     "type": "image",
+                                     "image": f"data:image/png;base64,{b64}",
+                                     "format": "png",
+                                 },
+                             })
     except Exception as e:
         return ToolResult.err("run_python_plot", str(e), exc_info=sys.exc_info())
 
@@ -455,7 +473,13 @@ def plotly_plot(code: str, title: str = "Plot") -> ToolResult:
             return ToolResult.err("plotly_plot", "No 'fig' object found. Return fig from your code.")
         html = fig.to_html(include_plotlyjs='cdn', full_html=False)
         return ToolResult.ok("plotly_plot",
-                             data={"type": "plotly", "html": html, "title": title})
+                             data={
+                                 "title": title,
+                                 "visualization": {
+                                     "type": "plotly",
+                                     "html": html,
+                                 },
+                             })
     except Exception as e:
         return ToolResult.err("plotly_plot", str(e), exc_info=sys.exc_info())
 

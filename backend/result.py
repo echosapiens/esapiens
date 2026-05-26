@@ -54,6 +54,7 @@ class ToolResult:
     job_id: Optional[str]     = None
     elapsed_ms: float         = 0.0
     traceback: Optional[str]  = None
+    visualization: Optional[dict] = None  # Renderable chart/image/structure
 
     def __post_init__(self):
         # Enforce mutual exclusivity: data only on SUCCESS, error only on ERROR
@@ -70,6 +71,8 @@ class ToolResult:
         }
         if self.status == ToolStatus.SUCCESS:
             d["data"] = self.data
+            if self.visualization:
+                d["visualization"] = self.visualization
         elif self.status == ToolStatus.ERROR:
             err_str: str = self.error or "unknown error"
             d["error"] = err_str
@@ -88,6 +91,7 @@ class ToolResult:
         data: Any = None,
         job_id: Optional[str] = None,
         elapsed_ms: float = 0.0,
+        visualization: Optional[dict] = None,
     ) -> ToolResult:
         return cls(
             status=ToolStatus.SUCCESS,
@@ -95,6 +99,7 @@ class ToolResult:
             tool=tool,
             job_id=job_id,
             elapsed_ms=elapsed_ms,
+            visualization=visualization,
         )
 
     @classmethod
