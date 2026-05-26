@@ -11,27 +11,22 @@ import { VisualizationPanel } from '../Visualizations';
 import { ProcessingPipeline } from './ProcessingPipeline';
 import { useTypewriter } from '../../hooks/useTypewriter';
 
-interface MessageBubbleProps {
-  message: Message;
-}
-
 /* ─── Timestamp ─── */
 function TimeLabel({ ts }: { ts: number }) {
   const d = new Date(ts);
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
-  const ss = String(d.getSeconds()).padStart(2, '0');
   return (
     <Text
       style={{
         fontFamily: "var(--e-font-mono)",
-        fontSize: '0.55rem',
-        color: 'var(--e-text-dimmed)',
-        opacity: 0.5,
+        fontSize: '0.625rem',
+        color: 'var(--e-text-muted)',
+        letterSpacing: '0.04em',
         userSelect: 'none',
       }}
     >
-      [{hh}:{mm}:{ss}]
+      {hh}:{mm}
     </Text>
   );
 }
@@ -45,28 +40,47 @@ function CharCount({ text }: { text?: string | null }) {
         component="span"
         style={{
           fontFamily: "var(--e-font-mono)",
-          fontSize: '0.45rem',
-          color: 'var(--e-text-dimmed)',
-          opacity: 0.3,
-          marginLeft: 6,
+          fontSize: '0.5625rem',
+          color: 'var(--e-text-muted)',
+          letterSpacing: '0.04em',
+          marginLeft: 4,
           cursor: 'default',
         }}
       >
-        [{text.length}]
+        {text.length}
       </Text>
     </Tooltip>
   );
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+/* ─── Role Label ─── */
+function RoleLabel({ role, accent }: { role: 'user' | 'assistant'; accent: string }) {
+  const label = role === 'user' ? 'INPUT' : 'E.SAPIENS';
+  return (
+    <Text
+      style={{
+        fontFamily: "var(--e-font-mono)",
+        fontSize: '0.5625rem',
+        fontWeight: 600,
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+        color: accent,
+      }}
+    >
+      {label}
+    </Text>
+  );
+}
+
+export const MessageBubble = memo(function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const isStreaming = message.isStreaming;
-  const [showThoughts, setShowThoughts] = useState(true);
+  const [showThoughts, setShowThoughts] = useState(false);
 
   /* ─── Typewriter effect for streaming assistant content ─── */
   const { displayText, isAnimating, skipToEnd } = useTypewriter(
     message.content,
-    15,   // ms per chunk
+    18,
     !!message.isStreaming && !!message.content,
   );
 
@@ -76,7 +90,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     }
   }, [message.isStreaming, isAnimating, skipToEnd]);
 
-  /* ─── User Message (terminal input style) ─── */
+  /* ─── User Message ─── */
   if (isUser) {
     return (
       <div
@@ -84,32 +98,22 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'flex-end',
-          marginBottom: 12,
+          marginBottom: 16,
           animation: 'fade-in-up 0.2s ease-out',
         }}
       >
         <div
           style={{
             maxWidth: '80%',
-            padding: '6px 14px',
+            padding: '10px 16px',
             borderRight: '2px solid var(--e-accent-blue)',
-            backgroundColor: 'rgba(37, 99, 235, 0.03)',
+            backgroundColor: 'rgba(37, 99, 235, 0.04)',
+            borderRadius: 'var(--e-radius-md)',
           }}
         >
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-            <Text
-              style={{
-                fontFamily: "var(--e-font-mono)",
-                fontSize: '0.6rem',
-                fontWeight: 600,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: 'var(--e-accent-blue)',
-              }}
-            >
-              USER_INPUT
-            </Text>
+          {/* Header row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <RoleLabel role="user" accent="var(--e-accent-blue)" />
             <TimeLabel ts={message.timestamp} />
             <CharCount text={message.content} />
           </div>
@@ -127,7 +131,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     );
   }
 
-  /* ─── Assistant Message (terminal output style) ─── */
+  /* ─── Assistant Message ─── */
   const hasToolCalls = message.tool_calls && message.tool_calls.length > 0;
 
   return (
@@ -136,79 +140,73 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-start',
-        marginBottom: 12,
+        marginBottom: 16,
         animation: 'fade-in-up 0.25s ease-out',
       }}
     >
       <div
         onClick={isAnimating ? skipToEnd : undefined}
         style={{
-          maxWidth: '85%',
-          padding: '8px 14px',
-          borderLeft: '2px solid var(--e-accent-blue)',
+          maxWidth: '88%',
+          padding: '8px 16px 10px',
+          borderLeft: `2px solid ${isAnimating ? 'var(--e-accent-blue)' : 'var(--e-border)'}`,
           cursor: isAnimating ? 'pointer' : 'default',
           position: 'relative',
+          backgroundColor: 'var(--e-bg-surface)',
+          borderRadius: '0 var(--e-radius-md) var(--e-radius-md) 0',
+          transition: 'border-color 0.3s ease',
         }}
-        title={isAnimating ? 'Click to show full response' : undefined}
+        title={isAnimating ? 'Click to reveal full response' : undefined}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-          {/* Streaming pulse dot */}
+        {/* Header row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <RoleLabel
+            role="assistant"
+            accent={isAnimating ? 'var(--e-accent-blue)' : 'var(--e-text-secondary)'}
+          />
+          <TimeLabel ts={message.timestamp} />
+          <CharCount text={message.content} />
+          {/* Streaming indicator */}
           {isStreaming && (
             <div
               style={{
                 width: 4,
                 height: 4,
                 borderRadius: '50%',
-                backgroundColor: isAnimating ? 'var(--e-accent-blue)' : 'var(--e-accent-green)',
-                transition: 'all 0.3s ease',
+                backgroundColor: isAnimating ? 'var(--e-accent-blue)' : 'var(--e-success)',
+                marginLeft: 2,
+                transition: 'background-color 0.4s ease',
               }}
             />
           )}
-          <Text
-            style={{
-              fontFamily: "var(--e-font-mono)",
-              fontSize: '0.6rem',
-              fontWeight: 600,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              color: isAnimating ? 'var(--e-accent-blue)' : '#1a3a3c',
-              transition: 'color 0.3s ease',
-            }}
-          >
-            {isAnimating ? 'STREAMING' : 'E.SAPIENS'}
-          </Text>
-          <TimeLabel ts={message.timestamp} />
-          <CharCount text={message.content} />
         </div>
 
-        {/* Thoughts / Reasoning logs */}
+        {/* Thoughts / Neural Engine Trace */}
         {message.thoughts && message.thoughts.length > 0 && (
-          <div style={{ marginBottom: 12 }}>
+          <div style={{ marginBottom: 8 }}>
             <UnstyledButton
               onClick={() => setShowThoughts((v) => !v)}
               style={{
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
-                gap: 6,
-                padding: '4px 0',
-                opacity: 0.8,
-                color: 'var(--e-text-secondary)',
+                gap: 5,
+                padding: '3px 0',
+                color: 'var(--e-text-tertiary)',
+                fontFamily: 'var(--e-font-mono)',
+                fontSize: '0.5625rem',
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                transition: 'color 0.15s ease',
               }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--e-accent-blue)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--e-text-tertiary)')}
             >
-              <IconTerminal2 size={12} style={{ color: 'var(--e-accent-blue)' }} />
-              <Text
-                style={{
-                  fontFamily: "var(--e-font-mono)",
-                  fontSize: '0.65rem',
-                  fontWeight: 600,
-                  letterSpacing: '0.05em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Neural Engine Trace
-              </Text>
-              {showThoughts ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />}
+              <IconTerminal2 size={11} stroke={1.5} style={{ color: 'var(--e-accent-blue)' }} />
+              Neural Trace
+              {showThoughts
+                ? <IconChevronUp size={10} stroke={1.5} />
+                : <IconChevronDown size={10} stroke={1.5} />}
             </UnstyledButton>
             <Collapse in={showThoughts}>
               <div
@@ -216,11 +214,11 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                   marginTop: 4,
                   padding: '8px 12px',
                   backgroundColor: 'var(--e-bg-subtle)',
-                  borderRadius: 'var(--e-radius-md)',
-                  borderLeft: '1px solid var(--e-border)',
+                  borderRadius: 'var(--e-radius-sm)',
+                  border: '1px solid var(--e-border-subtle)',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 4,
+                  gap: 3,
                 }}
               >
                 {message.thoughts.map((log, i) => (
@@ -228,11 +226,11 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                     <Text
                       style={{
                         fontFamily: "var(--e-font-mono)",
-                        fontSize: '0.6rem',
-                        color: 'var(--e-text-dimmed)',
-                        opacity: 0.5,
+                        fontSize: '0.5625rem',
+                        color: 'var(--e-text-muted)',
                         marginTop: 2,
                         flexShrink: 0,
+                        letterSpacing: '0.04em',
                       }}
                     >
                       {String(i + 1).padStart(2, '0')}
@@ -240,9 +238,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                     <Text
                       style={{
                         fontFamily: "var(--e-font-mono)",
-                        fontSize: '0.7rem',
+                        fontSize: '0.6875rem',
                         color: 'var(--e-text-secondary)',
-                        lineHeight: 1.4,
+                        lineHeight: 1.5,
                       }}
                     >
                       {log}
@@ -250,9 +248,20 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                   </div>
                 ))}
                 {isStreaming && (
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', opacity: 0.6 }}>
-                    <div className="pulse-indicator" style={{ width: 3, height: 3, borderRadius: '50%', backgroundColor: 'var(--e-accent-blue)' }} />
-                    <Text style={{ fontFamily: "var(--e-font-mono)", fontSize: '0.65rem', fontStyle: 'italic' }}>allocating next cycle...</Text>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', opacity: 0.5 }}>
+                    <div style={{
+                      width: 3, height: 3, borderRadius: '50%',
+                      backgroundColor: 'var(--e-accent-blue)',
+                      animation: 'pulse-dot 1.2s ease-in-out infinite'
+                    }} />
+                    <Text style={{
+                      fontFamily: "var(--e-font-mono)",
+                      fontSize: '0.625rem',
+                      color: 'var(--e-text-muted)',
+                      fontStyle: 'italic',
+                    }}>
+                      allocating...
+                    </Text>
                   </div>
                 )}
               </div>
@@ -264,33 +273,47 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         {message.skills && message.skills.length > 0 && (
           <Group gap={4} mb="xs" wrap="wrap">
             {message.skills.map((skill) => (
-              <Badge key={skill} size="sm" variant="light" color="electricBlue">
+              <Badge
+                key={skill}
+                size="xs"
+                variant="light"
+                color="blue"
+                styles={{
+                  root: {
+                    fontFamily: 'var(--e-font-mono)',
+                    fontSize: '0.5625rem',
+                    fontWeight: 600,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    padding: '2px 6px',
+                    height: 'auto',
+                  },
+                }}
+              >
                 {skill}
               </Badge>
             ))}
           </Group>
         )}
 
-        {/* Processing pipeline — show tool calls as visual flow */}
+        {/* Processing pipeline */}
         {hasToolCalls && isStreaming && (
           <ProcessingPipeline toolCalls={message.tool_calls} />
         )}
 
-        {/* Content with typewriter effect */}
+        {/* Content */}
         {isStreaming && !message.content ? (
-          <div
+          <Text
             style={{
               fontFamily: "var(--e-font-mono)",
-              fontSize: '0.75rem',
+              fontSize: '0.6875rem',
               color: 'var(--e-accent-blue)',
-              opacity: 0.6,
+              opacity: 0.5,
+              letterSpacing: '0.06em',
             }}
           >
-            <div style={{ display: 'flex', gap: 4 }}>
-              <span>○</span>
-              <span>ANALYZING</span>
-            </div>
-          </div>
+            ANALYZING
+          </Text>
         ) : (
           <div className="markdown-content" style={{ wordBreak: 'break-word' }}>
             <Markdown
@@ -312,7 +335,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                   />
                 ),
                 table: ({ children }) => (
-                  <div style={{ overflowX: 'auto', margin: '12px 0' }}>
+                  <div style={{ overflowX: 'auto', margin: '10px 0' }}>
                     <table style={{
                       width: '100%',
                       borderCollapse: 'collapse',
@@ -324,15 +347,13 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                   </div>
                 ),
                 thead: ({ children }) => (
-                  <thead style={{
-                    borderBottom: '2px solid var(--e-border)',
-                  }}>
+                  <thead style={{ borderBottom: '2px solid var(--e-border)' }}>
                     {children}
                   </thead>
                 ),
                 th: ({ children }) => (
                   <th style={{
-                    padding: '8px 12px',
+                    padding: '7px 12px',
                     textAlign: 'left',
                     fontFamily: 'var(--e-font-sans)',
                     fontSize: 'var(--e-type-xs)',
@@ -347,7 +368,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 ),
                 td: ({ children }) => (
                   <td style={{
-                    padding: '8px 12px',
+                    padding: '7px 12px',
                     fontFamily: 'var(--e-font-sans)',
                     fontSize: 'var(--e-type-sm)',
                     color: 'var(--e-text-primary)',
@@ -358,9 +379,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                   </td>
                 ),
                 tr: ({ children }) => (
-                  <tr style={{
-                    transition: 'background-color 0.1s ease',
-                  }}>
+                  <tr style={{ transition: 'background-color 0.1s ease' }}>
                     {children}
                   </tr>
                 ),
@@ -377,7 +396,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             component="span"
             style={{
               fontFamily: "var(--e-font-mono)",
-              fontSize: '0.85rem',
+              fontSize: '0.8125rem',
               color: 'var(--e-text-secondary)',
               animation: 'blink 1s step-end infinite',
               lineHeight: 1,
@@ -387,39 +406,40 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           </Text>
         )}
 
-        {/* \"Skip animation\" hint */}
-        {isAnimating && message.content.length > 100 && (
+        {/* Skip hint */}
+        {isAnimating && message.content.length > 120 && (
           <Text
             style={{
               fontFamily: "var(--e-font-mono)",
-              fontSize: '0.45rem',
-              color: 'var(--e-text-dimmed)',
-              opacity: 0.3,
-              marginTop: 2,
+              fontSize: '0.5rem',
+              color: 'var(--e-text-muted)',
+              opacity: 0.4,
+              marginTop: 3,
+              letterSpacing: '0.06em',
             }}
           >
             CLICK TO SKIP
           </Text>
         )}
 
-        {/* Tool calls (collapsed) */}
+        {/* Tool calls — collapsed after streaming completes */}
         {hasToolCalls && !isStreaming && (
-          <div style={{ marginTop: 4 }}>
+          <div style={{ marginTop: 8 }}>
             <Accordion
-              variant="contained"
+              variant="light"
               chevronPosition="right"
               styles={{
                 item: {
                   backgroundColor: 'transparent',
-                  border: '1px solid var(--e-border)',
+                  border: '1px solid var(--e-border-subtle)',
                   marginBottom: 2,
                 },
                 control: {
-                  padding: '4px 10px',
+                  padding: '5px 10px',
                   minHeight: 0,
                 },
                 panel: {
-                  padding: '6px 10px',
+                  padding: '5px 10px',
                 },
                 chevron: {
                   width: 10,
@@ -436,11 +456,15 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
         {/* Visualization */}
         {message.visualization && !message.isStreaming && (
-          <div style={{ marginTop: 8 }}>
+          <div style={{ marginTop: 10 }}>
             <VisualizationPanel data={message.visualization} />
           </div>
         )}
       </div>
     </div>
   );
+});
+
+interface MessageBubbleProps {
+  message: Message;
 }

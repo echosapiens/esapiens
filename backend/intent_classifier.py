@@ -129,7 +129,12 @@ INTENT_KEYWORDS: dict[str, list[str]] = {
         "clinical trial", "biostatistics", "p-value", "hypothesis test",
         "anova", "t-test", "sample size",
     ],
-    # ---- Data visualization ----
+    # ---- Data visualization & Design ----
+    "ui_ux": [
+        "ui", "ux", "design", "user interface", "user experience", "user story",
+        "mockup", "wireframe", "frontend", "responsive", "8pt grid",
+        "typography", "visual hierarchy", "color palette", "microcopy",
+    ],
     "data-visualization": [
         "visualize", "plot", "chart", "graph", "heatmap", "volcano",
         "pca plot", "manhattan plot", "pretty", "beautiful", "aesthetic",

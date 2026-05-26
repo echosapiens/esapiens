@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from intent_classifier import classify_query
-from agent import classify_tier, QueryTier, direct_llm_response, agent_graph
+from agent import classify_tier, QueryTier, direct_llm_response, build_agent_graph
 from storage import StorageBackend, get_storage
 
 # ============================================================================
@@ -34,6 +34,9 @@ from storage import StorageBackend, get_storage
 # execute_python's sandbox. We keep them in os.environ for the VPS runtime.
 
 storage: StorageBackend = get_storage()
+
+# Persistent agent graph
+agent_graph = build_agent_graph(checkpointer=storage.checkpoint_saver)
 
 
 # ============================================================================

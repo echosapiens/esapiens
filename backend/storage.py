@@ -153,6 +153,7 @@ class StorageBackend:
     def _run_migrations(self) -> None:
         """Create tables and indexes if they don't exist."""
         assert self._conn is not None
+        # Run schema scripts
         self._conn.executescript(TABLE_SESSIONS)
         self._conn.executescript(TABLE_MESSAGES)
         self._conn.executescript(TABLE_META)
@@ -161,12 +162,18 @@ class StorageBackend:
         self._conn.execute(INDEX_SESSIONS_USER)
         self._conn.execute(INDEX_JOBS_STATUS)
 
-        # Migration: Add thoughts column to messages if missing
-        try:
+        # Migration: Add thoughts column if missing (safe approach)
+        cursor = self._conn.execute("PRAGMA table_info(messages)")
+        cols = [row["name"] for row in cursor.fetchall()]
+        if "thoughts" not in cols:
             self._conn.execute("ALTER TABLE messages ADD COLUMN thoughts TEXT NOT NULL DEFAULT '[]'")
             self._conn.commit()
-        except sqlite3.OperationalError:
-            pass  # Already exists
+        if "visualization" not in cols:
+            self._conn.execute("ALTER TABLE messages ADD COLUMN visualization TEXT")
+            self._conn.commit()
+        if "skills" not in cols:
+            self._conn.execute("ALTER TABLE messages ADD COLUMN skills TEXT NOT NULL DEFAULT '[]'")
+            self._conn.commit()
 
         # Track schema version
         cur = self._conn.execute(
