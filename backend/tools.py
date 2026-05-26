@@ -666,7 +666,10 @@ def run_modal_job(job_type: str, params: dict, background: bool = False) -> Tool
 @timed
 def create_modal_tool_handler(**kwargs) -> ToolResult:
     """Dynamically create a new Modal BioContainer task at runtime."""
-    return create_modal_tool(**kwargs)
+    result = create_modal_task(**kwargs)
+    if isinstance(result, dict) and "error" in result:
+        return ToolResult.err("create_modal_tool", result["error"])
+    return ToolResult.ok("create_modal_tool", data=result)
 
 
 # ── BioContainer Discovery ───────────────────────────────────────────────────
