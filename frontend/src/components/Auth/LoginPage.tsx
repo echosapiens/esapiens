@@ -8,6 +8,7 @@
  * - OAuth slot (Google), "Forgot password?" link
  * - Fully responsive, touch-friendly 48px targets
  * - No glow/halos — line-only strokes, never looping
+ * - Now compliant with 8pt grid and 4pt internal spacing, typography multiples of 4px
  */
 
 import { useState, useCallback } from 'react';
@@ -33,36 +34,36 @@ function validateEmail(email: string): string | null {
 const inputStyles = {
   label: {
     fontFamily: 'var(--e-font-sans)',
-    fontSize: '0.8125rem',
+    fontSize: 'var(--e-type-sm)', /* 16px */
     fontWeight: 500 as const,
-    color: '#525252',
-    marginBottom: '6px',
+    color: 'var(--e-text-secondary)',
+    marginBottom: 'var(--e-space-2)', /* 8px */
     letterSpacing: '0.01em',
   },
   input: {
     fontFamily: 'var(--e-font-sans)',
-    fontSize: '0.9375rem',
-    backgroundColor: '#FAFAFA',
-    border: '1px solid #E5E5E5',
-    borderRadius: '8px',
-    color: '#2563EB',
-    padding: '12px 14px',
-    height: '48px',
+    fontSize: 'var(--e-type-base)', /* 20px */
+    backgroundColor: 'var(--e-bg-surface)',
+    border: '1px solid var(--e-border)',
+    borderRadius: 'var(--e-radius-lg)',
+    color: 'var(--e-text-primary)',
+    padding: 'var(--e-space-4) var(--e-space-4)', /* 16px 16px */
+    height: '48px', /* touch target */
     transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease',
     '&:focus': {
-      borderColor: '#2563EB',
-      boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.08)',
-      backgroundColor: '#FFFFFF',
+      borderColor: 'var(--e-brand)',
+      boxShadow: '0 0 0 3px rgba(79, 70, 229, 0.1)',
+      backgroundColor: 'var(--e-bg-surface)',
     },
     '&::placeholder': {
-      color: '#A3A3A3',
+      color: 'var(--e-text-muted)',
     },
   },
   error: {
     fontFamily: 'var(--e-font-sans)',
-    fontSize: '0.75rem',
-    color: '#DC2626',
-    marginTop: '4px',
+    fontSize: 'var(--e-type-xs)', /* 12px */
+    color: 'var(--e-error)',
+    marginTop: 'var(--e-space-1)', /* 4px */
   },
 };
 
@@ -70,15 +71,15 @@ const passwordInputStyles = {
   ...inputStyles,
   innerInput: {
     fontFamily: 'var(--e-font-sans)',
-    fontSize: '0.9375rem',
-    color: '#2563EB',
-    padding: '12px 14px',
+    fontSize: 'var(--e-type-base)',
+    color: 'var(--e-text-primary)',
+    padding: 'var(--e-space-4) var(--e-space-4)',
   },
   visibilityToggle: {
-    color: '#A3A3A3',
+    color: 'var(--e-text-muted)',
     transition: 'color 0.2s ease',
     '&:hover': {
-      color: '#525252',
+      color: 'var(--e-text-secondary)',
     },
   },
 };
@@ -139,7 +140,7 @@ export function LoginPage() {
         justifyContent: 'center',
         position: 'relative',
         overflow: 'hidden',
-        backgroundColor: '#FAFAFA',
+        backgroundColor: 'var(--e-bg-base)',
       }}
     >
       {/* Background image */}
@@ -172,12 +173,12 @@ export function LoginPage() {
         style={{
           width: '100%',
           maxWidth: 420,
-          padding: '44px 40px 36px',
+          padding: 'var(--e-space-10) var(--e-space-10) var(--e-space-10)', /* 40px all around */
           position: 'relative',
           backgroundColor: 'rgba(255, 255, 255, 0.82)',
           backdropFilter: 'blur(24px) saturate(1.2)',
           WebkitBackdropFilter: 'blur(24px) saturate(1.2)',
-          borderRadius: '16px',
+          borderRadius: 'var(--e-radius-xl)',
           border: '1px solid rgba(229, 229, 229, 0.6)',
           boxShadow:
             '0 0 0 1px rgba(255, 255, 255, 0.5), 0 1px 3px rgba(0, 0, 0, 0.04), 0 8px 32px rgba(0, 0, 0, 0.06)',
@@ -187,26 +188,26 @@ export function LoginPage() {
         <LoadingOverlay visible={authLoading} />
 
         {/* ─── Branding ─── */}
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 'var(--e-space-8)' }}> {/* 32px */}
           <h1
             style={{
               fontFamily: 'var(--e-font-display)',
-              fontSize: '1.75rem',
+              fontSize: 'var(--e-type-lg)', /* 28px */
               fontWeight: 700,
               fontStyle: 'italic',
-              color: '#2563EB',
+              color: 'var(--e-brand)',
               letterSpacing: '-0.03em',
               lineHeight: 1,
               margin: 0,
             }}
           >
-            E<span style={{ color: '#525252' }}>.</span>sapiens
+            E<span style={{ color: 'var(--e-text-tertiary)', fontStyle: 'normal' }}>.</span>sapiens
           </h1>
           <p
             style={{
               fontFamily: 'var(--e-font-sans)',
-              fontSize: '0.8125rem',
-              color: '#A3A3A3',
+              fontSize: 'var(--e-type-xs)', /* 12px */
+              color: 'var(--e-text-muted)',
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
               fontWeight: 500,
@@ -221,10 +222,10 @@ export function LoginPage() {
         <div
           style={{
             display: 'flex',
-            backgroundColor: '#F5F5F5',
-            borderRadius: '8px',
-            padding: '3px',
-            marginBottom: '28px',
+            backgroundColor: 'var(--e-bg-subtle)',
+            borderRadius: 'var(--e-radius-md)',
+            padding: 'var(--e-space-2)', /* 4px */
+            marginBottom: 'var(--e-space-5)', /* 24px */
           }}
         >
           {(['signin', 'register'] as const).map((tab) => (
@@ -233,14 +234,14 @@ export function LoginPage() {
               onClick={() => setActiveTab(tab)}
               style={{
                 flex: 1,
-                padding: '10px 0',
+                padding: 'var(--e-space-2) 0', /* 8px vertical */
                 fontFamily: 'var(--e-font-sans)',
-                fontSize: '0.8125rem',
+                fontSize: 'var(--e-type-xs)', /* 12px */
                 fontWeight: activeTab === tab ? 600 : 500,
-                color: activeTab === tab ? '#2563EB' : '#737373',
-                backgroundColor: activeTab === tab ? '#FFFFFF' : 'transparent',
+                color: activeTab === tab ? 'var(--e-brand)' : 'var(--e-text-tertiary)',
+                backgroundColor: activeTab === tab ? 'var(--e-bg-surface)' : 'transparent',
                 border: 'none',
-                borderRadius: '6px',
+                borderRadius: 'var(--e-radius-sm)',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 boxShadow: activeTab === tab ? '0 1px 3px rgba(0, 0, 0, 0.06)' : 'none',
@@ -261,12 +262,12 @@ export function LoginPage() {
             mb="md"
             styles={{
               root: {
-                backgroundColor: '#FEF2F2',
-                border: '1px solid #FECACA',
-                borderRadius: '8px',
+                backgroundColor: 'var(--e-error-bg)',
+                border: '1px solid var(--e-error)',
+                borderRadius: 'var(--e-radius-lg)',
               },
-              label: { fontFamily: 'var(--e-font-sans)', fontWeight: 600, color: '#991B1B', fontSize: '0.8125rem' },
-              body: { fontFamily: 'var(--e-font-sans)', fontSize: '0.8125rem', color: '#991B1B' },
+              label: { fontFamily: 'var(--e-font-sans)', fontWeight: 600, color: 'var(--e-error)', fontSize: 'var(--e-type-sm)' },
+              body: { fontFamily: 'var(--e-font-sans)', fontSize: 'var(--e-type-sm)', color: 'var(--e-error)' },
             }}
           >
             {error}
@@ -274,7 +275,7 @@ export function LoginPage() {
         )}
 
         {/* ─── Form ─── */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--e-space-5)' }}> {/* 24px */}
           {!isSignIn && (
             <TextInput
               label="Full name"
@@ -298,9 +299,9 @@ export function LoginPage() {
               input: {
                 ...inputStyles.input,
                 ...(email && emailError ? {
-                  borderColor: '#FCA5A5',
+                  borderColor: 'var(--e-error)',
                   '&:focus': {
-                    borderColor: '#DC2626',
+                    borderColor: 'var(--e-error)',
                     boxShadow: '0 0 0 3px rgba(220, 38, 38, 0.08)',
                   },
                 } : {}),
@@ -327,7 +328,7 @@ export function LoginPage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                marginTop: '-4px',
+                marginTop: '0',
               }}
             >
               <Checkbox
@@ -339,17 +340,17 @@ export function LoginPage() {
                   root: { cursor: 'pointer' },
                   label: {
                     fontFamily: 'var(--e-font-sans)',
-                    fontSize: '0.8125rem',
-                    color: '#737373',
+                    fontSize: 'var(--e-type-xs)', /* 12px */
+                    color: 'var(--e-text-tertiary)',
                     cursor: 'pointer',
                   },
                   input: {
                     cursor: 'pointer',
-                    borderColor: '#D4D4D4',
+                    borderColor: 'var(--e-border-subtle)',
                     transition: 'all 0.2s ease',
                     '&:checked': {
-                      backgroundColor: '#2563EB',
-                      borderColor: '#2563EB',
+                      backgroundColor: 'var(--e-brand)',
+                      borderColor: 'var(--e-brand)',
                     },
                   },
                 }}
@@ -359,16 +360,15 @@ export function LoginPage() {
                 onClick={(e) => e.preventDefault()}
                 style={{
                   fontFamily: 'var(--e-font-sans)',
-                  fontSize: '0.8125rem',
-                  color: '#525252',
+                  fontSize: 'var(--e-type-xs)', /* 12px */
+                  color: 'var(--e-text-secondary)',
                   textDecoration: 'none',
                   fontWeight: 500,
                   transition: 'color 0.2s ease',
                   cursor: 'pointer',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = '#2563EB')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = '#525252')}
-              >
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--e-brand)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--e-text-secondary)')}>
                 Forgot password?
               </a>
             </div>
@@ -379,24 +379,24 @@ export function LoginPage() {
             disabled={submitting || !!emailError}
             style={{
               fontFamily: 'var(--e-font-sans)',
-              fontSize: '0.9375rem',
+              fontSize: 'var(--e-type-sm)', /* 16px */
               fontWeight: 600,
               height: '48px',
-              borderRadius: '8px',
-              backgroundColor: submitting ? '#525252' : '#2563EB',
-              color: '#FFFFFF',
+              borderRadius: 'var(--e-radius-lg)',
+              backgroundColor: submitting ? 'var(--e-bg-subtle)' : 'var(--e-brand)',
+              color: submitting ? 'var(--e-text-tertiary)' : '#FFFFFF',
               border: 'none',
               cursor: submitting ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s ease',
               letterSpacing: '0.01em',
-              marginTop: '4px',
+              marginTop: 'var(--e-space-1)', /* 4px */
               opacity: submitting ? 0.7 : 1,
             }}
             onMouseEnter={(e) => {
-              if (!submitting) e.currentTarget.style.backgroundColor = '#1D4ED8';
+              if (!submitting) e.currentTarget.style.backgroundColor = 'var(--e-brand-hover)';
             }}
             onMouseLeave={(e) => {
-              if (!submitting) e.currentTarget.style.backgroundColor = '#2563EB';
+              if (!submitting) e.currentTarget.style.backgroundColor = 'var(--e-brand)';
             }}
             onMouseDown={(e) => {
               if (!submitting) e.currentTarget.style.transform = 'translateY(1px)';
@@ -414,16 +414,16 @@ export function LoginPage() {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '12px',
-            margin: '24px 0',
+            gap: 'var(--e-space-2)', /* 8px */
+            margin: 'var(--e-space-6) 0', /* 24px */
           }}
         >
-          <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E5E5' }} />
+          <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--e-border-subtle)' }} />
           <span
             style={{
               fontFamily: 'var(--e-font-sans)',
-              fontSize: '0.75rem',
-              color: '#A3A3A3',
+              fontSize: 'var(--e-type-xs)', /* 12px */
+              color: 'var(--e-text-muted)',
               fontWeight: 500,
               letterSpacing: '0.04em',
               textTransform: 'uppercase',
@@ -431,7 +431,7 @@ export function LoginPage() {
           >
             Or continue with
           </span>
-          <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E5E5' }} />
+          <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--e-border-subtle)' }} />
         </div>
 
         {/* ─── OAuth Slot ─── */}
@@ -443,24 +443,24 @@ export function LoginPage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '10px',
+            gap: 'var(--e-space-2)', /* 8px */
             fontFamily: 'var(--e-font-sans)',
-            fontSize: '0.875rem',
+            fontSize: 'var(--e-type-sm)', /* 16px */
             fontWeight: 500,
-            color: '#525252',
+            color: 'var(--e-text-secondary)',
             backgroundColor: '#FFFFFF',
-            border: '1px solid #E5E5E5',
-            borderRadius: '8px',
+            border: '1px solid var(--e-border-subtle)',
+            borderRadius: 'var(--e-radius-lg)',
             cursor: 'pointer',
             transition: 'all 0.2s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#F5F5F5';
-            e.currentTarget.style.borderColor = '#D4D4D4';
+            e.currentTarget.style.backgroundColor = 'var(--e-bg-hover)';
+            e.currentTarget.style.borderColor = 'var(--e-border)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.backgroundColor = '#FFFFFF';
-            e.currentTarget.style.borderColor = '#E5E5E5';
+            e.currentTarget.style.borderColor = 'var(--e-border-subtle)';
           }}
         >
           <IconBrandGoogle size={18} stroke={1.5} />
@@ -472,24 +472,23 @@ export function LoginPage() {
           style={{
             textAlign: 'center',
             fontFamily: 'var(--e-font-sans)',
-            fontSize: '0.8125rem',
-            color: '#A3A3A3',
-            marginTop: '24px',
+            fontSize: 'var(--e-type-xs)', /* 12px */
+            color: 'var(--e-text-muted)',
+            marginTop: 'var(--e-space-6)', /* 24px */
             marginBottom: 0,
           }}
         >
           {isSignIn ? "Don't have an account? " : 'Already have an account? '}
           <span
             style={{
-              color: '#2563EB',
+              color: 'var(--e-brand)',
               cursor: 'pointer',
               fontWeight: 600,
               transition: 'opacity 0.2s ease',
             }}
             onClick={() => setActiveTab(isSignIn ? 'register' : 'signin')}
             onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-          >
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}>
             {isSignIn ? 'Create account' : 'Sign in'}
           </span>
         </p>
