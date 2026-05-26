@@ -392,7 +392,48 @@ def plotly_plot(code: str, title: str = "Plot") -> ToolResult:
 @register_tool("execute_python")
 @timed
 def execute_python(code: str, description: str = "") -> ToolResult:
-    """Execute arbitrary Python code on the VPS. Useful for quick data manipulation."""
+    """Execute lightweight Python code on the VPS. For data manipulation, simple stats,
+    file I/O, and quick lookups ONLY. NOT for bioinformatics computation.
+
+    PROHIBITED on VPS:
+      - Running STAR, DESeq2, SRA downloads, alignment, or any bio tool
+      - pip installing bio packages (biopython, scanpy, anndata, etc.)
+      - Downloading large datasets (>10MB)
+      - Long-running computations (>30s CPU time)
+    Use run_bio_pipeline or run_modal_job for heavy or bio workloads.
+    """
+    # ── Bio computation guard: refuse bio tool usage that belongs on Modal ──
+    BIO_PATTERNS = [
+        # Bio tool commands
+        r'\bSTAR\b', r'\bfasterq-dump\b', r'\bprefetch\b', r'\bsratoolkit\b',
+        r'\bRscript\b.*DESeq', r'\bRscript\b.*\bdeseq\b',
+        r'\bsamtools\b', r'\bbcftools\b', r'\bbwa\b', r'\bbowtie2?\b',
+        r'\bhtseq-count\b', r'\bfeatureCounts\b', r'\bfastqc\b',
+        r'\btrimmomatic\b', r'\bcutadapt\b', r'\bmultiqc\b',
+        r'\bkallisto\b', r'\bsalmon\b', r'\bhisat2\b',
+        # Heavy bio Python imports
+        r'\bimport\s+scanpy\b', r'\bimport\s+anndata\b', r'\bfrom\s+scanpy\b',
+        r'\bimport\s+biopython\b', r'\bfrom\s+Bio\b', r'\bimport\s+Bio\b',
+        r'\bimport\s+pybedtools\b', r'\bimport\s+pysam\b', r'\bfrom\s+pysam\b',
+        r'\bimport\s+deeptools\b', r'\bfrom\s+deeptools\b',
+        # Heavy compute patterns
+        r'\bsubprocess\.(run|call|Popen)\b.*\b(star|deseq|sra|fasterq|prefetch|samtools|bwa|bowtie)\b',
+        # Large data download patterns
+        r'\bftp://\b.*\b(sra|gb|gds)\b',
+        r'\bhttps?://ftp\.ncbi\.nlm\.nih\.gov/',
+        r'\bSRA.*download\b', r'\bdownload.*SRR\b',
+    ]
+    import re as _re
+    for pattern in BIO_PATTERNS:
+        if _re.search(pattern, code, _re.IGNORECASE):
+            return ToolResult.err(
+                "execute_python",
+                "Bioinformatics computation is NOT allowed on VPS. "
+                "Dispatch to Modal using run_bio_pipeline instead. "
+                "Example: run_bio_pipeline(command='<your command>', name='<task name>')"
+            )
+
+    # ── VPS-safe Python sandbox ──
     WORKSPACE = Path(os.environ.get("ESAPIENS_DATA_DIR", os.path.expanduser("~/esapiens-data")))
     ns = {"os": _safe_os, "np": __import__('numpy', fromlist=['']),
           "pd": __import__('pandas', fromlist=['']), "WORKSPACE": WORKSPACE}
