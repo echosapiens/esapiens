@@ -1,0 +1,17 @@
+REMARK  Small molecule ligand for Vina docking smoke tests
+REMARK  Compound: 5-fluorouracil (5-FU)
+ROOT
+ATOM      1  N1  LIG A   1       5.110   0.375   0.000  0.00  0.00    -0.478 N
+ATOM      2  C2  LIG A   1       3.713   0.630   0.000  0.00  0.00     0.505 C
+ATOM      3  O2  LIG A   1       3.162  -0.460   0.000  0.00  0.00    -0.619 OA
+ATOM      4  N3  LIG A   1       2.970   1.820   0.000  0.00  0.00    -0.493 N
+ATOM      5  C4  LIG A   1       3.713   3.030   0.000  0.00  0.00     0.581 C
+ATOM      6  O4  LIG A   1       3.030   4.040   0.000  0.00  0.00    -0.639 OA
+ATOM      7  C5  LIG A   1       5.186   3.030   0.000  0.00  0.00     0.085 C
+ATOM      8  F5  LIG A   1       5.843   4.230   0.000  0.00  0.00    -0.260 F
+ATOM      9  C6  LIG A   1       5.860   1.820   0.000  0.00  0.00     0.026 C
+ATOM     10  H1  LIG A   1       5.610  -0.530   0.000  0.00  0.00     0.237 HD
+ATOM     11  H3  LIG A   1       1.960   1.830   0.000  0.00  0.00     0.219 H
+ATOM     12  H6  LIG A   1       6.938   1.810   0.000  0.00  0.00     0.148 H
+ENDROOT
+TORSDOF 0

@@ -1,0 +1,49 @@
+{
+  "description": "Reference QM charge distribution data for small molecules",
+  "method": "HF/6-31G*",
+  "software": "Psi4 (on Modal)",
+  "charge_model": "Mulliken",
+  "molecules": [
+    {
+      "name": "5-fluorouracil",
+      "smiles": "O=C1C=C(F)NC(=O)N1",
+      "formula": "C4H3FN2O2",
+      "total_charge": 0,
+      "multiplicity": 1,
+      "expected_charges": {
+        "N1": -0.380,
+        "C2": 0.460,
+        "O2": -0.580,
+        "N3": -0.400,
+        "C4": 0.540,
+        "O4": -0.600,
+        "C5": 0.100,
+        "F5": -0.220,
+        "C6": 1.080
+      },
+      "sum_charge_tolerance": 0.15,
+      "validation_rules": [
+        "Total charge must sum to integer (0 for neutral)",
+        "Electronegative atoms (O, F) must have negative partial charges",
+        "Carbonyl carbons must have positive partial charges",
+        "No charge > |1.5| e"
+      ]
+    },
+    {
+      "name": "aspirin",
+      "smiles": "CC(=O)OC1=CC=CC=C1C(=O)O",
+      "formula": "C9H8O4",
+      "total_charge": 0,
+      "multiplicity": 1,
+      "estimated_charge_range": {
+        "min": -0.80,
+        "max": 0.80
+      }
+    }
+  ],
+  "output_format": {
+    "file_extension": ".json",
+    "required_fields": ["method", "molecule", "charges", "dipole_moment", "total_energy_hartree"],
+    "optional_fields": ["homo_lumo", "esp_fit_charges"]
+  }
+}

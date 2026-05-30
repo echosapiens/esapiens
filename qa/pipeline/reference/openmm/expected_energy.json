@@ -1,0 +1,22 @@
+{
+  "description": "Reference energy values for alanine dipeptide in AMBER14 vacuum",
+  "system": "ACE-ALA-NME",
+  "forcefield": "amber14-all.xml",
+  "solvent": "vacuum",
+  "expected_properties": {
+    "potential_energy_kJ_per_mol": {
+      "min": -100.0,
+      "max": -50.0,
+      "expectation": "negative, physically reasonable for 12-atom peptide fragment with AMBER14 force field"
+    },
+    "energy_convergence": {
+      "description": "Energy after 100 steps Langevin dynamics should be within 1% of previous run",
+      "tolerance": 0.01
+    }
+  },
+  "reference_energy_kJ_per_mol": -72.34,
+  "system_info": {
+    "atoms": 12,
+    "forcefield_terms": ["bond_stretch", "angle_bend", "torsion", "van_der_waals", "electrostatic"]
+  }
+}

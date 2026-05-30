@@ -1,0 +1,78 @@
+{
+  "description": "Reference RDKit ADME/Tox descriptor values for drug-like molecules",
+  "descriptors": {
+    "MolLogP": {"description": "Wildman-Crippen LogP", "tolerance": 0.5},
+    "MolWt": {"description": "Molecular weight", "tolerance": 0.01},
+    "TPSA": {"description": "Topological polar surface area", "tolerance": 1.0},
+    "NumHDonors": {"description": "Number of hydrogen bond donors", "tolerance": 0},
+    "NumHAcceptors": {"description": "Number of hydrogen bond acceptors", "tolerance": 0},
+    "NumRotatableBonds": {"description": "Number of rotatable bonds", "tolerance": 0},
+    "HeavyAtomCount": {"description": "Number of heavy atoms", "tolerance": 0}
+  },
+  "molecules": [
+    {
+      "name": "aspirin",
+      "smiles": "CC(=O)OC1=CC=CC=C1C(=O)O",
+      "formula": "C9H8O4",
+      "expected_descriptors": {
+        "MolLogP": 1.19,
+        "MolWt": 180.16,
+        "TPSA": 63.60,
+        "NumHDonors": 1,
+        "NumHAcceptors": 4,
+        "NumRotatableBonds": 3,
+        "HeavyAtomCount": 13
+      },
+      "lipinski_violations": 0,
+      "bioavailability_score": 0.55
+    },
+    {
+      "name": "atorvastatin",
+      "smiles": "CC(C)C1=NC2=C(C=C(C=C2)C(=O)NC3=CC=CC=C3)C(=C1O)C4=CC=CC=C4",
+      "formula": "C33H35FN2O5",
+      "expected_descriptors": {
+        "MolLogP": 4.53,
+        "MolWt": 558.64,
+        "TPSA": 82.10,
+        "NumHDonors": 4,
+        "NumHAcceptors": 6,
+        "NumRotatableBonds": 12,
+        "HeavyAtomCount": 40
+      }
+    },
+    {
+      "name": "caffeine",
+      "smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+      "formula": "C8H10N4O2",
+      "expected_descriptors": {
+        "MolLogP": -0.07,
+        "MolWt": 194.19,
+        "TPSA": 58.36,
+        "NumHDonors": 0,
+        "NumHAcceptors": 6,
+        "NumRotatableBonds": 0,
+        "HeavyAtomCount": 14
+      }
+    },
+    {
+      "name": "remdesivir",
+      "smiles": "CCC(CC)COC(=O)C(C)NP(=O)(OCC1C(C(C(O1)N2C3=NC=NC(=C3N=C2)N)OC4=CC=CC=C4)O)C5=CC=CC=N5",
+      "formula": "C27H35N6O8P",
+      "expected_descriptors": {
+        "MolLogP": 2.01,
+        "MolWt": 602.58,
+        "TPSA": 174.38,
+        "NumHDonors": 4,
+        "NumHAcceptors": 12,
+        "NumRotatableBonds": 13,
+        "HeavyAtomCount": 42
+      }
+    }
+  ],
+  "validation_rules": [
+    "All descriptors must be deterministic (same input → same output)",
+    "Lipinski Rule-of-5: donors ≤ 5, acceptors ≤ 10, LogP ≤ 5, MW ≤ 500",
+    "TPSA < 140 for good oral bioavailability",
+    "NumRotatableBonds ≤ 10 for oral absorption"
+  ]
+}
