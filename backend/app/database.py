@@ -14,7 +14,7 @@ def _get_connection() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    """Initialize the database and create the jobs table if it doesn't exist."""
+    """Initialize the database and create all tables if they don't exist."""
     conn = _get_connection()
     try:
         conn.execute("""
@@ -29,6 +29,24 @@ def init_db() -> None:
                 error TEXT,
                 created_at TEXT NOT NULL,
                 completed_at TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL DEFAULT 'New Chat',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS conversations (
+                id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES sessions(id)
             )
         """)
         conn.commit()
@@ -93,5 +111,106 @@ def delete_job(job_id: str) -> None:
     try:
         conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
         conn.commit()
+    finally:
+        conn.close()
+
+
+# ── Session CRUD ──────────────────────────────────────────────────────────────
+
+
+def create_session(title: str = "New Chat") -> dict:
+    """Create a new session and return it."""
+    from datetime import datetime, timezone
+    import uuid
+
+    session_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    conn = _get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            (session_id, title, now, now),
+        )
+        conn.commit()
+        return {"id": session_id, "title": title, "created_at": now, "updated_at": now}
+    finally:
+        conn.close()
+
+
+def list_sessions(limit: int = 20) -> list[dict]:
+    """List sessions ordered by updated_at descending."""
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM sessions ORDER BY updated_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_session(session_id: str) -> Optional[dict]:
+    """Get a single session by ID. Returns None if not found."""
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM sessions WHERE id = ?", (session_id,)
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def delete_session(session_id: str) -> None:
+    """Delete a session and all its messages."""
+    conn = _get_connection()
+    try:
+        conn.execute("DELETE FROM conversations WHERE session_id = ?", (session_id,))
+        conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ── Conversation CRUD ──────────────────────────────────────────────────────────
+
+
+def add_message(session_id: str, role: str, content: str) -> dict:
+    """Add a message to a conversation and update session's updated_at."""
+    from datetime import datetime, timezone
+    import uuid
+
+    msg_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    conn = _get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO conversations (id, session_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
+            (msg_id, session_id, role, content, now),
+        )
+        conn.execute(
+            "UPDATE sessions SET updated_at = ? WHERE id = ?", (now, session_id)
+        )
+        conn.commit()
+        return {
+            "id": msg_id,
+            "session_id": session_id,
+            "role": role,
+            "content": content,
+            "created_at": now,
+        }
+    finally:
+        conn.close()
+
+
+def get_conversation_history(session_id: str, limit: int = 20) -> list[dict]:
+    """Get conversation history ordered by created_at ascending."""
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM conversations WHERE session_id = ? ORDER BY created_at ASC LIMIT ?",
+            (session_id, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
     finally:
         conn.close()

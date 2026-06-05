@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Request
 from app.models import PipelineRequest, PipelineResponse, JobStatus
 from app.graph import PipelineGraph
 from app.openrouter import OpenRouterClient
@@ -10,6 +10,8 @@ from app.agents.research import ResearchAgent
 from app.agents.contract import ContractAgent
 from app.agents.orchestrator import OrchestratorAgent
 from app import database
+from app.limiter import limiter
+from app.security import get_current_user
 
 router = APIRouter()
 
@@ -34,7 +36,8 @@ def _get_graph() -> PipelineGraph:
 
 
 @router.post("/run-pipeline", response_model=PipelineResponse)
-async def run_pipeline(request: PipelineRequest):
+@limiter.limit("10/minute")
+async def run_pipeline(request: Request, body: PipelineRequest, user: dict = Depends(get_current_user)):
     """
     Execute the 3-phase pipeline synchronously.
     1. Research & Discovery → 2. Contract Spec → 3. Orchestration
@@ -44,14 +47,14 @@ async def run_pipeline(request: PipelineRequest):
     job_id = str(uuid.uuid4())
 
     # Save to DB
-    database.create_job(job_id, request.user_prompt)
+    database.create_job(job_id, body.user_prompt)
 
     try:
         # Run the graph
         graph = _get_graph()
         result = graph.run(
-            user_prompt=request.user_prompt,
-            data_bucket_url=request.data_bucket_url,
+            user_prompt=body.user_prompt,
+            data_bucket_url=body.data_bucket_url,
         )
 
         # Extract results

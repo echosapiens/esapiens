@@ -4,15 +4,17 @@ import asyncio
 import json
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException, Depends
 from sse_starlette.sse import EventSourceResponse
-from app.models import PipelineRequest
+from app.models import PipelineRequest, CreateSessionRequest
 from app.openrouter import OpenRouterClient
 from app.agents.research import ResearchAgent
 from app.agents.contract import ContractAgent
 from app.agents.orchestrator import OrchestratorAgent
 from app.intent import classify_intent
 from app import database
+from app.limiter import limiter
+from app.security import get_current_user
 
 router = APIRouter()
 
@@ -32,8 +34,8 @@ def _get_agents():
     return _openrouter_client, _research_agent, _contract_agent, _orchestrator_agent
 
 
-async def _casual_chat(openrouter_client: OpenRouterClient, prompt: str):
-    """Casual chat mode — streams LLM response as tokens."""
+async def _casual_chat(openrouter_client: OpenRouterClient, prompt: str, session_id: str):
+    """Casual chat mode — streams LLM response as tokens with conversation history."""
     yield {"event": "phase", "data": json.dumps({"type": "chat", "phase": "chat", "status": "start"})}
 
     system_prompt = (
@@ -43,10 +45,13 @@ async def _casual_chat(openrouter_client: OpenRouterClient, prompt: str):
         "Keep responses concise unless asked to elaborate. "
         "If the user greets you, greet back. If they ask about your capabilities, describe them."
     )
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": prompt},
-    ]
+
+    # Inject conversation history (last 10 messages) after system prompt
+    messages = [{"role": "system", "content": system_prompt}]
+    history = database.get_conversation_history(session_id, limit=10)
+    for msg in history:
+        messages.append({"role": msg["role"], "content": msg["content"]})
+    messages.append({"role": "user", "content": prompt})
 
     if openrouter_client and openrouter_client.api_key:
         result = openrouter_client.chat_completion(messages, temperature=0.7)
@@ -56,6 +61,10 @@ async def _casual_chat(openrouter_client: OpenRouterClient, prompt: str):
             response = "Good to connect. What bioinformatics analysis are you working on?"
     else:
         response = "I'm Silas, the E.sapiens orchestrator. I can help with bioinformatics pipelines. Try asking me to align sequences, quantify expression, or check alignment statistics."
+
+    # Save user message and assistant response to conversation history
+    database.add_message(session_id, "user", prompt)
+    database.add_message(session_id, "assistant", response)
 
     words = response.split(" ")
     for i, word in enumerate(words):
@@ -72,10 +81,14 @@ async def _run_pipeline(
     research_agent: ResearchAgent,
     contract_agent: ContractAgent,
     orchestrator_agent: OrchestratorAgent,
+    session_id: str,
 ):
-    """Bioinformatics pipeline mode — 3-phase execution with streaming."""
+    """Bioinformatics pipeline mode — 3-phase execution with streaming and conversation memory."""
     job_id = str(uuid.uuid4())
     database.create_job(job_id, prompt)
+
+    # Save user prompt to conversation history
+    database.add_message(session_id, "user", prompt)
 
     try:
         # Phase 1: Research
@@ -173,28 +186,87 @@ async def _run_pipeline(
             completed_at=datetime.now(timezone.utc).isoformat(),
         )
 
+        # Save pipeline result summary to conversation history
+        summary = f"Pipeline completed with status: {status}. Tool: {tool_name}. Job ID: {job_id}."
+        database.add_message(session_id, "assistant", summary)
+
         yield {"event": "complete", "data": json.dumps({"job_id": job_id, "status": status})}
 
     except Exception as e:
         database.update_job(job_id, status="failed", error=str(e), completed_at=datetime.now(timezone.utc).isoformat())
+        database.add_message(session_id, "assistant", f"Pipeline failed: {str(e)}")
         yield {"event": "error", "data": json.dumps({"message": str(e)})}
         yield {"event": "complete", "data": json.dumps({"job_id": job_id, "status": "failed"})}
 
 
+# ── Session Routes ─────────────────────────────────────────────────────────────
+
+
+@router.post("/sessions")
+async def create_session(body: CreateSessionRequest, user: dict = Depends(get_current_user)):
+    """Create a new chat session."""
+    session = database.create_session(title=body.title)
+    return {"id": session["id"], "title": session["title"], "created_at": session["created_at"]}
+
+
+@router.get("/sessions")
+async def list_sessions(limit: int = 20, user: dict = Depends(get_current_user)):
+    """List all sessions ordered by most recent."""
+    sessions = database.list_sessions(limit=limit)
+    return sessions
+
+
+@router.get("/sessions/{session_id}")
+async def get_session(session_id: str, user: dict = Depends(get_current_user)):
+    """Get a session with its conversation history."""
+    session = database.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    history = database.get_conversation_history(session_id)
+    session["messages"] = history
+    return session
+
+
+@router.delete("/sessions/{session_id}")
+async def delete_session(session_id: str, user: dict = Depends(get_current_user)):
+    """Delete a session and all its messages."""
+    session = database.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    database.delete_session(session_id)
+    return {"status": "deleted"}
+
+
+# ── Chat Endpoint ──────────────────────────────────────────────────────────────
+
+
 @router.post("/chat/stream")
-async def chat_stream(request: Request, body: PipelineRequest):
+@limiter.limit("30/minute")
+async def chat_stream(request: Request, body: PipelineRequest, user: dict = Depends(get_current_user)):
     """SSE streaming endpoint. Routes casual chat to LLM, bio tasks to pipeline."""
 
     async def event_generator():
         openrouter_client, research_agent, contract_agent, orchestrator_agent = _get_agents()
 
+        # Resolve session_id: use provided one or create a new session
+        session_id = body.session_id
+        if not session_id:
+            session = database.create_session()
+            session_id = session["id"]
+        else:
+            # Verify session exists
+            existing = database.get_session(session_id)
+            if not existing:
+                session = database.create_session()
+                session_id = session["id"]
+
         intent = classify_intent(body.user_prompt)
 
         if intent == "chat":
-            async for event in _casual_chat(openrouter_client, body.user_prompt):
+            async for event in _casual_chat(openrouter_client, body.user_prompt, session_id):
                 yield event
         else:
-            async for event in _run_pipeline(body.user_prompt, research_agent, contract_agent, orchestrator_agent):
+            async for event in _run_pipeline(body.user_prompt, research_agent, contract_agent, orchestrator_agent, session_id):
                 yield event
 
     return EventSourceResponse(event_generator())

@@ -1,6 +1,12 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from enum import Enum
+import re
+
+
+def strip_control_chars(text: str) -> str:
+    """Strip control characters except newline and tab."""
+    return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text)
 
 
 class FileRequirement(BaseModel):
@@ -8,6 +14,10 @@ class FileRequirement(BaseModel):
     mount_path: str  # e.g., '/data/input/'
     size_bytes: Optional[int] = None
     description: Optional[str] = None
+
+
+class CreateSessionRequest(BaseModel):
+    title: str = "New Chat"
 
 
 class ContainerContract(BaseModel):
@@ -51,8 +61,18 @@ class JobExecution(BaseModel):
 
 
 class PipelineRequest(BaseModel):
-    user_prompt: str = "hello"
+    user_prompt: str = Field(default="hello", min_length=1, max_length=2000)
     data_bucket_url: str = "/data/input/"
+    session_id: Optional[str] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "user_prompt": "Align these sequences with BWA",
+                "data_bucket_url": "/data/input/",
+                "session_id": None,
+            }
+        }
 
 
 class PipelineResponse(BaseModel):
@@ -63,5 +83,5 @@ class PipelineResponse(BaseModel):
 
 
 class CostSimulationRequest(BaseModel):
-    user_prompt: str
+    user_prompt: str = Field(..., min_length=1, max_length=2000)
     tier: str = "free"

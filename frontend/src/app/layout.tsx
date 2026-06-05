@@ -13,7 +13,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "E.sapiens — Split-Runtime Bio-Orchestrator",
+  title: "E.sapiens -- Split-Runtime Bio-Orchestrator",
   description:
     "Describe your bioinformatics analysis in natural language. E.sapiens handles research, contract generation, and execution.",
 };

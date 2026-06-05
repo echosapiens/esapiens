@@ -107,7 +107,15 @@ export default function JobDetailPage() {
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="text-center py-12">
           <div className="text-4xl mb-3">
-            {error === "Job not found" ? "🔍" : "⚠️"}
+            {error === "Job not found" ? (
+              <svg className="w-10 h-10 mx-auto text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              </svg>
+            ) : (
+              <svg className="w-10 h-10 mx-auto text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            )}
           </div>
           <h2 className="text-lg font-semibold text-slate-200 mb-2">
             {error === "Job not found"
@@ -121,7 +129,7 @@ export default function JobDetailPage() {
             href="/dashboard"
             className="text-sm text-cyan-400 hover:text-cyan-300 font-medium"
           >
-            ← Back to Dashboard
+            &larr; Back to Dashboard
           </Link>
         </div>
       </div>
@@ -141,7 +149,7 @@ export default function JobDetailPage() {
           href="/dashboard"
           className="text-sm text-cyan-400 hover:text-cyan-300 font-medium mb-4 inline-block"
         >
-          ← Back to Dashboard
+          &larr; Back to Dashboard
         </Link>
         <div className="flex items-start justify-between gap-4 mt-2">
           <div>
@@ -203,7 +211,11 @@ export default function JobDetailPage() {
                         : "bg-slate-700 text-slate-500 border-2 border-slate-600"
                     }`}
                   >
-                    {isCompleted && !isErrorPhase ? "✓" : i + 1}
+                    {isCompleted && !isErrorPhase ? (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : i + 1}
                   </div>
                   <span
                     className={`text-[10px] mt-1 text-center leading-tight ${

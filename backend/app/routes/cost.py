@@ -1,9 +1,11 @@
 """Cost simulation route — POST /api/v1/simulate-cost."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Request
 from app.models import CostSimulationRequest, CostEstimate
 from app.openrouter import OpenRouterClient
 from app.config import settings
+from app.limiter import limiter
+from app.security import get_current_user
 
 router = APIRouter()
 
@@ -18,7 +20,8 @@ def _get_client() -> OpenRouterClient:
 
 
 @router.post("/simulate-cost")
-async def simulate_cost(request: CostSimulationRequest):
+@limiter.limit("20/minute")
+async def simulate_cost(request: Request, body: CostSimulationRequest, user: dict = Depends(get_current_user)):
     """
     Quick cost estimation without full pipeline execution.
     Uses LLM to estimate compute requirements, applies tier markup.
@@ -38,7 +41,7 @@ async def simulate_cost(request: CostSimulationRequest):
 
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Estimate cost for: {request.user_prompt}"},
+        {"role": "user", "content": f"Estimate cost for: {body.user_prompt}"},
     ]
 
     result = client.chat_completion(
@@ -57,7 +60,7 @@ async def simulate_cost(request: CostSimulationRequest):
     estimated_minutes = result.get("estimated_minutes", 30)
 
     # Apply tier markup
-    if request.tier == "premium":
+    if body.tier == "premium":
         markup = settings.PREMIUM_TIER_MARKUP
     else:
         markup = settings.FREE_TIER_MARKUP

@@ -86,7 +86,7 @@ export default function JobCard({ job }: { job: JobExecution }) {
               href={`/jobs/${job.id}`}
               className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors font-medium"
             >
-              View Details →
+              View Details &rarr;
             </Link>
             {job.completed_at && (
               <span className="text-xs text-slate-500">

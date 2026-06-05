@@ -1,7 +1,23 @@
 import re
 from datetime import datetime, timedelta, timezone
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from app.config import settings
+
+security_scheme = HTTPBearer(auto_error=False)
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
+):
+    """Validate JWT token. Returns user info dict or raises 403."""
+    if credentials is None:
+        raise HTTPException(status_code=403, detail="Not authenticated")
+    payload = decode_access_token(credentials.credentials)
+    if payload is None:
+        raise HTTPException(status_code=403, detail="Invalid or expired token")
+    return payload
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:

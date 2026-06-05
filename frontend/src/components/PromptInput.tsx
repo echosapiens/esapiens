@@ -54,7 +54,7 @@ export default function PromptInput({
       />
       <div className="flex items-center justify-between">
         <p className="text-xs text-slate-500">
-          Press <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-400 font-mono text-xs">⌘+Enter</kbd> to submit
+          Press <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-400 font-mono text-xs">Cmd+Enter</kbd> to submit
         </p>
         <button
           onClick={handleSubmit}

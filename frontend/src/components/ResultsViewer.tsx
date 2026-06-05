@@ -6,7 +6,7 @@ export default function ResultsViewer({ job }: { job: JobExecution }) {
 
   return (
     <div className="space-y-4">
-      {/* Error message — only for actual failures */}
+      {/* Error message -- only for actual failures */}
       {error && !isSuccess && (
         <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
           <h4 className="text-sm font-semibold text-red-400 mb-1">Error</h4>
@@ -120,7 +120,7 @@ export default function ResultsViewer({ job }: { job: JobExecution }) {
         </div>
       )}
 
-      {/* stderr — styled as tool progress when successful, error when failed */}
+      {/* stderr -- styled as tool progress when successful, error when failed */}
       {stderr && (
         <div className={`bg-slate-800 rounded-lg border ${isSuccess ? "border-slate-700" : "border-red-500/30"} p-4`}>
           <div className="flex items-center justify-between mb-2">
