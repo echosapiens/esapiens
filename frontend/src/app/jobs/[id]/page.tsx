@@ -6,7 +6,7 @@ import Link from "next/link";
 import StatusBadge from "@/components/StatusBadge";
 import CostPreview from "@/components/CostPreview";
 import ResultsViewer from "@/components/ResultsViewer";
-import { getJob } from "@/lib/api";
+import { getJob, downloadJobResults } from "@/lib/api";
 import type { JobExecution } from "@/types";
 
 const PHASE_ORDER = [
@@ -36,6 +36,18 @@ export default function JobDetailPage() {
   const [job, setJob] = useState<JobExecution | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      await downloadJobResults(jobId);
+    } catch {
+      // Silently fail
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -159,6 +171,20 @@ export default function JobDetailPage() {
             <p className="text-sm text-slate-400 mt-1">{job.user_prompt}</p>
           </div>
           <StatusBadge status={job.status} />
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {downloading ? (
+              <div className="w-3.5 h-3.5 border-2 border-slate-500 border-t-cyan-400 rounded-full animate-spin" />
+            ) : (
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+            )}
+            {downloading ? "Downloading..." : "Download Results"}
+          </button>
         </div>
         <div className="flex gap-4 mt-2 text-xs text-slate-500">
           <span>

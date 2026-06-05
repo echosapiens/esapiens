@@ -54,3 +54,22 @@ export interface PipelineResponse {
   contract?: ContainerContract;
   cost_estimate?: CostEstimate;
 }
+
+export interface Session {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SessionMessage {
+  id: string;
+  session_id: string;
+  role: string;
+  content: string;
+  created_at: string;
+}
+
+export interface SessionWithMessages extends Session {
+  messages: SessionMessage[];
+}

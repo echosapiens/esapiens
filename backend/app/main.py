@@ -10,8 +10,9 @@ from app.config import settings
 from app.routes import pipeline, jobs, cost, chat
 from app.database import init_db
 from app.limiter import limiter
+from datetime import datetime, timezone
 
-app = FastAPI(title="E.sapiens Bio-Orchestrator", version="4.0.0")
+app = FastAPI(title="E.sapiens Bio-Orchestrator", version="5.0.0")
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -37,4 +38,20 @@ async def startup():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "runtime": "split-architecture"}
+    """Health check with DB and Modal status."""
+    db_ok = False
+    try:
+        conn = database._get_connection()
+        conn.execute("SELECT 1").fetchone()
+        conn.close()
+        db_ok = True
+    except Exception:
+        pass
+
+    return {
+        "status": "ok",
+        "runtime": "split-architecture",
+        "version": "5.0.0",
+        "database": "connected" if db_ok else "disconnected",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }

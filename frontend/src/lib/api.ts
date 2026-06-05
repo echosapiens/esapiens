@@ -2,6 +2,8 @@ import type {
   PipelineResponse,
   JobExecution,
   CostEstimate,
+  Session,
+  SessionWithMessages,
 } from "@/types";
 
 const API_BASE = "http://localhost:8000";
@@ -176,3 +178,59 @@ export function streamPipeline(
 }
 
 export { ApiError };
+
+function authHeaders(): Record<string, string> {
+  const token = localStorage.getItem("auth_token");
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+  return {};
+}
+
+export async function listSessions(): Promise<Session[]> {
+  const resp = await fetch(`${API_BASE}/api/v1/sessions`, {
+    headers: authHeaders(),
+  });
+  if (!resp.ok) throw new Error("Failed to list sessions");
+  return resp.json();
+}
+
+export async function createSession(title?: string): Promise<Session> {
+  const resp = await fetch(`${API_BASE}/api/v1/sessions`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ title: title || "New Chat" }),
+  });
+  if (!resp.ok) throw new Error("Failed to create session");
+  return resp.json();
+}
+
+export async function getSession(id: string): Promise<SessionWithMessages> {
+  const resp = await fetch(`${API_BASE}/api/v1/sessions/${id}`, {
+    headers: authHeaders(),
+  });
+  if (!resp.ok) throw new Error("Session not found");
+  return resp.json();
+}
+
+export async function deleteSession(id: string): Promise<void> {
+  const resp = await fetch(`${API_BASE}/api/v1/sessions/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!resp.ok) throw new Error("Failed to delete session");
+}
+
+export async function downloadJobResults(jobId: string): Promise<void> {
+  const resp = await fetch(`${API_BASE}/api/v1/jobs/${jobId}/download`, {
+    headers: authHeaders(),
+  });
+  if (!resp.ok) throw new Error("Failed to download results");
+  const blob = await resp.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `job-${jobId}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}

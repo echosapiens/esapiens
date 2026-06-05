@@ -115,6 +115,27 @@ def delete_job(job_id: str) -> None:
         conn.close()
 
 
+def search_jobs(limit: int = 20, status: Optional[str] = None, query: Optional[str] = None) -> list[dict]:
+    """Search jobs with optional status filter and text search."""
+    conn = _get_connection()
+    try:
+        conditions = []
+        params = []
+        if status:
+            conditions.append("status = ?")
+            params.append(status)
+        if query:
+            conditions.append("(user_prompt LIKE ? OR id LIKE ?)")
+            params.extend([f"%{query}%", f"%{query}%"])
+        where = "WHERE " + " AND ".join(conditions) if conditions else ""
+        sql = f"SELECT * FROM jobs {where} ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        rows = conn.execute(sql, params).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
 # ── Session CRUD ──────────────────────────────────────────────────────────────
 
 
