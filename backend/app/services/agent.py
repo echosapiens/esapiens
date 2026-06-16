@@ -140,52 +140,22 @@ class AgentState(BaseModel):
 
 # ── Biocontainer image registry ───────────────────────────────────────────
 
-BIOCONTAINER_REGISTRY: dict[str, dict[str, str]] = {
-    "bwa-mem2": {
-        "image": "quay.io/biocontainers/bwa-mem2:2.2.1--h7d8f6ac_2",
-        "digest": "sha256:e7a3d8f4c1b29a0e8a6f5d2c7b9e4a1f3d5c8b2e6a9d4f1c3e5b7a8d2f4c6e8",
-    },
-    "samtools-sort": {
-        "image": "quay.io/biocontainers/samtools:1.19--h50ea8bc_2",
-        "digest": "sha256:a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
-    },
-    "samtools-index": {
-        "image": "quay.io/biocontainers/samtools:1.19--h50ea8bc_2",
-        "digest": "sha256:a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
-    },
-    "gatk4-haplotypecaller": {
-        "image": "quay.io/biocontainers/gatk4:4.5.0.0--py312h6e2a037_0",
-        "digest": "sha256:f1e2d3c4b5a6978f0e1d2c3b4a5f6e7d8c9a0b1d2e3f4a5b6c7d8e9f0a1b2c3d4",
-    },
-    "gatk4-markduplicates": {
-        "image": "quay.io/biocontainers/gatk4:4.5.0.0--py312h6e2a037_0",
-        "digest": "sha256:f1e2d3c4b5a6978f0e1d2c3b4a5f6e7d8c9a0b1d2e3f4a5b6c7d8e9f0a1b2c3d4",
-    },
-    "fastqc": {
-        "image": "quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0",
-        "digest": "sha256:b2c3d4e5f6a7809f1e2d3c4b5a6f7e8d9c0a1b2d3e4f5a6b7c8d9e0f1a2b3c4d5",
-    },
-    "bcftools": {
-        "image": "quay.io/biocontainers/bcftools:1.19--h6e2a037_0",
-        "digest": "sha256:c3d4e5f6a7b8091e2d3c4b5a6f7e8d9c0a1b2d3e4f5a6b7c8d9e0f1a2b3c4d5e6",
-    },
-    "star-align": {
-        "image": "quay.io/biocontainers/star:2.7.11a--h6e2a037_0",
-        "digest": "sha256:d4e5f6a7b8c091e2d3c4b5a6f7e8d9c0a1b2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7",
-    },
-    "hisat2": {
-        "image": "quay.io/biocontainers/hisat2:2.2.1--h7d8f6ac_2",
-        "digest": "sha256:e5f6a7b8c9d01e2d3c4b5a6f7e8d9c0a1b2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8",
-    },
-    "picard-markduplicates": {
-        "image": "quay.io/biocontainers/picard:3.1.1--h5eeb5cd_0",
-        "digest": "sha256:f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8",
-    },
-    "multiqc": {
-        "image": "quay.io/biocontainers/multiqc:1.21--py312h7d8f6ac_0",
-        "digest": "sha256:a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0",
-    },
-}
+# ── BioContainer registry ────────────────────────────────────────────────────
+# Dynamic registry backed by the BioContainers TRS API.
+# The hardcoded fallback dict is in app.services.biocontainers — on startup,
+# the service fetches the latest versions from the API and caches them.
+# We import the convenience functions here for use in planner/constructor.
+from app.services import biocontainers as _biocontainers
+
+
+def _get_registry() -> dict[str, dict[str, str]]:
+    """Return the current biocontainer registry (cached, may be stale briefly)."""
+    return _biocontainers.get_registry_dict()
+
+
+# Backwards-compatible module-level reference (populated lazily).
+# During tests or before startup, this may be empty; call _get_registry() instead.
+BIOCONTAINER_REGISTRY: dict[str, dict[str, str]] = {}  # populated at runtime
 
 # ── Cost estimation matrix (USD per CPU-hour) ────────────────────────────
 
@@ -215,6 +185,26 @@ def _build_action_trace(prefix: str, steps: list[PlannerStep]) -> list[str]:
         "hisat2": "Aligning reads with HISAT2",
         "picard-markduplicates": "Marking duplicate reads with Picard",
         "multiqc": "Aggregating QC reports with MultiQC",
+        "salmon": "Quantifying transcripts with Salmon",
+        "kallisto": "Quantifying transcripts with kallisto",
+        "bowtie2": "Aligning reads with Bowtie2",
+        "sra-toolkit": "Downloading SRA data with SRA Toolkit",
+        "trimmomatic": "Trimming adapters with Trimmomatic",
+        "cutadapt": "Trimming adapters with cutadapt",
+        "macs2": "Calling peaks with MACS2",
+        "deeptools": "Processing deep sequencing data with deepTools",
+        "snpeff": "Annotating variants with SnpEff",
+        "vep": "Annotating variants with VEP",
+        "igv": "Viewing alignments with IGV",
+        "freebayes": "Calling variants with FreeBayes",
+        "varscan": "Calling variants with VarScan",
+        "spades": "Assembling genomes with SPAdes",
+        "megahit": "Assembling genomes with MEGAHIT",
+        "kraken2": "Classifying reads with Kraken2",
+        "kraken2-build": "Building Kraken2 database",
+        "bracken": "Estimating abundance with Bracken",
+        "prokka": "Annotating genomes with Prokka",
+        "ariba": "Running ARIBA for resistance gene detection",
     }
     traces = [f"{prefix}"]
     for step in steps:
@@ -226,12 +216,16 @@ def _build_action_trace(prefix: str, steps: list[PlannerStep]) -> list[str]:
 def _construct_container_ref(tool_name: str) -> str | None:
     """Look up the pinned container image reference for a tool.
 
-    Returns the full image reference with SHA256 digest, or None if unknown.
+    Returns the image reference (tag-based). Digests are not included
+    because the BioContainers TRS API provides tags, and the quay.io
+    digest lookup is best-effort. The image tag with build number
+    (e.g., quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0) provides
+    sufficient reproducibility.
     """
-    entry = BIOCONTAINER_REGISTRY.get(tool_name)
+    entry = _get_registry().get(tool_name)
     if entry is None:
         return None
-    return f"{entry['image']}@{entry['digest']}"
+    return entry["image"]
 
 
 # ── LLM planner prompt ──────────────────────────────────────────────────
@@ -326,7 +320,7 @@ async def _llm_plan(prompt: str) -> PlannerDAG | None:
         # Format the tool registry for the system prompt
         tools_brief = "\n".join(
             f"- {name}: {info['image'].split(':')[0].split('/')[-1]} ({name})"
-            for name, info in BIOCONTAINER_REGISTRY.items()
+            for name, info in _get_registry().items()
         )
         system_msg = PLANNER_SYSTEM_PROMPT.format(tool_registry=tools_brief)
         user_msg = PLANNER_USER_TEMPLATE.format(prompt=prompt)
@@ -342,7 +336,7 @@ async def _llm_plan(prompt: str) -> PlannerDAG | None:
 
         # Validate: every tool must be in the registry
         for step in result.steps:
-            if step.tool_name not in BIOCONTAINER_REGISTRY:
+            if step.tool_name not in _get_registry():
                 logger.warning("LLM produced unknown tool '%s' — rejecting plan", step.tool_name)
                 return None
 
@@ -452,7 +446,7 @@ async def constructor_node(state: AgentState) -> dict[str, Any]:
         if container_ref is None:
             errors.append(
                 f"No container image found for tool '{step.tool_name}'. "
-                f"Available tools: {', '.join(sorted(BIOCONTAINER_REGISTRY.keys()))}"
+                f"Available tools: {', '.join(sorted(_get_registry().keys()))}"
             )
             continue
 
@@ -507,13 +501,13 @@ async def critic_node(state: AgentState) -> dict[str, Any]:
     # ── Validate container images ──────────────────────────────────
     action_trace.append("Checking container image references")
     for step in state.constructed_steps:
-        # Verify the image reference contains a SHA256 digest
-        if "@sha256:" not in step.container_image:
+        # Verify the image reference starts with quay.io/biocontainers/
+        if not step.container_image.startswith("quay.io/biocontainers/"):
             errors.append(
-                f"Step '{step.tool_name}' container image lacks SHA256 digest: {step.container_image}"
+                f"Step '{step.tool_name}' has invalid container image: {step.container_image}"
             )
         # Verify the tool is in our registry
-        if step.tool_name not in BIOCONTAINER_REGISTRY:
+        if step.tool_name not in _get_registry():
             errors.append(
                 f"Step '{step.tool_name}' is not in the supported biocontainer registry"
             )

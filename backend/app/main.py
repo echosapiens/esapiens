@@ -14,6 +14,7 @@ from app.database import engine, Base, async_session_factory
 from sqlalchemy import text as _text
 from app.middleware.redaction import SequenceHeaderRedactionMiddleware
 from app.services.reconciler import Reconciler
+from app.services import biocontainers as _biocontainers
 from app.workers.outbox_relay import OutboxRelay
 
 logger = logging.getLogger(__name__)
@@ -77,9 +78,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Starting background reconciler…")
     await _reconciler.start_background_reconciler()
 
+    logger.info("Initializing BioContainers registry…")
+    await _biocontainers.initialize()
+
     yield
 
     # ── Shutdown ─────────────────────────────────────────────────
+    logger.info("Shutting down BioContainers registry…")
+    await _biocontainers.shutdown()
+
     logger.info("Stopping background reconciler…")
     await _reconciler.stop_background_reconciler()
 
