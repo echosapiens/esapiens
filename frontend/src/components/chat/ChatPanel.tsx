@@ -49,18 +49,50 @@ interface ActionTrace {
 
 type ChatMode = "pipeline" | "supervisor";
 
+const CHAT_STORAGE_PREFIX = "esapiens:chat:";
+
+function loadChatFromStorage(sessionId: string | null): ChatMessage[] {
+  if (typeof window === "undefined" || !sessionId) return [];
+  try {
+    const raw = localStorage.getItem(CHAT_STORAGE_PREFIX + sessionId);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed;
+  } catch {
+    return [];
+  }
+}
+
+function saveChatToStorage(sessionId: string | null, messages: ChatMessage[]): void {
+  if (typeof window === "undefined" || !sessionId) return;
+  try {
+    // Cap at 200 messages to avoid localStorage bloat
+    const capped = messages.slice(-200);
+    localStorage.setItem(CHAT_STORAGE_PREFIX + sessionId, JSON.stringify(capped));
+  } catch {
+    // Ignore quota errors
+  }
+}
+
 // ── ChatPanel ────────────────────────────────────────────────────────────
 
 export function ChatPanel() {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "welcome",
-      role: "system",
-      content:
-        "Welcome to E.sapiens. Describe your analysis goal, and I'll plan a reproducible pipeline for you.",
-      timestamp: Date.now(),
-    },
-  ]);
+  // Load the current session id at mount time (we read from the store via getState)
+  const currentSessionId = useSessionStore.getState().currentSessionId;
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const stored = loadChatFromStorage(currentSessionId);
+    if (stored.length > 0) return stored;
+    return [
+      {
+        id: "welcome",
+        role: "system",
+        content:
+          "Welcome to E.sapiens. Describe your analysis goal, and I'll plan a reproducible pipeline for you.",
+        timestamp: Date.now(),
+      },
+    ];
+  });
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [mode, setMode] = useState<ChatMode>("pipeline");
@@ -69,6 +101,35 @@ export function ChatPanel() {
 
   const agentState = useSessionStore((s) => s.agentState);
   const logs = useSessionStore((s) => s.logs);
+
+  // Persist messages to localStorage on every change so chat survives navigation
+  useEffect(() => {
+    const sid = useSessionStore.getState().currentSessionId;
+    saveChatToStorage(sid, messages);
+  }, [messages]);
+
+  // When the active session changes, reload the chat from storage
+  useEffect(() => {
+    const unsub = useSessionStore.subscribe((state, prev) => {
+      if (state.currentSessionId !== prev.currentSessionId) {
+        const stored = loadChatFromStorage(state.currentSessionId);
+        if (stored.length > 0) {
+          setMessages(stored);
+        } else {
+          // New session — show welcome
+          setMessages([
+            {
+              id: "welcome-" + Date.now(),
+              role: "system",
+              content: "Welcome to E.sapiens. Describe your analysis goal, and I'll plan a reproducible pipeline for you.",
+              timestamp: Date.now(),
+            },
+          ]);
+        }
+      }
+    });
+    return unsub;
+  }, []);
 
   // ── Auto-scroll on new messages ────────────────────────────────────
   useEffect(() => {

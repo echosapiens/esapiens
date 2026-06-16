@@ -65,7 +65,16 @@ export function useWebSocket({
       wsRef.current = null;
     }
 
-    const token = getAuthToken() || "";
+    const token = getAuthToken();
+    if (!token) {
+      // No token yet — wait for dev-login to complete, then retry
+      console.debug("[WebSocket] No auth token yet, deferring connection");
+      const retry = setTimeout(() => {
+        if (mountedRef.current) connect();
+      }, 500);
+      return;
+    }
+
     const wsUrl = url ?? `${WS_BASE_URL}/ws/${sessionId}?token=${encodeURIComponent(token)}`;
     setConnectionStatus("connecting");
 
