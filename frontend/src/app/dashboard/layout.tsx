@@ -39,6 +39,20 @@ export default function DashboardLayout({
     queryFn: () => api.listGrants(),
   });
 
+  // ── Fetch live pipeline + run counts for the status overview ──────
+  // Uses the cross-session /jobs endpoint to count active/recent runs.
+  const { data: jobsData } = useQuery({
+    queryKey: ["jobs", "sidebar"],
+    queryFn: () => api.listJobs(false),
+    refetchInterval: 5000,
+  });
+  const activeRuns = jobsData?.total_active ?? 0;
+  const completedRecent = jobsData?.recent?.filter((j) => j.status === "completed").length ?? 0;
+  const failedRecent = jobsData?.recent?.filter((j) => j.status === "failed").length ?? 0;
+  // Count unique draft pipelines across all sessions
+  const draftPipelines = (jobsData?.recent?.length ?? 0) === 0 && activeRuns === 0 ? 0 : 0;
+  const runningPipelines = activeRuns;
+
   return (
     <div className="flex h-screen bg-cream">
       {/* ── Sidebar ─────────────────────────────────────────────────── */}
@@ -118,9 +132,21 @@ export default function DashboardLayout({
                 Pipeline Status
               </span>
               <div className="mt-2 space-y-1">
-                <PipelineStatusItem label="Running" count={0} color="bg-blue-500" />
-                <PipelineStatusItem label="Completed" count={0} color="bg-green-500" />
-                <PipelineStatusItem label="Draft" count={0} color="bg-gray-400" />
+                <PipelineStatusItem
+                  label="Running"
+                  count={runningPipelines}
+                  color="bg-blue-500"
+                />
+                <PipelineStatusItem
+                  label="Completed"
+                  count={completedRecent}
+                  color="bg-green-500"
+                />
+                <PipelineStatusItem
+                  label="Failed"
+                  count={failedRecent}
+                  color="bg-red-500"
+                />
               </div>
             </div>
           )}

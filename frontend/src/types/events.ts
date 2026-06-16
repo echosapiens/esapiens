@@ -17,6 +17,22 @@ export interface RunStepLog {
   text: string;
 }
 
+export interface RunProgress {
+  event_type: "RUN_PROGRESS";
+  run_id: string;
+  step_name: string;
+  progress: number; // 0-100
+}
+
+export interface RunStatusChanged {
+  event_type: "RUN_STATUS_CHANGED";
+  run_id: string;
+  step_name: string;
+  old_status: string;
+  new_status: string;
+  exit_code?: number | null;
+}
+
 export interface MetricsUpdated {
   event_type: "METRICS_UPDATED";
   session_id: string;
@@ -35,6 +51,8 @@ export interface PipelineStatusChanged {
 export type ServerEvent =
   | AgentPlanGenerated
   | RunStepLog
+  | RunProgress
+  | RunStatusChanged
   | MetricsUpdated
   | PipelineStatusChanged;
 
@@ -54,6 +72,8 @@ export type ServerEventType = ServerEvent["event_type"];
 export const SERVER_EVENT_TYPES: ServerEventType[] = [
   "AGENT_PLAN_GENERATED",
   "RUN_STEP_LOG",
+  "RUN_PROGRESS",
+  "RUN_STATUS_CHANGED",
   "METRICS_UPDATED",
   "PIPELINE_STATUS_CHANGED",
 ];
@@ -71,6 +91,7 @@ export interface RunSummary {
   id: string;
   step_name: string;
   status: string;
+  progress: number;
   started_at?: string | null;
   completed_at?: string | null;
   created_at: string;

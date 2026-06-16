@@ -89,11 +89,19 @@ class OutboxRelay:
                         "id": row.id,
                         "aggregate_id": row.aggregate_id,
                         "event_type": row.event_type,
+                        "session_id": (row.payload or {}).get("session_id"),
                         "payload": row.payload,
                         "created_at": row.created_at.isoformat() if row.created_at else None,
                     }
                 )
+                # Publish to the global events channel
                 await self._redis.publish(settings.OUTBOX_REDIS_CHANNEL, payload)
+
+                # ALSO publish to the session-specific channel for WebSocket delivery
+                session_id = (row.payload or {}).get("session_id")
+                if session_id:
+                    session_channel = f"esapiens:session:{session_id}"
+                    await self._redis.publish(session_channel, payload)
 
                 # Mark as published
                 await db.execute(

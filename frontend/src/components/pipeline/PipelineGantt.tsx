@@ -46,11 +46,17 @@ export function PipelineGantt({ sessionId }: { sessionId: string }) {
   const storePipelines = useSessionStore((s) => s.pipelines);
   const activePipeline = pipelines?.[0] ?? null;
 
-  // ── Fetch runs for the active pipeline ────────────────────────────
+  // ── Fetch runs for the active pipeline (with live polling for progress) ────
   const { data: runs } = useQuery({
     queryKey: ["runs", activePipeline?.id],
     queryFn: () => api.listRuns(activePipeline!.id),
     enabled: !!activePipeline,
+    refetchInterval: (query) => {
+      // Poll every 2s while any run is active, otherwise stop
+      const data = query.state.data as RunRead[] | undefined;
+      if (!data) return false;
+      return data.some((r) => r.status === "pending" || r.status === "running") ? 2000 : false;
+    },
   });
 
   // ── Derive steps from DAG + runs ─────────────────────────────────
@@ -272,6 +278,17 @@ function deriveSteps(
     const stepName = (step.name as string) ?? (step.step_name as string) ?? "unknown";
     const run = runsByStep.get(stepName);
 
+    // Use real progress from the run if available, else infer from status
+    const realProgress = run?.progress ?? null;
+    const inferredProgress =
+      run?.status === "completed"
+        ? 100
+        : run?.status === "running"
+          ? 50
+          : run?.status === "failed"
+            ? 0
+            : 0;
+
     return {
       name: stepName,
       status: run?.status ?? (step.status as string) ?? "pending",
@@ -283,15 +300,7 @@ function deriveSteps(
       depends_on: (step.depends_on as string[]) ?? [],
       started_at: run?.started_at ?? null,
       completed_at: run?.completed_at ?? null,
-      progress: run
-        ? run.status === "completed"
-          ? 100
-          : run.status === "running"
-          ? 50
-          : run.status === "failed"
-          ? 0
-          : 0
-        : 0,
+      progress: realProgress ?? inferredProgress,
     };
   });
 }

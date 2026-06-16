@@ -83,6 +83,7 @@ export interface RunRead {
   status: string;
   exit_code: number | null;
   modal_sandbox_id: string | null;
+  progress: number;
   started_at: string | null;
   completed_at: string | null;
   created_at: string;
@@ -250,6 +251,29 @@ export interface ChatRequest {
   grant_id?: string;
 }
 
+export type SubagentRole = "biology" | "math" | "code" | "literature";
+
+export interface SubagentSummary {
+  role: SubagentRole;
+  task: string;
+  findings: string;
+  confidence: number;
+  structured_data: Record<string, unknown> | null;
+  citations: string[];
+}
+
+export interface SupervisorChatRequest {
+  prompt: string;
+  grant_id?: string;
+}
+
+export interface SupervisorChatResponse {
+  answer: string;
+  subagent_results: SubagentSummary[];
+  iterations: number;
+  phase: string;
+}
+
 export const api = {
   // ── Auth ────────────────────────────────────────────────────────
   login: (data: LoginRequest) =>
@@ -364,4 +388,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  // ── Chat (supervisor / multi-agent) ──────────────────────────────
+  sendSupervisor: (sessionId: string, data: SupervisorChatRequest) =>
+    apiFetch<SupervisorChatResponse>(
+      `/sessions/${sessionId}/chat/supervisor`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    ),
 };

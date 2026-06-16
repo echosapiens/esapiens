@@ -2,6 +2,8 @@ import { create } from "zustand";
 import type {
   AgentPlanGenerated,
   RunStepLog,
+  RunProgress,
+  RunStatusChanged,
   MetricsUpdated,
   PipelineStatusChanged,
   ServerEvent,
@@ -122,6 +124,34 @@ function sessionReducer(
       };
     }
 
+    case "RUN_PROGRESS": {
+      // Live progress update from Modal sandbox — non-blocking, just merge
+      const e = event as RunProgress;
+      return {
+        runs: state.runs.map((r) =>
+          r.id === e.run_id ? { ...r, progress: e.progress } : r
+        ),
+        lastSeqId: Math.max(state.lastSeqId, envelope.id),
+      };
+    }
+
+    case "RUN_STATUS_CHANGED": {
+      // Run transitioned (e.g. pending→running→completed/failed)
+      const e = event as RunStatusChanged;
+      return {
+        runs: state.runs.map((r) =>
+          r.id === e.run_id
+            ? {
+                ...r,
+                status: e.new_status,
+                ...(e.new_status === "completed" ? { progress: 100 } : {}),
+              }
+            : r
+        ),
+        lastSeqId: Math.max(state.lastSeqId, envelope.id),
+      };
+    }
+
     case "METRICS_UPDATED": {
       const e = event as MetricsUpdated;
       const updatedMetrics = { ...state.metrics };
@@ -209,9 +239,19 @@ export const useSessionStore = create<SessionStoreState & SessionStoreActions>((
           ? projectedState.metrics as Partial<MetricsState>
           : {}),
       };
+      // Normalize runs to RunSummary shape (projected runs lack progress)
+      const runs: RunSummary[] = (projectedState.runs ?? []).map((r) => ({
+        id: r.id,
+        step_name: r.step_name,
+        status: r.status,
+        progress: r.status === "completed" ? 100 : r.status === "failed" ? 0 : 0,
+        started_at: null,
+        completed_at: null,
+        created_at: r.created_at,
+      }));
       set({
         pipelines: projectedState.pipelines,
-        runs: projectedState.runs,
+        runs,
         metrics,
         agentState: projectedState.agent_state as AgentState,
         isLoading: false,

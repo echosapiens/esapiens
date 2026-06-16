@@ -21,6 +21,8 @@ from typing import Any
 from app.config import settings
 from app.database import async_session_factory
 from app.models.run import Run
+from app.models.pipeline import Pipeline
+from app.services.event_engine import EventEngine
 
 logger = logging.getLogger(__name__)
 
@@ -404,12 +406,18 @@ class ModalComputeService:
         stdout: str,
         stderr: str,
     ) -> None:
-        """Update the Run model upon sandbox completion."""
+        """Update the Run model upon sandbox completion.
+
+        Also emits a RUN_STATUS_CHANGED event so the WebSocket
+        subscribers see the transition immediately.
+        """
+        new_status: str | None = None
         async with async_session_factory() as db:
             try:
                 run = await db.get(Run, run_id)
                 if run is not None:
-                    run.status = "completed" if exit_code == 0 else "failed"
+                    new_status = "completed" if exit_code == 0 else "failed"
+                    run.status = new_status
                     run.exit_code = exit_code
                     run.stdout_log = stdout
                     run.stderr_log = stderr
@@ -418,6 +426,17 @@ class ModalComputeService:
             except Exception as exc:
                 logger.warning("Failed to update completion for run %s: %s", run_id, exc)
                 await db.rollback()
+
+        # Fire-and-forget event emission — non-blocking
+        if new_status is not None:
+            asyncio.create_task(self._emit_run_event(
+                run_id=run_id,
+                event_type="RUN_STATUS_CHANGED",
+                payload={
+                    "new_status": new_status,
+                    "exit_code": exit_code,
+                },
+            ))
 
     async def _mark_run_failed(
         self,
@@ -464,7 +483,12 @@ class ModalComputeService:
         run_id: uuid.UUID,
         progress: int,
     ) -> None:
-        """Publish a progress update to the Redis progress channel."""
+        """Publish a progress update to the Redis progress channel.
+
+        Also emits a RUN_PROGRESS event into the outbox so the WebSocket
+        subscribers for the parent session receive live progress updates
+        via the standard event flow.
+        """
         try:
             await redis.publish(
                 channel,
@@ -476,3 +500,42 @@ class ModalComputeService:
             )
         except Exception as exc:
             logger.debug("Progress publish failed for run %s: %s", run_id, exc)
+
+        # Emit a RUN_PROGRESS event so the WebSocket gets it via the outbox.
+        # Non-blocking — fire and forget.
+        asyncio.create_task(self._emit_run_event(
+            run_id=run_id,
+            event_type="RUN_PROGRESS",
+            payload={"progress": progress},
+        ))
+
+    async def _emit_run_event(
+        self,
+        run_id: uuid.UUID,
+        event_type: str,
+        payload: dict[str, Any],
+    ) -> None:
+        """Emit an event tied to a run, looked up via run → pipeline → session.
+
+        Non-blocking helper used by the progress publisher and the completion
+        path. Errors are logged and swallowed — events are best-effort.
+        """
+        try:
+            async with async_session_factory() as db:
+                run = await db.get(Run, run_id)
+                if run is None:
+                    return
+                pipeline = await db.get(Pipeline, run.pipeline_id)
+                if pipeline is None:
+                    return
+                session_id = pipeline.session_id
+                engine = EventEngine(db)
+                await engine.emit_event(
+                    session_id=session_id,
+                    event_type=event_type,
+                    payload={**payload, "run_id": str(run_id), "step_name": run.step_name},
+                    aggregate_id=str(run.pipeline_id),
+                )
+                await db.commit()
+        except Exception as exc:
+            logger.debug("Failed to emit %s for run %s: %s", event_type, run_id, exc)
