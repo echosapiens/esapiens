@@ -4,7 +4,6 @@ All settings are read from environment variables with sensible defaults.
 """
 from __future__ import annotations
 
-from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,19 +35,14 @@ class Settings(BaseSettings):
     MODAL_TIMEOUT: int = 600
 
     # ── CORS ─────────────────────────────────────────────────────────
-    # Declared as str so pydantic-settings never tries json.loads() on the
-    # env var.  The validator below converts comma-separated strings → list.
+    # Kept as plain str so pydantic-settings never calls json.loads().
+    # Use the .cors_origins_list property for the parsed list.
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
-    @field_validator("CORS_ORIGINS", mode="before")
-    @classmethod
-    def _parse_cors_origins(cls, v: object) -> list[str]:
-        if isinstance(v, list):
-            # Already a list (e.g. from default or previous parse) – flatten
-            return v
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Parse comma-separated CORS_ORIGINS into a list for CORSMiddleware."""
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
     # ── ORCID OAuth ─────────────────────────────────────────────────
     ORCID_CLIENT_ID: str = ""
