@@ -16,6 +16,7 @@ Edges:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
@@ -327,11 +328,15 @@ async def _llm_plan(prompt: str) -> PlannerDAG | None:
 
         # Use structured output to get a PlannerDAG directly
         structured_llm = llm.with_structured_output(PlannerDAG)
-        result = await structured_llm.ainvoke(
-            [
-                {"role": "system", "content": system_msg},
-                {"role": "user", "content": user_msg},
-            ]
+        # 20s timeout — Next.js proxy times out at 30s, leave headroom
+        result = await asyncio.wait_for(
+            structured_llm.ainvoke(
+                [
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": user_msg},
+                ]
+            ),
+            timeout=20.0,
         )
 
         # Validate: every tool must be in the registry
