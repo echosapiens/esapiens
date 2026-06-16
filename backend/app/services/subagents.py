@@ -165,12 +165,12 @@ async def invoke_subagent(
     role: SubagentRole,
     task: str,
     context: str = "",
-    timeout: float = 15.0,
+    timeout: float = 30.0,
 ) -> SubagentResult:
     """Invoke a specialized subagent and return structured findings.
 
     Each subagent is a single LLM call with a role-specific system prompt.
-    The LLM is forced to return JSON matching SubagentResult.
+    The LLM response is parsed as JSON with permissive fallbacks.
     """
     import asyncio
 
@@ -322,12 +322,22 @@ async def invoke_subagent(
         )
         return result
     except Exception as exc:
-        logger.warning("Subagent %s failed: %s", role.value, exc)
+        import traceback
+        # Special-case asyncio.TimeoutError — its str() is empty, which makes
+        # the trace useless. Use the timeout value instead.
+        if isinstance(exc, asyncio.TimeoutError):
+            err_msg = f"LLM call timed out after {timeout}s"
+        else:
+            err_msg = f"{type(exc).__name__}: {exc}"
+        logger.warning(
+            "Subagent %s failed: %s\nTraceback:\n%s",
+            role.value, err_msg, traceback.format_exc(),
+        )
         return SubagentResult(
             role=role,
             task=task,
-            findings=f"[{role.value} subagent error: {exc}]",
-            structured_data={"error": str(exc)},
+            findings=f"[{role.value} subagent error: {err_msg}]",
+            structured_data={"error": err_msg},
             confidence=0.0,
             citations=[],
         )
