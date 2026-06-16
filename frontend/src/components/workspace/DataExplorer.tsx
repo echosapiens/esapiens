@@ -8,14 +8,14 @@ import {
   ChevronRight,
   ChevronDown,
   Download,
-  HardDrive,
-  RefreshCw,
+  Upload,
+  Folder,
 } from "lucide-react";
 
 // ── Data explorer (S3/Volume file browser) ──────────────────────────────
-// Note: The backend doesn't have a dedicated files API yet, so this
-// component provides the UI structure with mock data. When the backend
-// adds a /sessions/{id}/files endpoint, wire it up with useQuery.
+// Backend doesn't have a dedicated files API yet, so this component
+// shows an empty state. When the backend adds a /sessions/{id}/files
+// endpoint, wire it up with useQuery and populate the tree.
 
 interface FileNode {
   name: string;
@@ -25,57 +25,12 @@ interface FileNode {
   children?: FileNode[];
 }
 
-const MOCK_FILE_TREE: FileNode[] = [
-  {
-    name: "data",
-    type: "directory",
-    children: [
-      {
-        name: "raw",
-        type: "directory",
-        children: [
-          { name: "sample_R1.fastq.gz", type: "file", size: 2_450_000_000, lastModified: "2025-01-15T10:30:00Z" },
-          { name: "sample_R2.fastq.gz", type: "file", size: 2_310_000_000, lastModified: "2025-01-15T10:31:00Z" },
-        ],
-      },
-      {
-        name: "reference",
-        type: "directory",
-        children: [
-          { name: "hg38.fa", type: "file", size: 3_100_000_000, lastModified: "2024-12-01T08:00:00Z" },
-          { name: "hg38.fa.fai", type: "file", size: 150_000, lastModified: "2024-12-01T08:00:00Z" },
-        ],
-      },
-    ],
-  },
-  {
-    name: "results",
-    type: "directory",
-    children: [
-      { name: "aligned.bam", type: "file", size: 5_200_000_000, lastModified: "2025-01-16T14:20:00Z" },
-      { name: "aligned.bam.bai", type: "file", size: 4_500_000, lastModified: "2025-01-16T14:21:00Z" },
-      { name: "variants.vcf.gz", type: "file", size: 890_000_000, lastModified: "2025-01-16T16:45:00Z" },
-      { name: "qc_report.html", type: "file", size: 2_400_000, lastModified: "2025-01-16T13:10:00Z" },
-    ],
-  },
-  {
-    name: "logs",
-    type: "directory",
-    children: [
-      { name: "pipeline.log", type: "file", size: 1_200_000, lastModified: "2025-01-16T17:00:00Z" },
-      { name: "alignment.stderr", type: "file", size: 45_000, lastModified: "2025-01-16T14:15:00Z" },
-    ],
-  },
-];
-
 interface DataExplorerProps {
   sessionId: string;
 }
 
 export function DataExplorer({ sessionId }: DataExplorerProps) {
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
-    new Set(["data", "results"])
-  );
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
   const toggleExpand = useCallback((path: string) => {
@@ -103,33 +58,36 @@ export function DataExplorer({ sessionId }: DataExplorerProps) {
         </span>
       </div>
 
-      {/* ── Tree view ──────────────────────────────────────────────── */}
+      {/* ── Empty state ────────────────────────────────────────────── */}
       <div className="flex-1 overflow-auto glass rounded-xl">
-        <div className="p-2">
-          {MOCK_FILE_TREE.map((node) => (
-            <FileTreeNode
-              key={node.name}
-              node={node}
-              path={node.name}
-              depth={0}
-              expandedPaths={expandedPaths}
-              selectedFile={selectedFile}
-              onToggle={toggleExpand}
-              onSelect={setSelectedFile}
-            />
-          ))}
+        <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+          <div className="rounded-full bg-gold/10 p-3">
+            <Folder className="h-8 w-8 text-gold" />
+          </div>
+          <div>
+            <h4 className="text-sm font-medium text-navy">No files yet</h4>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Upload data or run a pipeline to generate output files.
+            </p>
+          </div>
+          <button
+            disabled
+            className="btn-ghost mt-2 inline-flex items-center gap-1.5 text-xs opacity-50"
+            title="Upload coming soon"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Upload files
+          </button>
         </div>
       </div>
 
       {/* ── Selected file details ──────────────────────────────────── */}
-      {selectedFile && (
-        <FileDetails path={selectedFile} />
-      )}
+      {selectedFile && <FileDetails path={selectedFile} />}
     </div>
   );
 }
 
-// ── File tree node ──────────────────────────────────────────────────────
+// ── File tree node (used when files exist) ──────────────────────────────
 
 interface FileTreeNodeProps {
   node: FileNode;
@@ -215,46 +173,24 @@ function FileTreeNode({
 // ── File details panel ──────────────────────────────────────────────────
 
 function FileDetails({ path }: { path: string }) {
-  // Find the file node from the mock tree
-  const parts = path.split("/");
-  let node: FileNode | undefined;
-  let current: FileNode[] = MOCK_FILE_TREE;
-  for (const part of parts) {
-    node = current.find((n) => n.name === part);
-    if (node?.children) {
-      current = node.children;
-    }
-  }
-
-  if (!node || node.type !== "file") {
-    return null;
-  }
+  // Placeholder — will be populated from real file metadata
+  const fileName = path.split("/").pop() || path;
 
   return (
     <div className="mt-3 glass rounded-xl p-3">
       <div className="mb-2 flex items-center justify-between">
-        <h4 className="text-sm font-medium text-navy">{node.name}</h4>
-        <button className="btn-ghost inline-flex items-center gap-1 text-xs">
+        <h4 className="text-sm font-medium text-navy">{fileName}</h4>
+        <button
+          disabled
+          className="btn-ghost inline-flex items-center gap-1 text-xs opacity-50"
+          title="Download coming soon"
+        >
           <Download className="h-3.5 w-3.5" />
           Download
         </button>
       </div>
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        {node.size != null && (
-          <div>
-            <span className="text-muted-foreground">Size: </span>
-            <span className="text-navy">{formatFileSize(node.size)}</span>
-          </div>
-        )}
-        {node.lastModified && (
-          <div>
-            <span className="text-muted-foreground">Modified: </span>
-            <span className="text-navy">{node.lastModified}</span>
-          </div>
-        )}
-      </div>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Pre-signed download URLs will be available when the backend S3 integration is enabled.
+      <p className="text-xs text-muted-foreground">
+        File details will be available once the backend S3 integration is enabled.
       </p>
     </div>
   );
