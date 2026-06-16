@@ -216,14 +216,19 @@ async def _supervisor_node(state: SupervisorState) -> dict[str, Any]:
     try:
         response = await asyncio.wait_for(
             llm_with_tools.ainvoke(lc_messages),
-            timeout=20.0,
+            timeout=30.0,
         )
     except Exception as exc:
-        logger.warning("Supervisor LLM call failed: %s", exc)
+        # asyncio.TimeoutError has empty str() — show the timeout value
+        if isinstance(exc, asyncio.TimeoutError):
+            err_msg = f"LLM call timed out after 30s"
+        else:
+            err_msg = f"{type(exc).__name__}: {exc}"
+        logger.warning("Supervisor LLM call failed: %s", err_msg)
         return {
             "iteration": new_iteration,
-            "error_log": state.error_log + [f"Supervisor LLM error: {exc}"],
-            "reflection": f"LLM error: {exc}",
+            "error_log": state.error_log + [f"Supervisor LLM error: {err_msg}"],
+            "reflection": f"LLM error: {err_msg}",
             "phase": SupervisorPhase.SYNTHESIZING.value,
         }
 
@@ -290,7 +295,10 @@ async def _supervisor_node(state: SupervisorState) -> dict[str, Any]:
             if isinstance(rescue_content, str) and rescue_content.strip():
                 final_answer = rescue_content.strip()
         except Exception as exc:
-            logger.warning("Rescue LLM call failed: %s", exc)
+            if isinstance(exc, asyncio.TimeoutError):
+                logger.warning("Rescue LLM call failed: timed out after 20s")
+            else:
+                logger.warning("Rescue LLM call failed: %s", exc)
 
     return {
         "iteration": new_iteration,
