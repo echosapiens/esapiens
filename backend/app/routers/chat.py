@@ -81,10 +81,24 @@ async def chat_with_agent(
             detail=f"Agent planning failed: {exc}",
         )
 
-    if pipeline_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Agent completed but no pipeline was created",
+    # ── No plan generated — conversational response ───────────────
+    if plan is None or pipeline_id is None:
+        # The agent returned a conversational message without a pipeline
+        msg = "I'm ready to help you plan a bioinformatics pipeline."
+        if agent_state.messages:
+            last_msg = agent_state.messages[-1]
+            if isinstance(last_msg, dict):
+                msg = last_msg.get("content", msg)
+            else:
+                msg = str(last_msg)
+        return ChatResponse(
+            pipeline_id="",
+            title="",
+            description="",
+            steps=[],
+            estimated_cost=0.0,
+            status="conversational",
+            message=msg,
         )
 
     # Fetch the persisted pipeline to get full details

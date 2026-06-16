@@ -280,6 +280,28 @@ async def planner_node(state: AgentState) -> dict[str, Any]:
         logger.info("LLM planning unavailable or failed — using rule-based fallback")
         plan = _rule_based_plan(state.prompt)
 
+    # ── No matching pipeline template — conversational response ────
+    if plan is None:
+        messages.append({
+            "role": "assistant",
+            "content": (
+                "I'm E.sapiens, a bioinformatics pipeline planner. "
+                "I can help you design reproducible analysis workflows — "
+                "try describing a bioinformatics task, like:\n"
+                "• \"Align paired-end reads with BWA-MEM2\"\n"
+                "• \"Call germline variants with GATK\"\n"
+                "• \"Run quality control on my FASTQ files\"\n"
+                "• \"Quantify RNA-seq expression with STAR\"\n\n"
+                "What analysis would you like to run?"
+            ),
+        })
+        return {
+            "current_plan": None,
+            "messages": messages,
+            "approval_status": ApprovalStatus.PENDING,
+            "error_log": [],
+        }
+
     messages.append({"role": "assistant", "content": f"Generated {len(plan.steps)} step(s): {plan.title}"})
 
     return {
@@ -395,12 +417,9 @@ def _rule_based_plan(prompt: str) -> PlannerDAG:
             PlannerStep(step_id="step_2", tool_name="multiqc", description="Aggregate QC reports", inputs=["fastqc_report.html"], outputs=["multiqc_report.html"], depends_on=["step_1"], estimated_cpu=1, estimated_memory_mb=2048),
         ]
 
-    # Fallback: single QC step
+    # Fallback: no matching bioinformatics workflow
     else:
-        title = f"Pipeline: {prompt[:80]}"
-        steps = [
-            PlannerStep(step_id="step_1", tool_name="fastqc", description=f"Quality control analysis for: {prompt}", inputs=["input.fastq.gz"], outputs=["fastqc_report.html"], depends_on=[], estimated_cpu=2, estimated_memory_mb=4096),
-        ]
+        return None
 
     action_trace = _build_action_trace("Planning pipeline steps", steps)
 
@@ -829,6 +848,9 @@ def _plan_to_dag_json(state: AgentState) -> dict:
 
 def should_route_after_critic(state: AgentState) -> str:
     """Route after CRITIC: if valid → HITL_GATE, if invalid → PLANNER for revision."""
+    # No plan → end the graph (conversational response)
+    if state.current_plan is None:
+        return "__end__"
     if state.critic_result is None:
         return "planner"
     if state.critic_result.valid:
@@ -882,6 +904,7 @@ def build_agent_graph() -> CompiledStateGraph:
         {
             "hitl_gate": "hitl_gate",
             "planner": "planner",
+            "__end__": END,
         },
     )
 
