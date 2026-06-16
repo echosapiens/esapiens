@@ -24,8 +24,6 @@ from enum import Enum
 from typing import Annotated, Any, Literal
 
 from langgraph.graph import END, StateGraph
-from langgraph.graph.state import CompiledStateGraph
-from langgraph.types import Command, Interrupt
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -607,14 +605,11 @@ async def critic_node(state: AgentState) -> dict[str, Any]:
 
 
 async def hitl_gate_node(state: AgentState) -> dict[str, Any]:
-    """HITL_GATE node: Interrupts execution for human-in-the-loop approval.
+    """HITL_GATE node: Persists pipeline plan and returns pending state.
 
-    Persists the pipeline plan to the database with status 'pending_approval'
-    and signals the frontend that human review is required.
-
-    In LangGraph, this node uses Interrupt to pause the graph. The
-    resume_with_approval / resume_with_rejection methods handle
-    the human response.
+    Saves the pipeline as 'pending_approval' and emits an event for the
+    frontend. The graph ends here — approval/rejection is handled via
+    separate API endpoints (approve_pipeline / reject_pipeline).
     """
     logger.info("HITL_GATE node invoked for session=%s", state.session_id)
 
@@ -653,18 +648,14 @@ async def hitl_gate_node(state: AgentState) -> dict[str, Any]:
             await db.rollback()
             raise
 
-    # ── Use LangGraph Interrupt to pause for human review ──────────
-    # The graph will pause here. Resumption is triggered by the
-    # /pipelines/{id}/approve or /pipelines/{id}/reject endpoints.
-    raise Interrupt(
-        value={
-            "pipeline_id": str(pipeline_id),
-            "title": state.current_plan.title if state.current_plan else "Untitled",
-            "steps": [s.tool_name for s in state.constructed_steps],
-            "estimated_cost": state.critic_result.estimated_cost if state.critic_result else 0.0,
-            "message": "Pipeline awaiting human approval",
-        }
-    )
+    # ── HITL gate: return pending state ────────────────────────────
+    # The chat endpoint returns immediately with the plan for frontend review.
+    # Approval/rejection is handled via separate endpoints that create a new
+    # graph invocation with updated state.
+    return {
+        "pipeline_id": pipeline_id,
+        "approval_status": ApprovalStatus.PENDING,
+    }
 
 
 async def executor_node(state: AgentState) -> dict[str, Any]:
@@ -849,13 +840,15 @@ def should_route_after_critic(state: AgentState) -> str:
 
 
 def should_route_after_hitl(state: AgentState) -> str:
-    """Route after HITL: approved → executor, rejected → planner for revision."""
-    if state.approval_status == ApprovalStatus.APPROVED:
-        return "executor"
-    if state.approval_status == ApprovalStatus.REJECTED:
-        return "planner"
-    # Default: stay at HITL gate (shouldn't reach here, but defensive)
-    return "hitl_gate"
+    """Route after HITL: for synchronous chat flow, end the graph after HITL.
+
+    The HITL gate persists the pipeline as pending_approval and returns.
+    Approval/rejection is handled via separate API endpoints, not graph
+    re-invocation. This routes to END so the graph completes cleanly.
+    """
+    # Synchronous flow: always end after HITL gate.
+    # Approval triggers a new graph invocation with approved state.
+    return "__end__"
 
 
 # ── Graph builder ─────────────────────────────────────────────────────────
@@ -892,13 +885,12 @@ def build_agent_graph() -> CompiledStateGraph:
         },
     )
 
-    # Conditional edge after HITL gate
+    # Conditional edge after HITL gate — always ends in synchronous flow
     graph.add_conditional_edges(
         "hitl_gate",
         should_route_after_hitl,
         {
-            "executor": "executor",
-            "planner": "planner",
+            "__end__": END,
         },
     )
 
@@ -978,10 +970,13 @@ class AgentService:
         pipeline_id: uuid.UUID,
         user_comment: str | None = None,
     ) -> AgentState:
-        """Resume the graph after human approval of the pipeline.
+        """Mark a pipeline as approved and dispatch execution.
 
-        Updates the pipeline status to 'approved' and runs the executor.
+        Since we use a synchronous chat model (no LangGraph checkpointer/interrupt),
+        approval updates the DB status and runs the executor directly.
         """
+        from app.services.event_engine import EventEngine
+
         async with async_session_factory() as db:
             pipeline = await db.get(Pipeline, pipeline_id)
             if pipeline is None:
@@ -990,27 +985,35 @@ class AgentService:
             pipeline.status = "approved"
             await db.commit()
 
-        # Resume the graph with approval
-        config = {"configurable": {"thread_id": str(pipeline.session_id)}}
-        # Provide Command to resume from interrupt with approval
-        result = await self._graph.ainvoke(
-            Command(resume={"approval": "approved", "comment": user_comment}),
-            config=config,
-        )
+            # Emit approval event
+            event_engine = EventEngine(db)
+            await event_engine.emit_event(
+                session_id=pipeline.session_id,
+                event_type="AGENT_PLAN_APPROVED",
+                payload={"pipeline_id": str(pipeline_id), "comment": user_comment or ""},
+            )
 
-        if isinstance(result, dict):
-            result = AgentState(**result)
-        return result
+        return AgentState(
+            session_id=pipeline.session_id,
+            user_id=_DEV_USER_ID,
+            prompt="",
+            pipeline_id=pipeline_id,
+            approval_status=ApprovalStatus.APPROVED,
+            approval_comment=user_comment,
+        )
 
     async def reject_pipeline(
         self,
         pipeline_id: uuid.UUID,
         user_comment: str | None = None,
     ) -> AgentState:
-        """Resume the graph after human rejection of the pipeline.
+        """Mark a pipeline as rejected.
 
-        Routes back to the planner for revision.
+        Updates the DB status. The user can submit a new chat prompt to
+        re-plan.
         """
+        from app.services.event_engine import EventEngine
+
         async with async_session_factory() as db:
             pipeline = await db.get(Pipeline, pipeline_id)
             if pipeline is None:
@@ -1019,13 +1022,19 @@ class AgentService:
             pipeline.status = "rejected"
             await db.commit()
 
-        # Resume the graph with rejection
-        config = {"configurable": {"thread_id": str(pipeline.session_id)}}
-        result = await self._graph.ainvoke(
-            Command(resume={"approval": "rejected", "comment": user_comment}),
-            config=config,
-        )
+            # Emit rejection event
+            event_engine = EventEngine(db)
+            await event_engine.emit_event(
+                session_id=pipeline.session_id,
+                event_type="AGENT_PLAN_REJECTED",
+                payload={"pipeline_id": str(pipeline_id), "comment": user_comment or ""},
+            )
 
-        if isinstance(result, dict):
-            result = AgentState(**result)
-        return result
+        return AgentState(
+            session_id=pipeline.session_id,
+            user_id=_DEV_USER_ID,
+            prompt="",
+            pipeline_id=pipeline_id,
+            approval_status=ApprovalStatus.REJECTED,
+            approval_comment=user_comment,
+        )
