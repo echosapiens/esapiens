@@ -91,13 +91,14 @@ def create_app() -> FastAPI:
     app.add_middleware(SequenceHeaderRedactionMiddleware)
 
     # ── Routers ───────────────────────────────────────────────────
-    from app.routers import auth, sessions, pipelines, runs, grants, ws, sse
+    from app.routers import auth, sessions, pipelines, runs, grants, ws, sse, chat
 
     app.include_router(auth.router)
     app.include_router(sessions.router)
     app.include_router(pipelines.router)
     app.include_router(runs.router)
     app.include_router(grants.router)
+    app.include_router(chat.router)
     app.include_router(ws.router)
     app.include_router(sse.router)
 

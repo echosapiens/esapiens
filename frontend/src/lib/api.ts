@@ -203,6 +203,30 @@ async function apiFetch<T>(
 
 // ── API endpoints ────────────────────────────────────────────────────────
 
+export interface ChatResponse {
+  pipeline_id: string;
+  title: string;
+  description: string;
+  steps: Array<{
+    step_id: string;
+    tool_name: string;
+    description: string;
+    inputs: string[];
+    outputs: string[];
+    depends_on: string[];
+    estimated_cpu: number;
+    estimated_memory_mb: number;
+  }>;
+  estimated_cost: number;
+  status: string;
+  message: string;
+}
+
+export interface ChatRequest {
+  prompt: string;
+  grant_id?: string;
+}
+
 export const api = {
   // ── Auth ────────────────────────────────────────────────────────
   login: (data: LoginRequest) =>
@@ -297,4 +321,11 @@ export const api = {
   // ── Projected state ──────────────────────────────────────────────
   getProjectedState: (sessionId: string) =>
     apiFetch<ProjectedState>(`/sessions/${sessionId}/state`),
+
+  // ── Chat (agent) ─────────────────────────────────────────────────
+  sendChat: (sessionId: string, data: ChatRequest) =>
+    apiFetch<ChatResponse>(`/sessions/${sessionId}/chat`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };

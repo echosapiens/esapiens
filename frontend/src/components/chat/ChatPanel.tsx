@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSessionStore } from "@/store/sessionStore";
 import { cn, formatTimestamp, generateId } from "@/lib/utils";
+import { api } from "@/lib/api";
 import {
   Send,
   CheckCircle2,
@@ -103,7 +104,7 @@ export function ChatPanel() {
   }, [logs]);
 
   // ── Send message handler ──────────────────────────────────────────
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || isSending) return;
 
@@ -117,20 +118,52 @@ export function ChatPanel() {
     setInput("");
     setIsSending(true);
 
-    // TODO: Replace with actual API call to send message to agent
-    setTimeout(() => {
+    try {
+      const sessionId = useSessionStore.getState().currentSessionId;
+      if (!sessionId) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: generateId(),
+            role: "system",
+            content: "No active session. Please create or select a session first.",
+            timestamp: Date.now(),
+          },
+        ]);
+        setIsSending(false);
+        return;
+      }
+
+      const response = await api.sendChat(sessionId, { prompt: text });
+
       setMessages((prev) => [
         ...prev,
         {
           id: generateId(),
           role: "agent",
-          content:
-            "I'll analyze your request and generate a pipeline plan. Check the Pipeline tab for details.",
+          content: response.message,
+          timestamp: Date.now(),
+          traces: response.steps.map((step) => ({
+            step: step.step_id,
+            label: `${step.tool_name}: ${step.description}`,
+            status: "completed" as const,
+            detail: `CPU: ${step.estimated_cpu} · RAM: ${step.estimated_memory_mb}MB`,
+          })),
+        },
+      ]);
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: generateId(),
+          role: "system",
+          content: `Error: ${err instanceof Error ? err.message : "Failed to get response from agent"}`,
           timestamp: Date.now(),
         },
       ]);
+    } finally {
       setIsSending(false);
-    }, 1500);
+    }
   }, [input, isSending]);
 
   // ── Approval handlers ─────────────────────────────────────────────
