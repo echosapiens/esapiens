@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     ORCID_CLIENT_SECRET: str = ""
     ORCID_REDIRECT_URI: str = "http://localhost:8000/auth/orcid/callback"
 
+    # ── OpenRouter LLM ─────────────────────────────────────────────
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_MODEL: str = "anthropic/claude-sonnet-4"
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+
     # ── Outbox relay ────────────────────────────────────────────────
     OUTBOX_RELAY_INTERVAL_SECONDS: int = 2
     OUTBOX_REDIS_CHANNEL: str = "esapiens:events"

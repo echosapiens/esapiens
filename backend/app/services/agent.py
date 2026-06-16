@@ -38,6 +38,7 @@ from app.models.run import Run
 from app.schemas.bio_container import BioContainerStep
 from app.services.budget import BudgetService
 from app.services.event_engine import EventEngine
+from app.services.llm import get_llm
 from app.services.modal_compute import ModalComputeService
 
 logger = logging.getLogger(__name__)
@@ -235,256 +236,53 @@ def _construct_container_ref(tool_name: str) -> str | None:
     return f"{entry['image']}@{entry['digest']}"
 
 
+# ── LLM planner prompt ──────────────────────────────────────────────────
+
+PLANNER_SYSTEM_PROMPT = """You are a bioinformatics pipeline planner for E.sapiens, an academic
+bioinformatics IDE. Given a user's natural-language request, produce a structured
+DAG of containerized bioinformatics steps.
+
+Available tools (use EXACT tool_name values):
+{tool_registry}
+
+Rules:
+1. Every step must use a tool_name from the list above — no invented tools.
+2. depends_on must reference step_id values of upstream steps.
+3. step_id format: step_1, step_2, step_3, etc.
+4. inputs/outputs are filename strings.
+5. estimated_cpu: 1–64 cores, estimated_memory_mb: 256–262144 MB.
+6. Always include a FastQC step first for quality control unless the user
+   explicitly says to skip QC.
+7. Include a MultiQC aggregation step at the end when multiple QC reports exist.
+8. Keep pipelines concise — prefer the minimum number of steps that satisfy the
+   user's request."""
+
+PLANNER_USER_TEMPLATE = """Plan a bioinformatics pipeline for the following request:
+
+\"{prompt}\""""
+
 # ── Node functions ────────────────────────────────────────────────────────
 
 async def planner_node(state: AgentState) -> dict[str, Any]:
     """PLANNER node: Takes user prompt, produces a structured JSON DAG.
 
-    In production this would call an LLM to parse the natural language
-    prompt into a structured DAG. Here we implement a deterministic
-    rule-based planner that handles common bioinformatics workflows,
-    with LLM integration hooks.
+    Uses the LLM (OpenRouter) when available, falls back to deterministic
+    rule-based planning when the API key is missing or the LLM call fails.
     """
     logger.info("PLANNER node invoked for session=%s prompt=%r", state.session_id, state.prompt[:80])
 
     messages = list(state.messages)
     messages.append({"role": "system", "content": f"Planning pipeline for: {state.prompt}"})
 
-    # ── Rule-based planning logic ──────────────────────────────────
-    prompt_lower = state.prompt.lower()
-    steps: list[PlannerStep] = []
-    title = "Custom Bioinformatics Pipeline"
-    description = state.prompt
+    # ── Try LLM-powered planning first ─────────────────────────────
+    plan = await _llm_plan(state.prompt)
 
-    # DNA alignment workflow
-    if any(kw in prompt_lower for kw in ["align", "bwa", "mapping", "dna-seq", "dna seq", "whole genome"]):
-        title = "DNA Read Alignment Pipeline"
-        steps = [
-            PlannerStep(
-                step_id="step_1",
-                tool_name="fastqc",
-                description="Quality control of raw FASTQ reads",
-                inputs=["input_R1.fastq.gz", "input_R2.fastq.gz"],
-                outputs=["fastqc_report.html"],
-                depends_on=[],
-                estimated_cpu=2,
-                estimated_memory_mb=4096,
-            ),
-            PlannerStep(
-                step_id="step_2",
-                tool_name="bwa-mem2",
-                description="Align paired-end reads to reference genome",
-                inputs=["input_R1.fastq.gz", "input_R2.fastq.gz", "GRCh38.fa"],
-                outputs=["aligned.sam"],
-                depends_on=[],
-                estimated_cpu=8,
-                estimated_memory_mb=32768,
-            ),
-            PlannerStep(
-                step_id="step_3",
-                tool_name="samtools-sort",
-                description="Sort aligned reads by coordinate",
-                inputs=["aligned.sam"],
-                outputs=["aligned_sorted.bam"],
-                depends_on=["step_2"],
-                estimated_cpu=4,
-                estimated_memory_mb=16384,
-            ),
-            PlannerStep(
-                step_id="step_4",
-                tool_name="samtools-index",
-                description="Index the sorted BAM file",
-                inputs=["aligned_sorted.bam"],
-                outputs=["aligned_sorted.bam.bai"],
-                depends_on=["step_3"],
-                estimated_cpu=2,
-                estimated_memory_mb=4096,
-            ),
-            PlannerStep(
-                step_id="step_5",
-                tool_name="multiqc",
-                description="Aggregate QC metrics",
-                inputs=["fastqc_report.html"],
-                outputs=["multiqc_report.html"],
-                depends_on=["step_1", "step_4"],
-                estimated_cpu=1,
-                estimated_memory_mb=2048,
-            ),
-        ]
+    # ── Fall back to rule-based planning ───────────────────────────
+    if plan is None:
+        logger.info("LLM planning unavailable or failed — using rule-based fallback")
+        plan = _rule_based_plan(state.prompt)
 
-    # Variant calling workflow
-    elif any(kw in prompt_lower for kw in ["variant", "gatk", "snp", "vcf", "germline"]):
-        title = "Germline Variant Calling Pipeline"
-        steps = [
-            PlannerStep(
-                step_id="step_1",
-                tool_name="fastqc",
-                description="Quality control of raw FASTQ reads",
-                inputs=["input_R1.fastq.gz", "input_R2.fastq.gz"],
-                outputs=["fastqc_report.html"],
-                depends_on=[],
-                estimated_cpu=2,
-                estimated_memory_mb=4096,
-            ),
-            PlannerStep(
-                step_id="step_2",
-                tool_name="bwa-mem2",
-                description="Align reads to reference genome",
-                inputs=["input_R1.fastq.gz", "input_R2.fastq.gz", "GRCh38.fa"],
-                outputs=["aligned.sam"],
-                depends_on=[],
-                estimated_cpu=8,
-                estimated_memory_mb=32768,
-            ),
-            PlannerStep(
-                step_id="step_3",
-                tool_name="samtools-sort",
-                description="Sort aligned reads",
-                inputs=["aligned.sam"],
-                outputs=["aligned_sorted.bam"],
-                depends_on=["step_2"],
-                estimated_cpu=4,
-                estimated_memory_mb=16384,
-            ),
-            PlannerStep(
-                step_id="step_4",
-                tool_name="gatk4-markduplicates",
-                description="Mark duplicate reads",
-                inputs=["aligned_sorted.bam"],
-                outputs=["dedup.bam"],
-                depends_on=["step_3"],
-                estimated_cpu=4,
-                estimated_memory_mb=16384,
-            ),
-            PlannerStep(
-                step_id="step_5",
-                tool_name="gatk4-haplotypecaller",
-                description="Call germline variants with GATK HaplotypeCaller",
-                inputs=["dedup.bam", "GRCh38.fa"],
-                outputs=["variants.vcf.gz"],
-                depends_on=["step_4"],
-                estimated_cpu=4,
-                estimated_memory_mb=16384,
-            ),
-            PlannerStep(
-                step_id="step_6",
-                tool_name="bcftools",
-                description="Filter and annotate variant calls",
-                inputs=["variants.vcf.gz"],
-                outputs=["filtered_variants.vcf.gz"],
-                depends_on=["step_5"],
-                estimated_cpu=2,
-                estimated_memory_mb=4096,
-            ),
-            PlannerStep(
-                step_id="step_7",
-                tool_name="multiqc",
-                description="Aggregate QC metrics",
-                inputs=["fastqc_report.html", "dedup.metrics"],
-                outputs=["multiqc_report.html"],
-                depends_on=["step_1", "step_4", "step_6"],
-                estimated_cpu=1,
-                estimated_memory_mb=2048,
-            ),
-        ]
-
-    # RNA-seq workflow
-    elif any(kw in prompt_lower for kw in ["rna", "transcript", "expression", "quantification", "rnaseq"]):
-        title = "RNA-seq Quantification Pipeline"
-        steps = [
-            PlannerStep(
-                step_id="step_1",
-                tool_name="fastqc",
-                description="Quality control of raw FASTQ reads",
-                inputs=["reads_R1.fastq.gz", "reads_R2.fastq.gz"],
-                outputs=["fastqc_report.html"],
-                depends_on=[],
-                estimated_cpu=2,
-                estimated_memory_mb=4096,
-            ),
-            PlannerStep(
-                step_id="step_2",
-                tool_name="star-align",
-                description="Align RNA-seq reads with STAR",
-                inputs=["reads_R1.fastq.gz", "reads_R2.fastq.gz", "GRCh38_STAR_index"],
-                outputs=["Aligned.sortedByCoord.out.bam"],
-                depends_on=[],
-                estimated_cpu=8,
-                estimated_memory_mb=65536,
-            ),
-            PlannerStep(
-                step_id="step_3",
-                tool_name="samtools-index",
-                description="Index the aligned BAM file",
-                inputs=["Aligned.sortedByCoord.out.bam"],
-                outputs=["Aligned.sortedByCoord.out.bam.bai"],
-                depends_on=["step_2"],
-                estimated_cpu=2,
-                estimated_memory_mb=4096,
-            ),
-            PlannerStep(
-                step_id="step_4",
-                tool_name="multiqc",
-                description="Aggregate QC metrics",
-                inputs=["fastqc_report.html"],
-                outputs=["multiqc_report.html"],
-                depends_on=["step_1", "step_3"],
-                estimated_cpu=1,
-                estimated_memory_mb=2048,
-            ),
-        ]
-
-    # Generic QC workflow
-    elif any(kw in prompt_lower for kw in ["qc", "quality", "fastqc", "quality control"]):
-        title = "Quality Control Pipeline"
-        steps = [
-            PlannerStep(
-                step_id="step_1",
-                tool_name="fastqc",
-                description="Run quality control on input reads",
-                inputs=["input.fastq.gz"],
-                outputs=["fastqc_report.html"],
-                depends_on=[],
-                estimated_cpu=2,
-                estimated_memory_mb=4096,
-            ),
-            PlannerStep(
-                step_id="step_2",
-                tool_name="multiqc",
-                description="Aggregate QC reports",
-                inputs=["fastqc_report.html"],
-                outputs=["multiqc_report.html"],
-                depends_on=["step_1"],
-                estimated_cpu=1,
-                estimated_memory_mb=2048,
-            ),
-        ]
-
-    # Fallback: single QC step
-    else:
-        title = f"Pipeline: {state.prompt[:80]}"
-        steps = [
-            PlannerStep(
-                step_id="step_1",
-                tool_name="fastqc",
-                description=f"Quality control analysis for: {state.prompt}",
-                inputs=["input.fastq.gz"],
-                outputs=["fastqc_report.html"],
-                depends_on=[],
-                estimated_cpu=2,
-                estimated_memory_mb=4096,
-            ),
-        ]
-
-    action_trace = _build_action_trace("Planning pipeline steps", steps)
-    messages.append({"role": "assistant", "content": f"Generated {len(steps)} step(s): {title}"})
-
-    plan = PlannerDAG(
-        title=title,
-        description=description,
-        steps=steps,
-        action_trace=action_trace,
-    )
+    messages.append({"role": "assistant", "content": f"Generated {len(plan.steps)} step(s): {plan.title}"})
 
     return {
         "current_plan": plan,
@@ -492,6 +290,128 @@ async def planner_node(state: AgentState) -> dict[str, Any]:
         "approval_status": ApprovalStatus.PENDING,
         "error_log": [],
     }
+
+
+async def _llm_plan(prompt: str) -> PlannerDAG | None:
+    """Attempt LLM-powered pipeline planning via OpenRouter.
+
+    Returns a PlannerDAG on success, or None if the LLM is unavailable
+    or returns an unparseable response (triggering rule-based fallback).
+    """
+    llm = get_llm()
+    if llm is None:
+        return None
+
+    try:
+        # Format the tool registry for the system prompt
+        tools_brief = "\n".join(
+            f"- {name}: {info['image'].split(':')[0].split('/')[-1]} ({name})"
+            for name, info in BIOCONTAINER_REGISTRY.items()
+        )
+        system_msg = PLANNER_SYSTEM_PROMPT.format(tool_registry=tools_brief)
+        user_msg = PLANNER_USER_TEMPLATE.format(prompt=prompt)
+
+        # Use structured output to get a PlannerDAG directly
+        structured_llm = llm.with_structured_output(PlannerDAG)
+        result = await structured_llm.ainvoke(
+            [
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg},
+            ]
+        )
+
+        # Validate: every tool must be in the registry
+        for step in result.steps:
+            if step.tool_name not in BIOCONTAINER_REGISTRY:
+                logger.warning("LLM produced unknown tool '%s' — rejecting plan", step.tool_name)
+                return None
+
+        # Validate: dependency step_ids must reference existing steps
+        step_ids = {s.step_id for s in result.steps}
+        for step in result.steps:
+            for dep in step.depends_on:
+                if dep not in step_ids:
+                    logger.warning("LLM plan has dangling dependency '%s' — rejecting plan", dep)
+                    return None
+
+        # Enrich with action traces
+        result.action_trace = _build_action_trace("Planning pipeline steps (LLM)", result.steps)
+        logger.info("LLM planning succeeded: %d steps for '%s'", len(result.steps), result.title)
+        return result
+
+    except Exception as exc:
+        logger.warning("LLM planning failed: %s — falling back to rule-based", exc)
+        return None
+
+
+def _rule_based_plan(prompt: str) -> PlannerDAG:
+    """Deterministic rule-based planner for common bioinformatics workflows.
+
+    Matches keywords in the user prompt to predefined pipeline templates.
+    Used as fallback when the LLM is unavailable.
+    """
+    prompt_lower = prompt.lower()
+    steps: list[PlannerStep] = []
+    title = "Custom Bioinformatics Pipeline"
+    description = prompt
+
+    # DNA alignment workflow
+    if any(kw in prompt_lower for kw in ["align", "bwa", "mapping", "dna-seq", "dna seq", "whole genome"]):
+        title = "DNA Read Alignment Pipeline"
+        steps = [
+            PlannerStep(step_id="step_1", tool_name="fastqc", description="Quality control of raw FASTQ reads", inputs=["input_R1.fastq.gz", "input_R2.fastq.gz"], outputs=["fastqc_report.html"], depends_on=[], estimated_cpu=2, estimated_memory_mb=4096),
+            PlannerStep(step_id="step_2", tool_name="bwa-mem2", description="Align paired-end reads to reference genome", inputs=["input_R1.fastq.gz", "input_R2.fastq.gz", "GRCh38.fa"], outputs=["aligned.sam"], depends_on=[], estimated_cpu=8, estimated_memory_mb=32768),
+            PlannerStep(step_id="step_3", tool_name="samtools-sort", description="Sort aligned reads by coordinate", inputs=["aligned.sam"], outputs=["aligned_sorted.bam"], depends_on=["step_2"], estimated_cpu=4, estimated_memory_mb=16384),
+            PlannerStep(step_id="step_4", tool_name="samtools-index", description="Index the sorted BAM file", inputs=["aligned_sorted.bam"], outputs=["aligned_sorted.bam.bai"], depends_on=["step_3"], estimated_cpu=2, estimated_memory_mb=4096),
+            PlannerStep(step_id="step_5", tool_name="multiqc", description="Aggregate QC metrics", inputs=["fastqc_report.html"], outputs=["multiqc_report.html"], depends_on=["step_1", "step_4"], estimated_cpu=1, estimated_memory_mb=2048),
+        ]
+
+    # Variant calling workflow
+    elif any(kw in prompt_lower for kw in ["variant", "gatk", "snp", "vcf", "germline"]):
+        title = "Germline Variant Calling Pipeline"
+        steps = [
+            PlannerStep(step_id="step_1", tool_name="fastqc", description="Quality control of raw FASTQ reads", inputs=["input_R1.fastq.gz", "input_R2.fastq.gz"], outputs=["fastqc_report.html"], depends_on=[], estimated_cpu=2, estimated_memory_mb=4096),
+            PlannerStep(step_id="step_2", tool_name="bwa-mem2", description="Align reads to reference genome", inputs=["input_R1.fastq.gz", "input_R2.fastq.gz", "GRCh38.fa"], outputs=["aligned.sam"], depends_on=[], estimated_cpu=8, estimated_memory_mb=32768),
+            PlannerStep(step_id="step_3", tool_name="samtools-sort", description="Sort aligned reads", inputs=["aligned.sam"], outputs=["aligned_sorted.bam"], depends_on=["step_2"], estimated_cpu=4, estimated_memory_mb=16384),
+            PlannerStep(step_id="step_4", tool_name="gatk4-markduplicates", description="Mark duplicate reads", inputs=["aligned_sorted.bam"], outputs=["dedup.bam"], depends_on=["step_3"], estimated_cpu=4, estimated_memory_mb=16384),
+            PlannerStep(step_id="step_5", tool_name="gatk4-haplotypecaller", description="Call germline variants with GATK HaplotypeCaller", inputs=["dedup.bam", "GRCh38.fa"], outputs=["variants.vcf.gz"], depends_on=["step_4"], estimated_cpu=4, estimated_memory_mb=16384),
+            PlannerStep(step_id="step_6", tool_name="bcftools", description="Filter and annotate variant calls", inputs=["variants.vcf.gz"], outputs=["filtered_variants.vcf.gz"], depends_on=["step_5"], estimated_cpu=2, estimated_memory_mb=4096),
+            PlannerStep(step_id="step_7", tool_name="multiqc", description="Aggregate QC metrics", inputs=["fastqc_report.html", "dedup.metrics"], outputs=["multiqc_report.html"], depends_on=["step_1", "step_4", "step_6"], estimated_cpu=1, estimated_memory_mb=2048),
+        ]
+
+    # RNA-seq workflow
+    elif any(kw in prompt_lower for kw in ["rna", "transcript", "expression", "quantification", "rnaseq"]):
+        title = "RNA-seq Quantification Pipeline"
+        steps = [
+            PlannerStep(step_id="step_1", tool_name="fastqc", description="Quality control of raw FASTQ reads", inputs=["reads_R1.fastq.gz", "reads_R2.fastq.gz"], outputs=["fastqc_report.html"], depends_on=[], estimated_cpu=2, estimated_memory_mb=4096),
+            PlannerStep(step_id="step_2", tool_name="star-align", description="Align RNA-seq reads with STAR", inputs=["reads_R1.fastq.gz", "reads_R2.fastq.gz", "GRCh38_STAR_index"], outputs=["Aligned.sortedByCoord.out.bam"], depends_on=[], estimated_cpu=8, estimated_memory_mb=65536),
+            PlannerStep(step_id="step_3", tool_name="samtools-index", description="Index the aligned BAM file", inputs=["Aligned.sortedByCoord.out.bam"], outputs=["Aligned.sortedByCoord.out.bam.bai"], depends_on=["step_2"], estimated_cpu=2, estimated_memory_mb=4096),
+            PlannerStep(step_id="step_4", tool_name="multiqc", description="Aggregate QC metrics", inputs=["fastqc_report.html"], outputs=["multiqc_report.html"], depends_on=["step_1", "step_3"], estimated_cpu=1, estimated_memory_mb=2048),
+        ]
+
+    # Generic QC workflow
+    elif any(kw in prompt_lower for kw in ["qc", "quality", "fastqc", "quality control"]):
+        title = "Quality Control Pipeline"
+        steps = [
+            PlannerStep(step_id="step_1", tool_name="fastqc", description="Run quality control on input reads", inputs=["input.fastq.gz"], outputs=["fastqc_report.html"], depends_on=[], estimated_cpu=2, estimated_memory_mb=4096),
+            PlannerStep(step_id="step_2", tool_name="multiqc", description="Aggregate QC reports", inputs=["fastqc_report.html"], outputs=["multiqc_report.html"], depends_on=["step_1"], estimated_cpu=1, estimated_memory_mb=2048),
+        ]
+
+    # Fallback: single QC step
+    else:
+        title = f"Pipeline: {prompt[:80]}"
+        steps = [
+            PlannerStep(step_id="step_1", tool_name="fastqc", description=f"Quality control analysis for: {prompt}", inputs=["input.fastq.gz"], outputs=["fastqc_report.html"], depends_on=[], estimated_cpu=2, estimated_memory_mb=4096),
+        ]
+
+    action_trace = _build_action_trace("Planning pipeline steps", steps)
+
+    return PlannerDAG(
+        title=title,
+        description=description,
+        steps=steps,
+        action_trace=action_trace,
+    )
 
 
 async def constructor_node(state: AgentState) -> dict[str, Any]:

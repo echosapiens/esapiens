@@ -44,6 +44,9 @@ services:
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: change-me-in-production
       CORS_ORIGINS: http://localhost:3000,http://frontend:3000
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-sonnet-4}
+      OPENROUTER_BASE_URL: https://openrouter.ai/api/v1
     depends_on:
       postgres:
         condition: service_healthy
