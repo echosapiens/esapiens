@@ -5,6 +5,10 @@ FROM node:22-slim AS builder
 
 WORKDIR /app
 
+# Backend URL for Next.js rewrites (baked in at build time)
+ARG BACKEND_URL=http://localhost:8000
+ENV BACKEND_URL=${BACKEND_URL}
+
 # Copy dependency manifests first for better Docker layer caching
 COPY package.json package-lock.json* ./
 
