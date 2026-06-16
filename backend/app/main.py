@@ -10,12 +10,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.database import engine, Base
+from app.database import engine, Base, async_session_factory
 from app.middleware.redaction import SequenceHeaderRedactionMiddleware
 from app.services.reconciler import Reconciler
 from app.workers.outbox_relay import OutboxRelay
 
 logger = logging.getLogger(__name__)
+
+# ── Dev user ID (matches _fake_user_id in routers) ──────────────────────
+import uuid as _uuid
+_DEV_USER_ID = _uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 # ── Singletons ────────────────────────────────────────────────────────────
 _relay = OutboxRelay()
@@ -31,6 +35,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Creating database tables (if not present)…")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Seed default dev user so FK constraints are satisfied for stub auth
+    from app.models.user import User
+    from sqlalchemy import select as _sel
+    async with async_session_factory() as session:
+        existing = (await session.execute(
+            _sel(User).where(User.id == _DEV_USER_ID)
+        )).scalar_one_or_none()
+        if existing is None:
+            session.add(User(
+                id=_DEV_USER_ID,
+                email="dev@esapiens.local",
+            ))
+            await session.commit()
+            logger.info("Seeded default dev user %s", _DEV_USER_ID)
 
     logger.info("Starting outbox relay…")
     await _relay.start()
