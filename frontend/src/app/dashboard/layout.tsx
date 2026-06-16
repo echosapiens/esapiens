@@ -43,10 +43,9 @@ export default function DashboardLayout({
       {/* ── Sidebar ─────────────────────────────────────────────────── */}
       <aside
         className={cn(
-          "glass-navy-heavy flex flex-col border-r border-border text-white transition-all duration-200",
+          "flex flex-col bg-navy text-white transition-all duration-200",
           sidebarCollapsed ? "w-16" : "w-64"
         )}
-        style={{ borderRadius: 0 }}
       >
         {/* ── Logo ──────────────────────────────────────────────── */}
         <div className="flex h-16 items-center gap-2 border-b border-navy-700 px-4">
@@ -156,7 +155,7 @@ export default function DashboardLayout({
         {/* ── Collapse toggle ────────────────────────────────────── */}
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="glass-navy flex h-10 items-center justify-center border-t border-navy-700 text-navy-400 hover:text-white"
+          className="flex h-10 items-center justify-center border-t border-navy-700 text-navy-400 hover:bg-navy-700 hover:text-white"
         >
           {sidebarCollapsed ? (
             <ChevronRight className="h-4 w-4" />

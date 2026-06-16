@@ -64,7 +64,7 @@ export default function DashboardPage() {
   return (
     <div className="flex h-full flex-col overflow-auto">
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="glass-heavy flex items-center justify-between border-b border-border px-6 py-4" style={{ borderRadius: 0 }}>
+      <div className="glass-heavy flex items-center justify-between border-b border-border px-6 py-4">
         <div>
           <h1 className="text-2xl font-bold text-navy">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
@@ -81,7 +81,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Quick stats ────────────────────────────────────────────── */}
-      <div className="glass grid grid-cols-3 gap-4 border-b border-border px-6 py-4">
+      <div className="grid grid-cols-3 gap-4 border-b border-border px-6 py-4">
         <StatCard
           label="Active Sessions"
           value={sessions.filter((s) => s.status === "active").length}
@@ -111,7 +111,7 @@ export default function DashboardPage() {
           </div>
         ) : sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="glass mb-4 flex h-16 w-16 items-center justify-center rounded-2xl">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-cream-200">
               <FlaskConical className="h-8 w-8 text-muted-foreground" />
             </div>
             <h3 className="mb-2 text-lg font-medium text-navy">

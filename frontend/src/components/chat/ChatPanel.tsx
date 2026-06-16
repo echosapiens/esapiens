@@ -160,9 +160,9 @@ export function ChatPanel() {
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
-    <div className="flex h-full flex-col glass" style={{ borderRadius: 0 }}>
+    <div className="flex h-full flex-col glass">
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3 glass-heavy" style={{ borderRadius: 0 }}>
+      <div className="flex items-center justify-between border-b border-border px-4 py-3 glass-heavy">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-gold" />
           <h2 className="text-sm font-semibold text-navy">Agent Chat</h2>
@@ -288,7 +288,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       <div
         className={cn(
           "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-          isAgent ? "glass-navy-heavy rounded-full text-white" : "bg-gold text-navy"
+          isAgent ? "bg-navy rounded-full text-white" : "bg-gold text-navy"
         )}
       >
         {isAgent ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}

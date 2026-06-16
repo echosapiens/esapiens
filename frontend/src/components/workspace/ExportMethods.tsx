@@ -115,7 +115,7 @@ export function ExportMethods({ sessionId }: ExportMethodsProps) {
       </div>
 
       {/* ── Methods preview ─────────────────────────────────────────── */}
-      <div className="max-h-96 overflow-auto glass-navy-heavy rounded-lg p-4">
+      <div className="max-h-96 overflow-auto rounded-lg bg-navy-900 p-4">
         <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-cream-100">
           {methodsText || "No pipeline data available yet."}
         </pre>

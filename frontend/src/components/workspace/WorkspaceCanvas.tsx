@@ -58,7 +58,7 @@ export function WorkspaceCanvas({ sessionId }: { sessionId: string }) {
 
 function PipelineTab({ sessionId }: { sessionId: string }) {
   return (
-    <div className="flex h-full flex-col glass">
+    <div className="flex h-full flex-col">
       <PipelineGantt sessionId={sessionId} />
     </div>
   );
@@ -66,7 +66,7 @@ function PipelineTab({ sessionId }: { sessionId: string }) {
 
 function FilesTab({ sessionId }: { sessionId: string }) {
   return (
-    <div className="h-full overflow-auto p-4 glass">
+    <div className="h-full overflow-auto p-4">
       <DataExplorer sessionId={sessionId} />
     </div>
   );
@@ -74,7 +74,7 @@ function FilesTab({ sessionId }: { sessionId: string }) {
 
 function InspectorTab({ sessionId }: { sessionId: string }) {
   return (
-    <div className="flex h-full flex-col gap-4 overflow-auto p-4 glass">
+    <div className="flex h-full flex-col gap-4 overflow-auto p-4">
       <ExportMethods sessionId={sessionId} />
     </div>
   );
