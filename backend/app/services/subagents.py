@@ -397,12 +397,123 @@ try:
         result = await invoke_subagent(SubagentRole.LITERATURE, task, context)
         return result.model_dump_json()
 
+    @_lc_tool
+    async def async_dispatch_agent(
+        task: str,
+        code: str,
+        context: str = "",
+        language: str = "python",
+        timeout: float = 120.0,
+    ) -> str:
+        """Dispatch a long-running code-execution job to Modal in the background.
+
+        This is a NON-BLOCKING dispatch — returns immediately with a job_id.
+        Use this when the user wants to run a heavy computation that would
+        take more than ~30 seconds (deep learning training, large dataset
+        analysis, long simulations).
+
+        The job runs in a Modal sandbox. Progress is reported via WebSocket
+        events (JOB_QUEUED, JOB_STARTED, JOB_COMPLETED). The user can
+        continue chatting while the job runs.
+
+        Args:
+            task: Description of what the code does (for the user's context).
+            code: The Python code to execute.
+            context: Optional prior findings to include in the report.
+            language: 'python', 'r', or 'bash'.
+            timeout: Max execution time in seconds.
+
+        Returns:
+            JSON with the job_id and a message to relay to the user.
+        """
+        # Get the session_id from the Supervisor state. We need to access
+        # the current state — but the tool function is stateless. We rely
+        # on a thread-local or pass session_id via the task string. For
+        # simplicity, the supervisor passes session_id encoded in context.
+        import json as _json
+        import re as _re
+
+        # Extract session_id from context if provided as JSON
+        session_id = None
+        user_id = None
+        m = _re.search(r'"session_id":\s*"([0-9a-f-]+)"', context)
+        if m:
+            session_id = m.group(1)
+        m = _re.search(r'"user_id":\s*"([0-9a-f-]+)"', context)
+        if m:
+            user_id = m.group(1)
+        if not session_id or not user_id:
+            return _json.dumps({
+                "error": "session_id and user_id must be provided in context",
+            })
+        import uuid as _uuid
+        from app.services.async_jobs import get_job_manager
+
+        mgr = get_job_manager()
+        job = await mgr.dispatch(
+            session_id=_uuid.UUID(session_id),
+            user_id=_uuid.UUID(user_id),
+            prompt=task,
+            code=code,
+            language=language,  # type: ignore[arg-type]
+            timeout=timeout,
+        )
+        return _json.dumps({
+            "job_id": job.job_id,
+            "status": job.status.value,
+            "message": f"Job {job.job_id} dispatched. You can continue chatting — I'll send progress updates and synthesize a final report when it completes.",
+        })
+
+    @_lc_tool
+    async def async_status_agent(job_id: str, context: str = "") -> str:
+        """Check the status of a previously-dispatched async job.
+
+        Use this when the user asks "is my job done?" or "what did the
+        job produce?". Returns the current status, progress, and (if
+        complete) the full stdout/stderr.
+
+        Args:
+            job_id: The job_id returned by async_dispatch_agent.
+            context: Optional prior context.
+        """
+        import json as _json
+        import re as _re
+        m = _re.search(r'"session_id":\s*"([0-9a-f-]+)"', context)
+        if not m:
+            return _json.dumps({"error": "session_id required in context"})
+        session_id = m.group(1)
+        from app.services.async_jobs import get_job_manager
+
+        mgr = get_job_manager()
+        job = await mgr.get_job(job_id)
+        if job is None or job.session_id != session_id:
+            return _json.dumps({"error": f"Job {job_id} not found"})
+        result = job.result
+        return _json.dumps({
+            "job_id": job.job_id,
+            "status": job.status.value,
+            "progress": job.progress,
+            "exit_code": result.exit_code if result else None,
+            "stdout": (result.stdout[:3000] if result and result.stdout else ""),
+            "stderr": (result.stderr[:1000] if result and result.stderr else ""),
+            "files_produced": result.files_produced if result else [],
+            "error": result.error if result else None,
+            "duration_seconds": (
+                (datetime.fromisoformat(result.completed_at.replace("Z", "+00:00"))
+                 - datetime.fromisoformat(job.created_at.replace("Z", "+00:00"))
+                ).total_seconds()
+                if result and result.completed_at else None
+            ),
+        })
+
     # The full set of subagent tools the Supervisor can bind
     SUBAGENT_TOOLS = [
         biology_agent,
         math_agent,
         code_agent,
         literature_agent,
+        async_dispatch_agent,
+        async_status_agent,
     ]
 
 except ImportError:
@@ -413,6 +524,8 @@ except ImportError:
     math_agent = None  # type: ignore
     code_agent = None  # type: ignore
     literature_agent = None  # type: ignore
+    async_dispatch_agent = None  # type: ignore
+    async_status_agent = None  # type: ignore
 
 
 # ── Synthesis ────────────────────────────────────────────────────────────

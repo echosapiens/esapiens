@@ -125,14 +125,28 @@ Subagents available to you:
   - biology_agent:   gene function, pathways, genomics, proteomics, experimental design
   - math_agent:      statistical tests, power analysis, Bayesian modeling, effect sizes
   - code_agent:      Python/bash code, pipeline construction, data wrangling, APIs
+                     (BLOCKING — returns when code finishes, may take up to 30s)
   - literature_agent: paper search, citations, evidence summarization
+  - async_dispatch_agent: NON-BLOCKING — dispatches a long-running job to Modal
+                     and returns a job_id immediately. Use for heavy compute
+                     (deep learning training, large dataset analysis, long
+                     simulations) that would take more than 30 seconds.
+                     The user can keep chatting while it runs.
+  - async_status_agent:  Check the status of a previously-dispatched async job.
+                     Returns current progress, and (if complete) full stdout.
 
 Workflow:
   1. REFLECT on the user's question. What do they actually need?
   2. DECIDE: do I have enough context, or should I delegate?
   3. If delegating, call the appropriate subagent tool(s) with a focused task.
-  4. After receiving findings, REFLECT again. Is more info needed?
-  5. When done, synthesize a final answer for the user.
+  4. For LONG-running jobs (>30s), use async_dispatch_agent instead of code_agent.
+     Tell the user the job is running, give them the job_id, and offer to
+     follow up when it's done.
+  5. After receiving findings, REFLECT again. Is more info needed?
+  6. When the user asks "is it done?" or "what's the result?", use
+     async_status_agent with the job_id to fetch the latest state and
+     synthesize a final report from the results.
+  7. When done, synthesize a final answer for the user.
 
 Rules:
   - You may call multiple subagents in parallel if the question spans domains.
@@ -320,6 +334,19 @@ async def _tools_node(state: SupervisorState) -> dict[str, Any]:
         tool_call_id = tc.get("id", f"call_{uuid.uuid4().hex[:8]}")
         task = tool_args.get("task", state.original_prompt)
         context = tool_args.get("context", "")
+
+        # Auto-inject session_id and user_id into the context so async tools
+        # can route the job to the right session. This is appended at the end
+        # in a JSON fragment that the tool's regex can extract.
+        if tool_name in ("async_dispatch_agent", "async_status_agent"):
+            context = (
+                context
+                + (
+                    f"\n\n[Session context: "
+                    f'{{"session_id": "{state.session_id}", "user_id": "{state.user_id}"}}'
+                    f"]"
+                )
+            )
 
         # Map tool name → SubagentRole
         role_map = {

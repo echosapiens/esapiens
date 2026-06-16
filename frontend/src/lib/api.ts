@@ -134,6 +134,29 @@ export interface CodeExecutionResult {
   timestamp: string;
 }
 
+export interface AsyncJobDispatchResponse {
+  job_id: string;
+  status: string;
+  message: string;
+}
+
+export interface JobStatusResponse {
+  job_id: string;
+  session_id: string;
+  prompt: string;
+  code: string;
+  language: string;
+  status: string;
+  progress: number;
+  exit_code: number | null;
+  stdout: string;
+  stderr: string;
+  files_produced: string[];
+  error: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
 export interface GrantRead {
   id: string;
   user_id: string;
@@ -423,4 +446,23 @@ export const api = {
         body: JSON.stringify({ code, language, timeout }),
       }
     ),
+
+  // ── Async job dispatch (chat fires, continues, follows up later) ─
+  dispatchAsyncJob: (
+    sessionId: string,
+    prompt: string,
+    code: string,
+    language: string = "python",
+    timeout: number = 120,
+  ) =>
+    apiFetch<AsyncJobDispatchResponse>(
+      `/sessions/${sessionId}/dispatch-job`,
+      {
+        method: "POST",
+        body: JSON.stringify({ prompt, code, language, timeout }),
+      }
+    ),
+
+  getJobStatus: (sessionId: string, jobId: string) =>
+    apiFetch<JobStatusResponse>(`/sessions/${sessionId}/jobs/${jobId}`),
 };

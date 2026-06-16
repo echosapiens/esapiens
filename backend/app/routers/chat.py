@@ -268,3 +268,130 @@ async def execute_code(
         session_id=session_id,
     )
     return result.model_dump()
+
+
+# ── Async job dispatch (chat agent fires job, continues conversation) ──
+
+
+class AsyncDispatchRequest(BaseModel):
+    """Request to dispatch a long-running code job to Modal.
+
+    The chat agent uses this when the user wants to run a heavy
+    computation. The endpoint returns immediately with a job_id — the
+    job runs in a background task and progress is reported via WebSocket
+    events (JOB_QUEUED, JOB_STARTED, JOB_PROGRESS, JOB_COMPLETED).
+    """
+
+    prompt: str = Field(..., min_length=1, max_length=4096, description="Original user prompt")
+    code: str = Field(..., min_length=1, max_length=100_000)
+    language: str = Field(default="python", pattern="^(python|r|bash)$")
+    timeout: float = Field(default=120.0, ge=5.0, le=600.0)
+
+
+class AsyncDispatchResponse(BaseModel):
+    """Response after dispatching an async job."""
+
+    job_id: str
+    status: str
+    message: str = "Job dispatched. Continue chatting — I'll send progress updates."
+
+
+class JobStatusResponse(BaseModel):
+    """Status of a dispatched async job."""
+
+    job_id: str
+    session_id: str
+    prompt: str
+    code: str
+    language: str
+    status: str
+    progress: int
+    exit_code: int | None = None
+    stdout: str = ""
+    stderr: str = ""
+    files_produced: list[str] = Field(default_factory=list)
+    error: str | None = None
+    created_at: str
+    completed_at: str | None = None
+
+
+@router.post("/{session_id}/dispatch-job", response_model=AsyncDispatchResponse)
+async def dispatch_async_job(
+    session_id: uuid.UUID,
+    body: AsyncDispatchRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[uuid.UUID, Depends(_fake_user_id)],
+) -> AsyncDispatchResponse:
+    """Dispatch a code-execution job to Modal in the background.
+
+    Returns immediately with a job_id. The chat agent can continue
+    serving the user while the job runs. Progress is delivered via
+    WebSocket events on the session channel. When the job completes,
+    the agent can synthesize a final report from the results.
+    """
+    session = await db.get(ResearchSession, session_id)
+    if session is None or session.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+
+    from app.services.async_jobs import get_job_manager
+
+    mgr = get_job_manager()
+    job = await mgr.dispatch(
+        session_id=session_id,
+        user_id=user_id,
+        prompt=body.prompt,
+        code=body.code,
+        language=body.language,
+        timeout=body.timeout,
+    )
+    return AsyncDispatchResponse(
+        job_id=job.job_id,
+        status=job.status.value,
+    )
+
+
+@router.get("/{session_id}/jobs/{job_id}", response_model=JobStatusResponse)
+async def get_job_status(
+    session_id: uuid.UUID,
+    job_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[uuid.UUID, Depends(_fake_user_id)],
+) -> JobStatusResponse:
+    """Get the current status of an async job (for polling or final-report synthesis)."""
+    session = await db.get(ResearchSession, session_id)
+    if session is None or session.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+
+    from app.services.async_jobs import get_job_manager
+
+    mgr = get_job_manager()
+    job = await mgr.get_job(job_id)
+    if job is None or job.session_id != str(session_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found",
+        )
+
+    result = job.result
+    return JobStatusResponse(
+        job_id=job.job_id,
+        session_id=job.session_id,
+        prompt=job.prompt,
+        code=job.code,
+        language=job.language,
+        status=job.status.value,
+        progress=job.progress,
+        exit_code=result.exit_code if result else None,
+        stdout=result.stdout if result else "",
+        stderr=result.stderr if result else "",
+        files_produced=result.files_produced if result else [],
+        error=result.error if result else None,
+        created_at=job.created_at,
+        completed_at=result.completed_at if result else None,
+    )

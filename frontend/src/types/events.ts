@@ -33,6 +33,37 @@ export interface RunStatusChanged {
   exit_code?: number | null;
 }
 
+export interface JobQueued {
+  event_type: "JOB_QUEUED";
+  job_id: string;
+  prompt: string;
+  code_preview: string;
+}
+
+export interface JobStarted {
+  event_type: "JOB_STARTED";
+  job_id: string;
+}
+
+export interface JobCompleted {
+  event_type: "JOB_COMPLETED";
+  job_id: string;
+  status: string;
+  exit_code: number | null;
+  stdout: string;
+  stderr: string;
+  files_produced: string[];
+  error: string | null;
+  duration_seconds: number;
+  sandbox_id: string | null;
+}
+
+export interface JobFailed {
+  event_type: "JOB_FAILED";
+  job_id: string;
+  error: string;
+}
+
 export interface MetricsUpdated {
   event_type: "METRICS_UPDATED";
   session_id: string;
@@ -53,6 +84,10 @@ export type ServerEvent =
   | RunStepLog
   | RunProgress
   | RunStatusChanged
+  | JobQueued
+  | JobStarted
+  | JobCompleted
+  | JobFailed
   | MetricsUpdated
   | PipelineStatusChanged;
 
