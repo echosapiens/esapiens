@@ -14,6 +14,8 @@ from app.database import get_db
 from app.models.session import ResearchSession
 from app.models.pipeline import Pipeline
 from app.services.agent import AgentService
+from app.services.subagents import SubagentResult
+from app.services.supervisor import SupervisorService
 
 router = APIRouter(prefix="/sessions", tags=["chat"])
 
@@ -139,4 +141,87 @@ async def chat_with_agent(
         estimated_cost=estimated_cost,
         status=pipeline.status,
         message=f"Generated {len(steps)} step(s): {plan.title if plan else pipeline.name}",
+    )
+
+
+# ── Supervisor endpoint (multi-agent hub-and-spoke) ─────────────────────
+
+
+class SupervisorChatRequest(BaseModel):
+    """User prompt for the Supervisor multi-agent system."""
+
+    prompt: str = Field(..., min_length=1, max_length=4096)
+    grant_id: uuid.UUID | None = None
+
+
+class SubagentSummary(BaseModel):
+    """Summary of a single subagent's contribution."""
+
+    role: str
+    task: str
+    findings: str
+    confidence: float
+    structured_data: dict = Field(default_factory=dict)
+    citations: list[str] = Field(default_factory=list)
+
+
+class SupervisorChatResponse(BaseModel):
+    """Response from the Supervisor multi-agent system."""
+
+    answer: str = Field(..., description="Synthesized final answer")
+    subagent_results: list[SubagentSummary] = Field(default_factory=list)
+    iterations: int = 0
+    phase: str = "done"
+
+
+@router.post("/{session_id}/chat/supervisor", response_model=SupervisorChatResponse)
+async def chat_with_supervisor(
+    session_id: uuid.UUID,
+    body: SupervisorChatRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[uuid.UUID, Depends(_fake_user_id)],
+) -> SupervisorChatResponse:
+    """Send a prompt to the Supervisor multi-agent system.
+
+    The Supervisor reflects on the question and delegates to specialized
+    subagents (biology, math, code, literature) as needed. Workers do not
+    communicate with each other — the Supervisor is the sole coordinator.
+    """
+    # Verify session exists
+    session = await db.get(ResearchSession, session_id)
+    if session is None or session.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+
+    svc = SupervisorService()
+    try:
+        final_state = await svc.run(
+            prompt=body.prompt,
+            session_id=session_id,
+            user_id=user_id,
+            grant_id=body.grant_id,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Supervisor failed: {exc}",
+        )
+
+    return SupervisorChatResponse(
+        answer=final_state.final_answer or "I could not generate a response.",
+        subagent_results=[
+            SubagentSummary(
+                role=r.role.value,
+                task=r.task,
+                findings=r.findings,
+                confidence=r.confidence,
+                structured_data=r.structured_data,
+                citations=r.citations,
+            )
+            for r in final_state.subagent_results
+        ],
+        iterations=final_state.iteration,
+        phase=final_state.phase.value,
     )
