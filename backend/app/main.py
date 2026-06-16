@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import engine, Base, async_session_factory
+from sqlalchemy import text as _text
 from app.middleware.redaction import SequenceHeaderRedactionMiddleware
 from app.services.reconciler import Reconciler
 from app.workers.outbox_relay import OutboxRelay
@@ -35,6 +36,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Creating database tables (if not present)…")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Backfill seq_id for existing events and set the sequence start value.
+    # Needed because seq_id was previously autoincrement (only works on PK)
+    # which left existing rows with NULL, violating the NOT NULL constraint.
+    async with engine.begin() as conn:
+        # Set seq_id = id for any rows that still have NULL seq_id
+        result = await conn.execute(
+            _text("UPDATE events SET seq_id = id WHERE seq_id IS NULL")
+        )
+        if result.rowcount > 0:
+            logger.info("Backfilled %d event seq_id values", result.rowcount)
+
+        # Set the sequence start above the current max seq_id
+        max_seq = await conn.execute(_text("SELECT COALESCE(MAX(seq_id), 0) FROM events"))
+        max_val = max_seq.scalar() or 0
+        await conn.execute(
+            _text(f"ALTER SEQUENCE event_seq RESTART WITH {max_val + 1}")
+        )
+        logger.info("Event sequence restart at %d", max_val + 1)
 
     # Seed default dev user so FK constraints are satisfied for stub auth
     from app.models.user import User

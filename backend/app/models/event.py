@@ -5,12 +5,22 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, String, ForeignKey
+from sqlalchemy import BigInteger, DateTime, String, ForeignKey, Sequence, Select
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import Base
+from app.database import Base, async_session_factory
 
+# Global monotonic sequence for event ordering across all sessions.
+# PostgreSQL SEQUENCE guarantees uniqueness even under concurrent inserts.
+event_seq = Sequence("event_seq", metadata=Base.metadata)
+
+async def next_seq_id(db: AsyncSession) -> int:
+    """Generate the next seq_id from the PostgreSQL sequence."""
+    result = await db.execute(Select(event_seq.next_value()))
+    return result.scalar_one()
 
 class Event(Base):
     __tablename__ = "events"
@@ -27,7 +37,7 @@ class Event(Base):
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
     seq_id: Mapped[int] = mapped_column(
-        BigInteger, nullable=False, autoincrement=True, unique=True
+        BigInteger, nullable=False, unique=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(

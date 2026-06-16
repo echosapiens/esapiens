@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session_factory
-from app.models.event import Event
+from app.models.event import Event, next_seq_id
 from app.models.outbox import Outbox
 from app.schemas.event import (
     AgentPlanGenerated,
@@ -120,11 +120,15 @@ class EventEngine:
         db = await self._get_db()
 
         try:
+            # ── Generate seq_id from PostgreSQL sequence ──────────────
+            seq_id_value = await next_seq_id(db)
+
             # ── Create the Event record ─────────────────────────────
             event = Event(
                 session_id=session_id,
                 event_type=event_type,
                 payload=payload,
+                seq_id=seq_id_value,
             )
             db.add(event)
             await db.flush()  # Generate event.id and event.seq_id
@@ -385,10 +389,12 @@ class EventEngine:
             created_events: list[Event] = []
 
             for session_id, event_type, payload in events:
+                seq_id_value = await next_seq_id(db)
                 event = Event(
                     session_id=session_id,
                     event_type=event_type,
                     payload=payload,
+                    seq_id=seq_id_value,
                 )
                 db.add(event)
                 await db.flush()  # Generate id and seq_id
