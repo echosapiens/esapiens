@@ -52,7 +52,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         )
         if result.rowcount > 0:
             logger.info("Backfilled %d event seq_id values", result.rowcount)
-
         # Set the sequence start above the current max seq_id
         max_seq = await conn.execute(_text("SELECT COALESCE(MAX(seq_id), 0) FROM events"))
         max_val = max_seq.scalar() or 0
@@ -60,6 +59,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             _text(f"ALTER SEQUENCE event_seq RESTART WITH {max_val + 1}")
         )
         logger.info("Event sequence restart at %d", max_val + 1)
+
+    # Add progress column to runs table (idempotent — IF NOT EXISTS)
+    async with engine.begin() as conn:
+        await conn.execute(
+            _text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS progress INTEGER NOT NULL DEFAULT 0")
+        )
+        logger.info("Runs.progress column ensured")
 
     # Seed default dev user so FK constraints are satisfied for stub auth
     from app.models.user import User

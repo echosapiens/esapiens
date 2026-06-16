@@ -95,6 +95,29 @@ export interface RunLogChunk {
   text: string;
 }
 
+export interface JobSummary {
+  run_id: string;
+  pipeline_id: string;
+  pipeline_name: string;
+  session_id: string;
+  session_title: string;
+  step_name: string;
+  container_ref: string | null;
+  status: string;
+  progress: number;
+  exit_code: number | null;
+  modal_sandbox_id: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface JobsListResponse {
+  active: JobSummary[];
+  recent: JobSummary[];
+  total_active: number;
+}
+
 export interface GrantRead {
   id: string;
   user_id: string;
@@ -301,6 +324,10 @@ export const api = {
 
   cancelRun: (runId: string) =>
     apiFetch<RunRead>(`/runs/${runId}/cancel`, { method: "POST" }),
+
+  // ── Job Monitor ─────────────────────────────────────────────────
+  listJobs: (activeOnly = false) =>
+    apiFetch<JobsListResponse>(`/jobs${activeOnly ? "?active_only=true" : ""}`),
 
   getRunLogs: (runId: string, stream: string = "stdout") =>
     apiFetch<RunLogChunk[]>(

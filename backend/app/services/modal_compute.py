@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 REDIS_RUN_CHANNEL_PREFIX = "esapiens:run:logs:"
 REDIS_RUN_EVENT_PREFIX = "esapiens:run:events:"
+REDIS_RUN_PROGRESS_PREFIX = "esapiens:run:progress:"
 
 
 class ModalComputeService:
@@ -246,17 +247,25 @@ class ModalComputeService:
         """Stream stdout/stderr from a Modal sandbox to Redis Pub/Sub.
 
         Reads log lines from the sandbox and publishes them to the
-        run-specific Redis channel for real-time UI delivery.
+        run-specific Redis channel for real-time UI delivery. Also
+        estimates progress based on log volume and publishes progress
+        updates to the progress channel.
         """
         redis = await self._get_redis()
         channel = f"{REDIS_RUN_CHANNEL_PREFIX}{run_id}"
         event_channel = f"{REDIS_RUN_EVENT_PREFIX}{run_id}"
+        progress_channel = f"{REDIS_RUN_PROGRESS_PREFIX}{run_id}"
+
+        # Mark run as started and set initial progress
+        await self._update_run_progress(run_id, 5)
+        await self._publish_progress(redis, progress_channel, run_id, 5)
 
         try:
             import modal
 
             # Stream stdout
             stdout_lines = []
+            line_count = 0
             async for line in sandbox.stdout:
                 log_entry = json.dumps({
                     "run_id": str(run_id),
@@ -266,6 +275,12 @@ class ModalComputeService:
                 })
                 await redis.publish(channel, log_entry)
                 stdout_lines.append(line)
+                line_count += 1
+                # Estimate progress from log volume (logarithmic, caps at 90)
+                estimated = min(90, 5 + int(20 * (1 - 1 / (1 + line_count / 50))))
+                if estimated > 5 and estimated % 5 == 0:
+                    await self._update_run_progress(run_id, estimated)
+                    await self._publish_progress(redis, progress_channel, run_id, estimated)
 
             # Stream stderr
             stderr_lines = []
@@ -291,6 +306,11 @@ class ModalComputeService:
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             })
             await redis.publish(event_channel, completion_event)
+
+            # ── Final progress ───────────────────────────────────
+            final_progress = 100 if exit_code == 0 else 95
+            await self._update_run_progress(run_id, final_progress)
+            await self._publish_progress(redis, progress_channel, run_id, final_progress)
 
             # ── Update Run record in DB ──────────────────────────
             await self._update_run_completion(
@@ -417,3 +437,42 @@ class ModalComputeService:
             except Exception as exc:
                 logger.warning("Failed to mark run %s as failed: %s", run_id, exc)
                 await db.rollback()
+
+    async def _update_run_progress(
+        self,
+        run_id: uuid.UUID,
+        progress: int,
+    ) -> None:
+        """Update the Run model's progress field (0-100)."""
+        progress = max(0, min(100, progress))
+        async with async_session_factory() as db:
+            try:
+                run = await db.get(Run, run_id)
+                if run is not None:
+                    run.progress = progress
+                    if progress == 100:
+                        run.status = "completed"
+                    await db.commit()
+            except Exception as exc:
+                logger.warning("Failed to update progress for run %s: %s", run_id, exc)
+                await db.rollback()
+
+    async def _publish_progress(
+        self,
+        redis: Any,
+        channel: str,
+        run_id: uuid.UUID,
+        progress: int,
+    ) -> None:
+        """Publish a progress update to the Redis progress channel."""
+        try:
+            await redis.publish(
+                channel,
+                json.dumps({
+                    "run_id": str(run_id),
+                    "progress": progress,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }),
+            )
+        except Exception as exc:
+            logger.debug("Progress publish failed for run %s: %s", run_id, exc)

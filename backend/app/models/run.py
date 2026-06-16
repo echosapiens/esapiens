@@ -33,6 +33,10 @@ class Run(Base):
     )
     exit_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
     modal_sandbox_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    progress: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0,
+        doc="Progress percentage 0-100, updated by Modal sandbox callbacks"
+    )
 
     started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

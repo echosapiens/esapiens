@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   LogOut,
   Settings,
+  Activity,
 } from "lucide-react";
 
 // ── Dashboard layout with sidebar ───────────────────────────────────────
@@ -67,6 +68,19 @@ export default function DashboardLayout({
             >
               <LayoutDashboard className="h-4 w-4 shrink-0" />
               {!sidebarCollapsed && "Dashboard"}
+            </Link>
+          </div>
+
+          <div className="px-3 mb-2">
+            <Link
+              href="/dashboard/jobs"
+              className={cn(
+                "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                "hover:bg-navy-700 text-navy-200 hover:text-white"
+              )}
+            >
+              <Activity className="h-4 w-4 shrink-0" />
+              {!sidebarCollapsed && "Job Monitor"}
             </Link>
           </div>
 
