@@ -4,8 +4,6 @@ All settings are read from environment variables with sensible defaults.
 """
 from __future__ import annotations
 
-from typing import List
-
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -38,14 +36,16 @@ class Settings(BaseSettings):
     MODAL_TIMEOUT: int = 600
 
     # ── CORS ─────────────────────────────────────────────────────────
-    CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-    ]
+    # Declared as str so pydantic-settings never tries json.loads() on the
+    # env var.  The validator below converts comma-separated strings → list.
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
-    def _parse_cors_origins(cls, v: object) -> object:
+    def _parse_cors_origins(cls, v: object) -> list[str]:
+        if isinstance(v, list):
+            # Already a list (e.g. from default or previous parse) – flatten
+            return v
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
