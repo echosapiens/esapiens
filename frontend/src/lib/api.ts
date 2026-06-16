@@ -119,6 +119,21 @@ export interface JobsListResponse {
   total_active: number;
 }
 
+export interface CodeExecutionResult {
+  execution_id: string;
+  language: string;
+  exit_code: number;
+  stdout: string;
+  stderr: string;
+  return_value?: string | null;
+  files_produced: string[];
+  duration_seconds: number;
+  sandbox_id?: string | null;
+  timed_out: boolean;
+  error?: string | null;
+  timestamp: string;
+}
+
 export interface GrantRead {
   id: string;
   user_id: string;
@@ -396,6 +411,16 @@ export const api = {
       {
         method: "POST",
         body: JSON.stringify(data),
+      }
+    ),
+
+  // ── Live code execution (real Modal sandbox) ─────────────────────
+  executeCode: (sessionId: string, code: string, language: string = "python", timeout: number = 30) =>
+    apiFetch<CodeExecutionResult>(
+      `/sessions/${sessionId}/execute`,
+      {
+        method: "POST",
+        body: JSON.stringify({ code, language, timeout }),
       }
     ),
 };

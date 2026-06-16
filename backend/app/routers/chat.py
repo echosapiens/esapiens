@@ -225,3 +225,46 @@ async def chat_with_supervisor(
         iterations=final_state.iteration,
         phase=final_state.phase.value,
     )
+
+
+# ── Direct code execution (live Modal sandbox) ─────────────────────────
+
+
+class CodeExecutionRequest(BaseModel):
+    """Direct code execution request — no LLM in the loop."""
+
+    code: str = Field(..., min_length=1, max_length=100_000)
+    language: str = Field(default="python", pattern="^(python|r|bash)$")
+    timeout: float = Field(default=30.0, ge=1.0, le=300.0)
+
+
+@router.post("/{session_id}/execute", response_model=dict)
+async def execute_code(
+    session_id: uuid.UUID,
+    body: CodeExecutionRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[uuid.UUID, Depends(_fake_user_id)],
+) -> dict:
+    """Execute code in a real Modal sandbox.
+
+    Returns the actual stdout, stderr, exit code, files produced, and
+    execution duration. This is a real execution environment — not a
+    prediction.
+    """
+    session = await db.get(ResearchSession, session_id)
+    if session is None or session.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+
+    from app.services.code_sandbox import get_code_sandbox
+
+    sandbox = get_code_sandbox()
+    result = await sandbox.execute(
+        code=body.code,
+        language=body.language,  # type: ignore[arg-type]
+        timeout=body.timeout,
+        session_id=session_id,
+    )
+    return result.model_dump()

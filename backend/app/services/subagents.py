@@ -6,7 +6,9 @@ communicate with each other — they only report back to the Supervisor.
 Available subagents:
   - biology: genomics, proteomics, literature interpretation
   - math:    statistical tests, Bayesian modeling, effect sizes
-  - code:    Python scripting, pipeline construction, data wrangling
+  - code:    Python scripting, pipeline construction, data wrangling.
+             The code subagent actually EXECUTES code in a Modal Sandbox
+             and returns real output (not predicted output).
   - literature: paper search, citation extraction, summarization
 
 Each subagent is a thin wrapper around an LLM call with a specialized
@@ -202,6 +204,64 @@ async def invoke_subagent(
         # Ensure role matches what we asked for (LLM may not set it correctly)
         result.role = role
         result.task = task
+
+        # ── For the code subagent: actually EXECUTE the code ─────
+        # This is a real Modal sandbox execution — returns stdout, stderr,
+        # files produced. The LLM's predicted output is REPLACED with the
+        # real execution result, so the user sees actual data, not hallucinated.
+        if role == SubagentRole.CODE and result.structured_data.get("code"):
+            try:
+                from app.services.code_sandbox import get_code_sandbox
+
+                sandbox = get_code_sandbox()
+                exec_result = await sandbox.execute(
+                    code=result.structured_data["code"],
+                    language=result.structured_data.get("language", "python"),
+                    timeout=min(60.0, timeout + 30),
+                )
+
+                # Override the LLM's predicted output with real execution results
+                if exec_result.error:
+                    result.findings = (
+                        f"Code execution failed: {exec_result.error}\n"
+                        f"Generated code:\n```python\n{result.structured_data.get('code', '')}\n```"
+                    )
+                    result.confidence = 0.0
+                else:
+                    output_summary = (exec_result.stdout or "").strip()
+                    if len(output_summary) > 2000:
+                        output_summary = output_summary[:2000] + "\n... (truncated)"
+
+                    result.findings = (
+                        f"Executed in Modal sandbox (exit_code={exec_result.exit_code}, "
+                        f"{exec_result.duration_seconds:.2f}s):\n\n"
+                        f"```\n{output_summary}\n```"
+                    )
+                    if exec_result.stderr.strip():
+                        result.findings += f"\n\nStderr:\n```\n{exec_result.stderr.strip()[:500]}\n```"
+                    if exec_result.files_produced:
+                        result.findings += (
+                            f"\n\nFiles produced: {', '.join(exec_result.files_produced)}"
+                        )
+                    # Augment structured_data with real execution results
+                    result.structured_data["execution"] = {
+                        "exit_code": exec_result.exit_code,
+                        "duration_seconds": exec_result.duration_seconds,
+                        "sandbox_id": exec_result.sandbox_id,
+                        "files_produced": exec_result.files_produced,
+                        "timed_out": exec_result.timed_out,
+                        "stderr": exec_result.stderr[:1000] if exec_result.stderr else "",
+                    }
+                    # Higher confidence since the code actually ran
+                    result.confidence = min(1.0, result.confidence + 0.1)
+            except Exception as exc:
+                logger.warning("Code execution failed in subagent: %s", exc)
+                result.findings = (
+                    f"Code execution sandbox unavailable: {exc}\n"
+                    f"Generated code (unexecuted):\n```python\n{result.structured_data.get('code', '')}\n```"
+                )
+                result.confidence = max(0.0, result.confidence - 0.3)
+
         logger.info(
             "Subagent %s completed task '%s' (confidence=%.2f)",
             role.value,
