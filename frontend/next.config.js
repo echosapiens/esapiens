@@ -12,6 +12,10 @@ const nextConfig = {
       },
     ];
   },
+  // Allow long-running API requests (LLM planning can take 60+ seconds)
+  experimental: {
+    proxyTimeout: 120000,
+  },
 };
 
 module.exports = nextConfig;

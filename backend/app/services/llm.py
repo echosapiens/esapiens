@@ -41,7 +41,7 @@ def get_llm() -> ChatOpenAI | None:
         openai_api_key=settings.OPENROUTER_API_KEY,
         openai_api_base=settings.OPENROUTER_BASE_URL,
         temperature=0.2,
-        max_tokens=4096,
+        max_tokens=16384,
         default_headers={
             "HTTP-Referer": "https://esapiens.io",
             "X-Title": "E.sapiens",
