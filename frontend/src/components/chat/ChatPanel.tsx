@@ -160,9 +160,9 @@ export function ChatPanel() {
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
-    <div className="flex h-full flex-col bg-cream">
+    <div className="flex h-full flex-col glass" style={{ borderRadius: 0 }}>
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3 glass-heavy" style={{ borderRadius: 0 }}>
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-gold" />
           <h2 className="text-sm font-semibold text-navy">Agent Chat</h2>
@@ -188,7 +188,7 @@ export function ChatPanel() {
 
       {/* ── Approval buttons (when plan is pending) ────────────────── */}
       {agentState.approval_status === "pending" && (
-        <div className="border-t border-border bg-cream-200 px-4 py-3">
+        <div className="border-t border-border glass-heavy px-4 py-3">
           <p className="mb-2 text-xs font-medium text-navy">
             Pipeline plan awaiting your approval:
           </p>
@@ -212,7 +212,7 @@ export function ChatPanel() {
       )}
 
       {/* ── Input bar ──────────────────────────────────────────────── */}
-      <div className="border-t border-border px-4 py-3">
+      <div className="border-t border-border glass-heavy px-4 py-3">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -273,7 +273,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
   if (message.role === "system") {
     return (
-      <div className="rounded-md border border-gold/20 bg-gold/5 px-3 py-2 text-xs text-navy-700">
+      <div className="glass rounded-xl border border-gold/20 px-3 py-2 text-xs text-navy-700">
         {message.content}
       </div>
     );
@@ -288,7 +288,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       <div
         className={cn(
           "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-          isAgent ? "bg-navy text-white" : "bg-gold text-navy"
+          isAgent ? "glass-navy-heavy rounded-full text-white" : "bg-gold text-navy"
         )}
       >
         {isAgent ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}
@@ -297,7 +297,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         className={cn(
           "max-w-[80%] rounded-lg px-3 py-2 text-sm",
           isAgent
-            ? "bg-white border border-border text-navy"
+            ? "glass rounded-xl text-navy"
             : "bg-navy text-white"
         )}
       >

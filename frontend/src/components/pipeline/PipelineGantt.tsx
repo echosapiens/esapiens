@@ -166,7 +166,7 @@ function StepRow({
     <div>
       <button
         onClick={onToggle}
-        className="flex w-full items-center gap-3 rounded-md border border-border bg-white px-3 py-2 text-left hover:bg-cream-200 transition-colors"
+        className="flex w-full items-center gap-3 glass rounded-lg px-3 py-2 text-left hover:shadow-md transition-all"
       >
         {isExpanded ? (
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -190,7 +190,7 @@ function StepRow({
         <span className="text-xs text-muted-foreground">{progress}%</span>
       </button>
       {isExpanded && (
-        <div className="ml-8 mt-1 space-y-1 rounded-md border border-border bg-white p-3 text-xs">
+        <div className="ml-8 mt-1 space-y-1 glass rounded-lg p-3 text-xs">
           <div>
             <span className="font-medium text-navy">Image: </span>
             <span className="font-mono text-muted-foreground">

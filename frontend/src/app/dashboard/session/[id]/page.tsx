@@ -30,8 +30,8 @@ export default function SessionDetailPage() {
   // ── Loading state ────────────────────────────────────────────────
   if (isLoading && !session) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
+      <div className="flex h-full items-center justify-center glass">
+        <div className="flex flex-col items-center gap-3 glass-heavy rounded-xl p-8">
           <Loader2 className="h-8 w-8 animate-spin text-gold" />
           <p className="text-sm text-muted-foreground">Loading session...</p>
         </div>
@@ -42,8 +42,8 @@ export default function SessionDetailPage() {
   // ── Error state ──────────────────────────────────────────────────
   if (error && !session) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-center">
+      <div className="flex h-full items-center justify-center glass">
+        <div className="flex flex-col items-center gap-3 text-center glass-heavy rounded-xl p-8">
           <AlertCircle className="h-8 w-8 text-red-500" />
           <p className="text-sm text-red-600">{error}</p>
           <button
@@ -60,7 +60,7 @@ export default function SessionDetailPage() {
   return (
     <div className="flex h-full flex-col">
       {/* ── Session header ─────────────────────────────────────────── */}
-      <div className="flex items-center justify-between border-b border-border bg-white px-4 py-2">
+      <div className="flex items-center justify-between border-b border-border glass-heavy px-4 py-2" style={{ borderRadius: 0 }}>
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold text-navy">
             {session?.title ?? "Session"}

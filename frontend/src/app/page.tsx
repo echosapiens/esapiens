@@ -55,7 +55,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-cream">
       {/* ── Navigation ──────────────────────────────────────────── */}
-      <nav className="sticky top-0 z-50 border-b border-border bg-cream/95 backdrop-blur-sm">
+      <nav className="sticky top-0 z-50 border-b border-border glass-heavy" style={{ borderRadius: 0 }}>
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-2">
             <FlaskConical className="h-7 w-7 text-gold" />
@@ -76,13 +76,13 @@ export default function HomePage() {
       </nav>
 
       {/* ── Hero ────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-navy py-24 text-white">
+      <section className="relative overflow-hidden glass-navy-heavy py-24 text-white">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute left-1/4 top-1/4 h-96 w-96 rounded-full bg-gold blur-3xl" />
           <div className="absolute right-1/4 bottom-1/4 h-64 w-64 rounded-full bg-blue-500 blur-3xl" />
         </div>
         <div className="relative mx-auto max-w-4xl px-6 text-center">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-gold/30 bg-navy-800 px-4 py-1.5 text-sm text-gold">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-gold/30 glass-navy px-4 py-1.5 text-sm text-gold">
             <FlaskConical className="h-4 w-4" />
             Academic Bioinformatics IDE
           </div>
@@ -128,7 +128,7 @@ export default function HomePage() {
           {features.map((feature) => (
             <div
               key={feature.title}
-              className="card group p-6 transition-shadow hover:shadow-md"
+              className="glass group p-6 rounded-xl transition-all hover:shadow-lg hover:-translate-y-0.5"
             >
               <feature.icon className="mb-4 h-8 w-8 text-gold" />
               <h3 className="mb-2 text-lg font-semibold text-navy">
@@ -143,7 +143,7 @@ export default function HomePage() {
       </section>
 
       {/* ── CTA ──────────────────────────────────────────────────── */}
-      <section className="border-t border-border bg-navy py-20 text-white">
+      <section className="border-t border-border glass-navy-heavy py-20 text-white">
         <div className="mx-auto max-w-3xl px-6 text-center">
           <h2 className="mb-4 text-3xl font-bold">
             Ready to make your analyses reproducible?
@@ -163,7 +163,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Footer ───────────────────────────────────────────────── */}
-      <footer className="border-t border-border bg-cream-200 py-8">
+      <footer className="border-t border-border glass-heavy py-8">
         <div className="mx-auto max-w-7xl px-6 text-center text-sm text-muted-foreground">
           © {new Date().getFullYear()} E.sapiens — Reproducible
           bioinformatics for academic research

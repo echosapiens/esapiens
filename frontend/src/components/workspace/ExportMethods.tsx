@@ -59,7 +59,7 @@ export function ExportMethods({ sessionId }: ExportMethodsProps) {
   }, [methodsText, activePipeline?.name]);
 
   return (
-    <div className="card p-4">
+    <div className="glass rounded-xl p-4">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5 text-gold" />
@@ -115,7 +115,7 @@ export function ExportMethods({ sessionId }: ExportMethodsProps) {
       </div>
 
       {/* ── Methods preview ─────────────────────────────────────────── */}
-      <div className="max-h-96 overflow-auto rounded-md border border-border bg-navy-900 p-4">
+      <div className="max-h-96 overflow-auto glass-navy-heavy rounded-lg p-4">
         <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-cream-100">
           {methodsText || "No pipeline data available yet."}
         </pre>

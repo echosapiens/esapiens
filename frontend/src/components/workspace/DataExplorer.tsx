@@ -104,7 +104,7 @@ export function DataExplorer({ sessionId }: DataExplorerProps) {
       </div>
 
       {/* ── Tree view ──────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-auto rounded-md border border-border bg-white">
+      <div className="flex-1 overflow-auto glass rounded-xl">
         <div className="p-2">
           {MOCK_FILE_TREE.map((node) => (
             <FileTreeNode
@@ -231,7 +231,7 @@ function FileDetails({ path }: { path: string }) {
   }
 
   return (
-    <div className="mt-3 rounded-md border border-border bg-white p-3">
+    <div className="mt-3 glass rounded-xl p-3">
       <div className="mb-2 flex items-center justify-between">
         <h4 className="text-sm font-medium text-navy">{node.name}</h4>
         <button className="btn-ghost inline-flex items-center gap-1 text-xs">

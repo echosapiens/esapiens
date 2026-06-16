@@ -70,7 +70,7 @@ export function ParameterEditor({ step, pipelineId }: ParameterEditorProps) {
   }, [pipelineId]);
 
   return (
-    <div className="card p-4">
+    <div className="glass rounded-xl p-4">
       <div className="mb-3 flex items-center justify-between">
         <div>
           <h4 className="text-sm font-semibold text-navy">
@@ -121,7 +121,7 @@ export function ParameterEditor({ step, pipelineId }: ParameterEditorProps) {
                 "flex items-center gap-2 rounded px-2 py-1 text-sm",
                 isChanged
                   ? "bg-gold/10 border border-gold/30"
-                  : "bg-cream-100"
+                  : "glass rounded-lg"
               )}
             >
               {isEditing ? (
@@ -165,7 +165,7 @@ export function ParameterEditor({ step, pipelineId }: ParameterEditorProps) {
 
       {/* ── Diff summary ───────────────────────────────────────────── */}
       {hasChanges && (
-        <div className="mt-3 rounded border border-gold/30 bg-gold/5 px-3 py-2 text-xs text-navy">
+        <div className="mt-3 glass rounded-lg border border-gold/30 px-3 py-2 text-xs text-navy">
           <span className="font-medium">
             {changedIndices.size} parameter{changedIndices.size !== 1 ? "s" : ""} modified
           </span>

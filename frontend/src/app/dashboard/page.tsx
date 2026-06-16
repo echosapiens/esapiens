@@ -64,7 +64,7 @@ export default function DashboardPage() {
   return (
     <div className="flex h-full flex-col overflow-auto">
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between border-b border-border bg-white px-6 py-4">
+      <div className="glass-heavy flex items-center justify-between border-b border-border px-6 py-4" style={{ borderRadius: 0 }}>
         <div>
           <h1 className="text-2xl font-bold text-navy">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
@@ -81,7 +81,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Quick stats ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-4 border-b border-border bg-cream-100 px-6 py-4">
+      <div className="glass grid grid-cols-3 gap-4 border-b border-border px-6 py-4">
         <StatCard
           label="Active Sessions"
           value={sessions.filter((s) => s.status === "active").length}
@@ -111,7 +111,9 @@ export default function DashboardPage() {
           </div>
         ) : sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <FlaskConical className="mb-4 h-12 w-12 text-muted-foreground" />
+            <div className="glass mb-4 flex h-16 w-16 items-center justify-center rounded-2xl">
+              <FlaskConical className="h-8 w-8 text-muted-foreground" />
+            </div>
             <h3 className="mb-2 text-lg font-medium text-navy">
               No sessions yet
             </h3>
@@ -137,8 +139,8 @@ export default function DashboardPage() {
 
       {/* ── New session modal ───────────────────────────────────────── */}
       {isNewSessionModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="card w-full max-w-md p-6">
+        <div className="glass-modal-backdrop fixed inset-0 z-50 flex items-center justify-center">
+          <div className="glass-heavy w-full max-w-md p-6 rounded-2xl">
             <h3 className="mb-4 text-lg font-semibold text-navy">
               Create New Session
             </h3>
@@ -190,7 +192,7 @@ function StatCard({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="card flex items-center gap-3 px-4 py-3">
+    <div className="glass flex items-center gap-3 px-4 py-3 rounded-xl">
       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cream-200">
         {icon}
       </div>
@@ -215,7 +217,7 @@ function SessionCard({ session }: { session: SessionRead }) {
   });
 
   return (
-    <div className="card group flex flex-col justify-between p-5 transition-shadow hover:shadow-md">
+    <div className="glass group flex flex-col justify-between p-5 rounded-xl transition-all hover:shadow-lg hover:-translate-y-0.5">
       <div>
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-base font-semibold text-navy truncate">
