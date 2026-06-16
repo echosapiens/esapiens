@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type SessionRead } from "@/lib/api";
 import { cn, formatRelativeDate, statusColorClass } from "@/lib/utils";
+import { DashboardSkeleton } from "@/components/ui/Skeleton";
+import { toast } from "@/store/toastStore";
 import {
   Plus,
   GitBranch,
@@ -44,6 +46,10 @@ export default function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
       setIsNewSessionModalOpen(false);
       setNewSessionTitle("");
+      toast.success("Session created", "Ready to start planning pipelines");
+    },
+    onError: (err) => {
+      toast.error("Failed to create session", err instanceof Error ? err.message : String(err));
     },
   });
 
@@ -52,6 +58,7 @@ export default function DashboardPage() {
     mutationFn: (id: string) => api.deleteSession(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      toast.info("Session deleted");
     },
   });
 
@@ -63,6 +70,10 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-full flex-col overflow-auto">
+      {sessionsLoading ? (
+        <DashboardSkeleton />
+      ) : (
+        <>
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="glass-heavy flex items-center justify-between border-b border-border px-6 py-4">
         <div>
@@ -105,11 +116,7 @@ export default function DashboardPage() {
           <h2 className="text-lg font-semibold text-navy">Research Sessions</h2>
         </div>
 
-        {sessionsLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : sessions.length === 0 ? (
+        {sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-cream-200">
               <FlaskConical className="h-8 w-8 text-muted-foreground" />
@@ -175,6 +182,8 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

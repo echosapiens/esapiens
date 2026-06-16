@@ -14,8 +14,11 @@ import {
   Clock,
   Play,
   AlertTriangle,
+  GitGraph,
+  List,
 } from "lucide-react";
 import { ParameterEditor } from "./ParameterEditor";
+import { DagGraph } from "./DagGraph";
 
 // ── Pipeline Gantt chart ────────────────────────────────────────────────
 
@@ -32,6 +35,7 @@ interface StepInfo {
 
 export function PipelineGantt({ sessionId }: { sessionId: string }) {
   const [selectedStep, setSelectedStep] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"graph" | "list">("graph");
 
   // ── Fetch pipelines ──────────────────────────────────────────────
   const {
@@ -78,6 +82,10 @@ export function PipelineGantt({ sessionId }: { sessionId: string }) {
     );
   }
 
+  const handleSelectStep = useCallback((name: string | null) => {
+    setSelectedStep(name);
+  }, []);
+
   return (
     <div className="flex h-full flex-col overflow-auto p-4">
       {/* ── Pipeline header ─────────────────────────────────────────── */}
@@ -93,31 +101,74 @@ export function PipelineGantt({ sessionId }: { sessionId: string }) {
               </p>
             )}
           </div>
-          <span
-            className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium",
-              statusColorClass(activePipeline.status)
-            )}
-          >
-            {activePipeline.status}
-          </span>
+          <div className="flex items-center gap-3">
+            {/* ── View toggle ─────────────────────────────────────────── */}
+            <div className="inline-flex items-center rounded-lg border border-border bg-white/40 p-0.5 text-xs backdrop-blur">
+              <button
+                onClick={() => setViewMode("graph")}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md px-2.5 py-1 transition-colors",
+                  viewMode === "graph"
+                    ? "bg-navy text-white shadow-sm"
+                    : "text-navy/70 hover:text-navy"
+                )}
+              >
+                <GitGraph className="h-3.5 w-3.5" />
+                Graph
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md px-2.5 py-1 transition-colors",
+                  viewMode === "list"
+                    ? "bg-navy text-white shadow-sm"
+                    : "text-navy/70 hover:text-navy"
+                )}
+              >
+                <List className="h-3.5 w-3.5" />
+                List
+              </button>
+            </div>
+            <span
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-medium",
+                statusColorClass(activePipeline.status)
+              )}
+            >
+              {activePipeline.status}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* ── Gantt timeline ─────────────────────────────────────────── */}
-      <div className="mb-6 space-y-2">
-        <h4 className="text-sm font-medium text-navy">Pipeline Steps</h4>
-        {steps.map((step) => (
-          <StepRow
-            key={step.name}
-            step={step}
-            isExpanded={selectedStep === step.name}
-            onToggle={() =>
-              setSelectedStep(selectedStep === step.name ? null : step.name)
-            }
+      {/* ── DAG graph view ──────────────────────────────────────────── */}
+      {viewMode === "graph" && (
+        <div className="mb-6">
+          <h4 className="mb-2 text-sm font-medium text-navy">Pipeline DAG</h4>
+          <DagGraph
+            steps={steps}
+            selectedStep={selectedStep}
+            onSelectStep={handleSelectStep}
           />
-        ))}
-      </div>
+        </div>
+      )}
+
+      {/* ── Step list (Gantt) ───────────────────────────────────────── */}
+      {viewMode === "list" && (
+        <div className="mb-6 space-y-2">
+          <h4 className="text-sm font-medium text-navy">Pipeline Steps</h4>
+          {steps.map((step) => (
+            <StepRow
+              key={step.name}
+              step={step}
+              isExpanded={selectedStep === step.name}
+              onToggle={() =>
+                setSelectedStep(selectedStep === step.name ? null : step.name)
+              }
+            />
+          ))}
+        </div>
+      )}
 
       {/* ── Parameter editor (when step is selected) ──────────────── */}
       {selectedStep && (

@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import type { SubagentSummary, SubagentRole } from "@/lib/api";
 import type { LogEntry } from "@/types/events";
+import { MarkdownRenderer } from "./MarkdownRenderer";
+import { toast } from "@/store/toastStore";
 
 // ── Types ───────────────────────────────────────────────────────────────
 
@@ -265,6 +267,9 @@ export function ChatPanel() {
         /llm|api[_\s-]?key|openai|anthropic|model/i.test(message)
       ) {
         setSupervisorDisabled(true);
+        toast.warning("Supervisor mode unavailable", "No LLM is configured on the backend");
+      } else {
+        toast.error("Agent error", message);
       }
       setMessages((prev) => [
         ...prev,
@@ -336,17 +341,20 @@ export function ChatPanel() {
           timestamp: Date.now(),
         },
       ]);
+      toast.success("Pipeline approved", "Compute dispatched to Modal sandboxes");
       // Mark approval as completed in the store
       useSessionStore.setState((s) => ({
         agentState: { ...s.agentState, approval_status: "approved" },
       }));
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      toast.error("Failed to submit pipeline", errMsg);
       setMessages((prev) => [
         ...prev,
         {
           id: generateId(),
           role: "system",
-          content: `❌ Failed to submit pipeline: ${err instanceof Error ? err.message : String(err)}`,
+          content: `❌ Failed to submit pipeline: ${errMsg}`,
           timestamp: Date.now(),
         },
       ]);
@@ -499,7 +507,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   if (message.role === "system") {
     return (
       <div className="glass rounded-xl border border-gold/20 px-3 py-2 text-xs text-navy-700">
-        {message.content}
+        <MarkdownRenderer content={message.content} />
       </div>
     );
   }
@@ -542,7 +550,9 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             <span>{message.supervisor.subagent_results.length} subagent(s)</span>
           </div>
         )}
-        <p className="whitespace-pre-wrap">{message.content}</p>
+        <p className="whitespace-pre-wrap">
+          <MarkdownRenderer content={message.content} />
+        </p>
         {hasSupervisor && message.supervisor && (
           <SupervisorTrace
             results={message.supervisor.subagent_results}

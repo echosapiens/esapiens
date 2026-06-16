@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api, type SessionRead, type GrantRead } from "@/lib/api";
 import { cn, formatRelativeDate, statusColorClass, formatCurrency } from "@/lib/utils";
@@ -26,6 +27,12 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const pathname = usePathname();
+
+  // ── Active route helpers ───────────────────────────────────────────
+  const isDashboard = pathname === "/dashboard";
+  const isJobs = pathname === "/dashboard/jobs";
+  const isSessionPage = pathname.startsWith("/dashboard/session/");
 
   // ── Fetch sessions for sidebar ───────────────────────────────────
   const { data: sessions = [] } = useQuery({
@@ -77,7 +84,9 @@ export default function DashboardLayout({
               href="/dashboard"
               className={cn(
                 "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                "hover:bg-navy-700 text-navy-200 hover:text-white"
+                isDashboard
+                  ? "bg-navy-700 text-white"
+                  : "hover:bg-navy-700 text-navy-200 hover:text-white"
               )}
             >
               <LayoutDashboard className="h-4 w-4 shrink-0" />
@@ -90,7 +99,9 @@ export default function DashboardLayout({
               href="/dashboard/jobs"
               className={cn(
                 "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                "hover:bg-navy-700 text-navy-200 hover:text-white"
+                isJobs
+                  ? "bg-navy-700 text-white"
+                  : "hover:bg-navy-700 text-navy-200 hover:text-white"
               )}
             >
               <Activity className="h-4 w-4 shrink-0" />
@@ -220,12 +231,16 @@ function SessionNavItem({
   session: SessionRead;
   collapsed: boolean;
 }) {
+  const pathname = usePathname();
+  const isActive = pathname === `/dashboard/session/${session.id}`;
   return (
     <Link
       href={`/dashboard/session/${session.id}`}
       className={cn(
         "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
-        "text-navy-300 hover:bg-navy-700 hover:text-white"
+        isActive
+          ? "bg-navy-700 text-white"
+          : "text-navy-300 hover:bg-navy-700 hover:text-white"
       )}
       title={session.title}
     >

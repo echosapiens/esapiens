@@ -11,6 +11,7 @@ import {
   Beaker,
   BookOpen,
 } from "lucide-react";
+import { Reveal } from "@/components/ui/Reveal";
 
 const features = [
   {
@@ -115,7 +116,7 @@ export default function HomePage() {
 
       {/* ── Features ────────────────────────────────────────────── */}
       <section id="features" className="mx-auto max-w-7xl px-6 py-24">
-        <div className="mb-16 text-center">
+        <Reveal className="mb-16 text-center">
           <h2 className="mb-4 text-3xl font-bold text-navy">
             Built for Rigorous Research
           </h2>
@@ -123,28 +124,28 @@ export default function HomePage() {
             E.sapiens combines AI pipeline planning, container execution, and
             automatic documentation into a single academic IDE.
           </p>
-        </div>
+        </Reveal>
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {features.map((feature) => (
-            <div
-              key={feature.title}
-              className="glass group p-6 transition-all hover:-translate-y-0.5"
-            >
-              <feature.icon className="mb-4 h-8 w-8 text-gold" />
-              <h3 className="mb-2 text-lg font-semibold text-navy">
-                {feature.title}
-              </h3>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {feature.description}
-              </p>
-            </div>
+          {features.map((feature, i) => (
+            <Reveal key={feature.title} delay={i * 80}>
+              <div className="glass group h-full p-6 transition-all hover:-translate-y-0.5">
+                <feature.icon className="mb-4 h-8 w-8 text-gold" />
+                <h3 className="mb-2 text-lg font-semibold text-navy">
+                  {feature.title}
+                </h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {feature.description}
+                </p>
+              </div>
+            </Reveal>
           ))}
         </div>
       </section>
 
       {/* ── CTA ──────────────────────────────────────────────────── */}
-      <section className="border-t border-border bg-navy py-20 text-white">
-        <div className="mx-auto max-w-3xl px-6 text-center">
+      <Reveal>
+        <section className="border-t border-border bg-navy py-20 text-white">
+          <div className="mx-auto max-w-3xl px-6 text-center">
           <h2 className="mb-4 text-3xl font-bold">
             Ready to make your analyses reproducible?
           </h2>
@@ -159,8 +160,9 @@ export default function HomePage() {
             Launch E.sapiens
             <ArrowRight className="h-5 w-5" />
           </Link>
-        </div>
-      </section>
+          </div>
+        </section>
+      </Reveal>
 
       {/* ── Footer ───────────────────────────────────────────────── */}
       <footer className="border-t border-border glass-heavy py-8">

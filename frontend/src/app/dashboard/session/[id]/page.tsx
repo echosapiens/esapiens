@@ -7,6 +7,7 @@ import { useStateSync } from "@/hooks/useStateSync";
 import { useSessionStore } from "@/store/sessionStore";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { WorkspaceCanvas } from "@/components/workspace/WorkspaceCanvas";
+import { SessionSkeleton } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/utils";
 import { Loader2, AlertCircle } from "lucide-react";
 
@@ -29,14 +30,7 @@ export default function SessionDetailPage() {
 
   // ── Loading state ────────────────────────────────────────────────
   if (isLoading && !session) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex flex-col items-center gap-3 glass rounded-xl p-8">
-          <Loader2 className="h-8 w-8 animate-spin text-gold" />
-          <p className="text-sm text-muted-foreground">Loading session...</p>
-        </div>
-      </div>
-    );
+    return <SessionSkeleton />;
   }
 
   // ── Error state ──────────────────────────────────────────────────
