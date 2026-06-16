@@ -58,6 +58,7 @@ def create_app() -> FastAPI:
         version="0.1.0",
         description="Bioinformatics SaaS platform — compute, data, and agent orchestration",
         lifespan=lifespan,
+        redirect_slashes=False,
     )
 
     # ── Middleware ────────────────────────────────────────────────

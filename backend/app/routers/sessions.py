@@ -22,7 +22,7 @@ async def _fake_user_id() -> uuid.UUID:
 
 # ── Create ───────────────────────────────────────────────────────────
 
-@router.post("/", response_model=SessionRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=SessionRead, status_code=status.HTTP_201_CREATED)
 async def create_session(
     body: SessionCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -38,7 +38,7 @@ async def create_session(
 
 # ── List ─────────────────────────────────────────────────────────────
 
-@router.get("/", response_model=list[SessionRead])
+@router.get("", response_model=list[SessionRead])
 async def list_sessions(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[uuid.UUID, Depends(_fake_user_id)],
