@@ -37,6 +37,11 @@ class Grant(Base):
         String(24), nullable=False, default="active", index=True
     )
 
+    # ── Relationships ────────────────────────────────────────────────
+    user: Mapped["User"] = relationship(  # noqa: F821
+        "User", back_populates="grants", lazy="selectin"
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default="now()", nullable=False
     )

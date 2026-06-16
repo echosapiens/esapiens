@@ -36,6 +36,9 @@ class ResearchSession(Base):
     )
 
     # ── Relationships ────────────────────────────────────────────────
+    user: Mapped["User"] = relationship(  # noqa: F821
+        "User", back_populates="sessions", lazy="selectin"
+    )
     pipelines: Mapped[list["Pipeline"]] = relationship(  # noqa: F821
         "Pipeline",
         back_populates="session",
