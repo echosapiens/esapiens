@@ -216,7 +216,7 @@ async def _supervisor_node(state: SupervisorState) -> dict[str, Any]:
     try:
         response = await asyncio.wait_for(
             llm_with_tools.ainvoke(lc_messages),
-            timeout=30.0,
+            timeout=300.0,
         )
     except Exception as exc:
         # asyncio.TimeoutError has empty str() — show the timeout value
@@ -289,7 +289,7 @@ async def _supervisor_node(state: SupervisorState) -> dict[str, Any]:
                         HumanMessage(content=state.original_prompt),
                     ]
                 ),
-                timeout=20.0,
+                timeout=300.0,
             )
             rescue_content = getattr(rescue, "content", "") or ""
             if isinstance(rescue_content, str) and rescue_content.strip():

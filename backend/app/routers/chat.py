@@ -235,7 +235,7 @@ class CodeExecutionRequest(BaseModel):
 
     code: str = Field(..., min_length=1, max_length=100_000)
     language: str = Field(default="python", pattern="^(python|r|bash)$")
-    timeout: float = Field(default=30.0, ge=1.0, le=300.0)
+    timeout: float = Field(default=300.0, ge=1.0, le=600.0)
 
 
 @router.post("/{session_id}/execute", response_model=dict)

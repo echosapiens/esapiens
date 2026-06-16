@@ -165,7 +165,7 @@ async def invoke_subagent(
     role: SubagentRole,
     task: str,
     context: str = "",
-    timeout: float = 30.0,
+    timeout: float = 300.0,
 ) -> SubagentResult:
     """Invoke a specialized subagent and return structured findings.
 
@@ -553,7 +553,7 @@ Return plain text (not JSON) — this is the final answer the user will see."""
 async def synthesize_findings(
     original_prompt: str,
     subagent_results: list[SubagentResult],
-    timeout: float = 20.0,
+    timeout: float = 300.0,
 ) -> str:
     """Synthesize subagent findings into a final user-facing answer.
 

@@ -139,7 +139,7 @@ class CodeSandbox:
         self,
         code: str,
         language: Literal["python", "r", "bash"] = "python",
-        timeout: float = 30.0,
+        timeout: float = 300.0,
         session_id: uuid.UUID | None = None,
     ) -> CodeExecutionResult:
         """Execute code in a real sandbox and return the result.

@@ -336,7 +336,7 @@ async def _llm_plan(prompt: str) -> PlannerDAG | None:
                     {"role": "user", "content": user_msg},
                 ]
             ),
-            timeout=20.0,
+            timeout=300.0,
         )
 
         # Validate: every tool must be in the registry
