@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -18,6 +19,9 @@ from app.services import biocontainers as _biocontainers
 from app.workers.outbox_relay import OutboxRelay
 
 logger = logging.getLogger(__name__)
+
+# Suppress Pydantic serializer warnings for LangChain structured output
+warnings.filterwarnings("ignore", message="Pydantic serializer warnings", category=UserWarning)
 
 # ── Dev user ID (matches _fake_user_id in routers) ──────────────────────
 import uuid as _uuid

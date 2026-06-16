@@ -132,8 +132,8 @@ async def get_projected_state(
 
     return {
         "session_id": str(session_id),
-        "pipelines": list(projected["pipelines"].values()),
-        "runs": list(projected["runs"].values()),
+        "pipelines": projected["pipelines"],
+        "runs": projected["runs"],
         "metrics": projected["metrics"],
         "agent_state": projected["agent_state"],
         "events_count": projected["events_count"],
