@@ -14,6 +14,9 @@ RUN npm ci --prefer-offline 2>/dev/null || npm install
 # Copy source code
 COPY . .
 
+# Ensure public directory exists (Next.js standalone requires it)
+RUN mkdir -p public
+
 # Build the Next.js application
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
