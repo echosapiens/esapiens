@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import uuid
-from typing import Annotated
+from datetime import datetime, timezone
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -12,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.session import ResearchSession
 from app.schemas.session import SessionCreate, SessionRead, SessionUpdate
+from app.services.event_engine import EventEngine
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -106,3 +108,34 @@ async def delete_session(
 
     session.status = "deleted"
     await db.flush()
+
+
+# ── Projected state (event-sourced) ──────────────────────────────────
+
+@router.get("/{session_id}/state")
+async def get_projected_state(
+    session_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[uuid.UUID, Depends(_fake_user_id)],
+) -> dict[str, Any]:
+    """Return the current projected state for a session.
+
+    Replays the event stream to compute pipeline statuses, run statuses,
+    metrics, and agent state.
+    """
+    session = await db.get(ResearchSession, session_id)
+    if session is None or session.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+    engine = EventEngine(db)
+    projected = await engine.project_state(session_id)
+
+    return {
+        "session_id": str(session_id),
+        "pipelines": list(projected["pipelines"].values()),
+        "runs": list(projected["runs"].values()),
+        "metrics": projected["metrics"],
+        "agent_state": projected["agent_state"],
+        "events_count": projected["events_count"],
+        "projected_at": datetime.now(timezone.utc).isoformat(),
+    }
