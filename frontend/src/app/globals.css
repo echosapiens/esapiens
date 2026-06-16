@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f9f7f4;
+  --foreground: #0f1b2d;
+  --muted: #f3efe8;
+  --muted-foreground: #64748b;
+  --border: #e2ddd5;
+  --card: #ffffff;
+  --card-foreground: #0f1b2d;
+  --primary: #0f1b2d;
+  --primary-foreground: #ffffff;
+  --secondary: #ebe4d7;
+  --secondary-foreground: #0f1b2d;
+  --accent: #c9a84c;
+  --accent-foreground: #0f1b2d;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --success: #22c55e;
+  --warning: #f59e0b;
+}
+
+@layer base {
+  body {
+    @apply bg-cream text-navy font-sans antialiased;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  /* ── Scrollbar ──────────────────────────────────────────────── */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-cream-200;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-navy-400 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-navy-600;
+  }
+}
+
+@layer components {
+  /* ── Focus ring ─────────────────────────────────────────────── */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-cream;
+  }
+
+  /* ── Card base ───────────────────────────────────────────────── */
+  .card {
+    @apply bg-white text-navy rounded-lg border border-border shadow-sm;
+  }
+
+  /* ── Button variants ────────────────────────────────────────── */
+  .btn-primary {
+    @apply bg-navy text-white px-4 py-2 rounded-md font-medium
+           hover:bg-navy-700 focus-ring transition-colors
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-accent {
+    @apply bg-gold text-navy px-4 py-2 rounded-md font-semibold
+           hover:bg-gold-400 focus-ring transition-colors
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-navy px-4 py-2 rounded-md font-medium
+           hover:bg-cream-300 focus-ring transition-colors
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-destructive {
+    @apply bg-destructive text-destructive-foreground px-4 py-2 rounded-md font-medium
+           hover:bg-red-600 focus-ring transition-colors
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* ── Input base ─────────────────────────────────────────────── */
+  .input-base {
+    @apply w-full rounded-md border border-border bg-white px-3 py-2
+           text-sm text-navy placeholder:text-muted-foreground
+           focus:outline-none focus:ring-2 focus:ring-gold focus:border-gold;
+  }
+
+  /* ── Monospace text ──────────────────────────────────────────── */
+  .font-code {
+    @apply font-mono text-sm;
+  }
+
+  /* ── Status colors ──────────────────────────────────────────── */
+  .status-pending {
+    @apply text-yellow-600 bg-yellow-50;
+  }
+
+  .status-running {
+    @apply text-blue-600 bg-blue-50;
+  }
+
+  .status-completed {
+    @apply text-green-600 bg-green-50;
+  }
+
+  .status-failed {
+    @apply text-red-600 bg-red-50;
+  }
+
+  .status-draft {
+    @apply text-gray-600 bg-gray-50;
+  }
+
+  .status-submitted {
+    @apply text-purple-600 bg-purple-50;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
