@@ -190,20 +190,72 @@ async def invoke_subagent(
     user_msg = task if not context else f"Context:\n{context}\n\nTask:\n{task}"
 
     try:
-        # Use structured output to force JSON schema compliance
-        structured_llm = llm.with_structured_output(SubagentResult)
-        result = await asyncio.wait_for(
-            structured_llm.ainvoke(
+        # Robust approach: plain text completion, then parse JSON.
+        # `with_structured_output(SubagentResult)` is fragile across OpenRouter
+        # providers — the model sometimes returns non-conforming JSON or
+        # the provider strips the tool_calls. We use a plain prompt and
+        # extract the JSON ourselves, with a permissive fallback.
+        from langchain_core.messages import SystemMessage, HumanMessage
+        import json as _json
+        import re as _re
+
+        raw = await asyncio.wait_for(
+            llm.ainvoke(
                 [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_msg},
+                    SystemMessage(content=system_prompt + "\n\nIMPORTANT: Respond with valid JSON only. No prose, no markdown fences. The JSON must have keys: findings (string), structured_data (object), confidence (number 0-1), citations (array of strings)."),
+                    HumanMessage(content=user_msg),
                 ]
             ),
             timeout=timeout,
         )
-        # Ensure role matches what we asked for (LLM may not set it correctly)
-        result.role = role
-        result.task = task
+        content = raw.content if hasattr(raw, "content") else str(raw)
+        if not isinstance(content, str):
+            content = str(content)
+
+        # Extract JSON from the response — try direct parse, then look for
+        # the first { ... } block, then strip markdown fences.
+        result: SubagentResult | None = None
+        json_match = _re.search(r"\{[\s\S]*\}", content)
+        candidates = [content.strip()]
+        if json_match:
+            candidates.append(json_match.group(0))
+        for candidate in candidates:
+            if not candidate:
+                continue
+            try:
+                data = _json.loads(candidate)
+                # Coerce types
+                if "structured_data" not in data or not isinstance(data["structured_data"], dict):
+                    data["structured_data"] = {}
+                if "confidence" not in data:
+                    data["confidence"] = 0.7
+                if "citations" not in data or not isinstance(data["citations"], list):
+                    data["citations"] = []
+                if "findings" not in data:
+                    # If no findings key, use the whole content
+                    data["findings"] = content[:2000]
+                result = SubagentResult(
+                    role=role,
+                    task=task,
+                    findings=str(data.get("findings", ""))[:4000],
+                    structured_data=data.get("structured_data", {}),
+                    confidence=float(data.get("confidence", 0.7)),
+                    citations=[str(c) for c in data.get("citations", [])][:20],
+                )
+                break
+            except Exception:
+                continue
+
+        if result is None:
+            # Couldn't parse JSON — treat the raw content as findings
+            result = SubagentResult(
+                role=role,
+                task=task,
+                findings=content[:4000],
+                structured_data={},
+                confidence=0.6,
+                citations=[],
+            )
 
         # ── For the code subagent: actually EXECUTE the code ─────
         # This is a real Modal sandbox execution — returns stdout, stderr,

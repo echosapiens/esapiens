@@ -216,6 +216,8 @@ async def _supervisor_node(state: SupervisorState) -> dict[str, Any]:
     # Extract tool calls and content
     tool_calls = getattr(response, "tool_calls", []) or []
     content = getattr(response, "content", "") or ""
+    if not isinstance(content, str):
+        content = str(content)
 
     # If the LLM decided to call a subagent, route to the tools node
     if tool_calls:
@@ -231,13 +233,50 @@ async def _supervisor_node(state: SupervisorState) -> dict[str, Any]:
     # No tool calls — the LLM is finalizing
     # If the content is a structured finalize decision, parse it
     final_answer = content
-    try:
-        decision = SupervisorDecision.model_validate_json(content)
-        if decision.action == "finalize" and decision.final_answer:
-            final_answer = decision.final_answer
-    except Exception:
-        # Content is plain text, treat as final answer
-        pass
+    if content.strip():
+        try:
+            decision = SupervisorDecision.model_validate_json(content)
+            if decision.action == "finalize" and decision.final_answer:
+                final_answer = decision.final_answer
+        except Exception:
+            # Content is plain text, treat as final answer
+            pass
+
+    # Safety net: if the LLM produced no content at all and we have
+    # subagent results, synthesize from those. Otherwise we'd return
+    # "I could not generate a response" for an otherwise successful run.
+    if not final_answer.strip() and state.subagent_results:
+        try:
+            final_answer = await synthesize_findings(
+                state.original_prompt, state.subagent_results
+            )
+        except Exception as exc:
+            logger.warning("Synthesis fallback failed: %s", exc)
+            # Last resort: concatenate findings
+            final_answer = "\n\n".join(
+                f"[{r.role.value}] {r.findings}" for r in state.subagent_results
+            )
+
+    # Last-resort fallback: if still empty, ask the LLM directly for a plain answer
+    if not final_answer.strip() and llm is not None:
+        try:
+            from langchain_core.messages import SystemMessage, HumanMessage
+            rescue = await asyncio.wait_for(
+                llm.ainvoke(
+                    [
+                        SystemMessage(
+                            content="You are a helpful scientific assistant. Answer the user's question concisely based on your own knowledge. Be honest about uncertainty."
+                        ),
+                        HumanMessage(content=state.original_prompt),
+                    ]
+                ),
+                timeout=20.0,
+            )
+            rescue_content = getattr(rescue, "content", "") or ""
+            if isinstance(rescue_content, str) and rescue_content.strip():
+                final_answer = rescue_content.strip()
+        except Exception as exc:
+            logger.warning("Rescue LLM call failed: %s", exc)
 
     return {
         "iteration": new_iteration,
