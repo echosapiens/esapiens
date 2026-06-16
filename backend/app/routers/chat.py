@@ -82,7 +82,7 @@ async def chat_with_agent(
         )
 
     # ── No plan generated — conversational response ───────────────
-    if plan is None or pipeline_id is None:
+    if pipeline_id is None:
         # The agent returned a conversational message without a pipeline
         msg = "I'm ready to help you plan a bioinformatics pipeline."
         if agent_state.messages:

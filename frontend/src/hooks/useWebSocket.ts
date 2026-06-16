@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import { useSessionStore } from "@/store/sessionStore";
+import { getAuthToken } from "@/lib/api";
 import type { EventEnvelope, ConnectionStatus } from "@/types/events";
 
 // ── WebSocket hook with auto-reconnect and state reconciliation ──────────
@@ -24,8 +25,8 @@ interface UseWebSocketReturn {
 
 const WS_BASE_URL =
   typeof window !== "undefined"
-    ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.hostname}:8000/ws/events`
-    : "ws://localhost:8000/ws/events";
+    ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.hostname}:8000`
+    : "ws://localhost:8000";
 
 const MAX_BACKOFF_MS = 30_000;
 const INITIAL_BACKOFF_MS = 1_000;
@@ -64,7 +65,8 @@ export function useWebSocket({
       wsRef.current = null;
     }
 
-    const wsUrl = url ?? `${WS_BASE_URL}?session_id=${sessionId}`;
+    const token = getAuthToken() || "";
+    const wsUrl = url ?? `${WS_BASE_URL}/ws/${sessionId}?token=${encodeURIComponent(token)}`;
     setConnectionStatus("connecting");
 
     const ws = new WebSocket(wsUrl);

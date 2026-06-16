@@ -21,7 +21,7 @@
   --success: #22c55e;
   --warning: #f59e0b;
 
-  /* ── Liquid Glass tokens ─────────────────────────────────────── */
+  /* ── Liquid Glass tokens (iOS-inspired) ──────────────────────── */
   --glass-shadow: 0 1px 3px rgba(15, 27, 45, 0.06), 0 4px 12px rgba(15, 27, 45, 0.04);
   --glass-shadow-hover: 0 2px 6px rgba(15, 27, 45, 0.08), 0 8px 24px rgba(15, 27, 45, 0.08);
   --glass-shadow-navy: 0 2px 8px rgba(0, 0, 0, 0.2), 0 8px 32px rgba(0, 0, 0, 0.12);
@@ -32,10 +32,11 @@
 @layer base {
   body {
     @apply bg-cream text-navy font-sans antialiased;
-    /* ── Subtle mesh gradient background ──────────────────────── */
+    /* ── Mesh gradient background — provides color for glass blur ── */
     background-image:
-      radial-gradient(ellipse 80% 60% at 20% 10%, rgba(201, 168, 76, 0.06) 0%, transparent 70%),
-      radial-gradient(ellipse 60% 50% at 80% 80%, rgba(15, 27, 45, 0.03) 0%, transparent 70%);
+      radial-gradient(ellipse 80% 60% at 15% 8%, rgba(201, 168, 76, 0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 85% 75%, rgba(59, 130, 246, 0.04) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 50% at 50% 50%, rgba(15, 27, 45, 0.02) 0%, transparent 70%);
     background-attachment: fixed;
   }
 
@@ -69,60 +70,79 @@
   }
 
   /* ══════════════════════════════════════════════════════════════
-     LIQUID GLASS — depth-based system for cream/navy surfaces
+     LIQUID GLASS — iOS 26-inspired depth system
      ══════════════════════════════════════════════════════════════
-     The key insight: backdrop-filter blur only creates "glass" when
-     there's rich color behind it. On cream/white backgrounds it
-     produces washed-out rectangles. Instead, liquid glass on light
-     surfaces comes from:
-       1. Layered shadows (ambient + direct)
-       2. Fine white inner-edge highlights (inset box-shadow)
-       3. Very subtle background tints (not transparency)
-       4. Smooth transitions on hover (lift + shadow expansion)
+     iOS liquid glass is characterized by:
+       1. backdrop-filter blur + saturate (frosted translucency)
+       2. Specular highlight along the top edge (light caustic)
+       3. Multi-layer shadow for depth
+       4. Warm/cool tint shift depending on depth level
+       5. Spring-curve transitions (cubic-bezier overshoot)
+       6. A subtle inner glow that separates glass from background
   */
 
-  /* ── Glass card (light surface — the primary card) ───────────── */
+  /* ── Glass card (light surface — primary card) ──────────────── */
   .glass {
-    background: rgba(255, 255, 255, 0.82);
-    border: var(--glass-border-subtle);
+    background: rgba(255, 255, 255, 0.62);
+    backdrop-filter: blur(24px) saturate(1.3) brightness(1.04);
+    -webkit-backdrop-filter: blur(24px) saturate(1.3) brightness(1.04);
+    border: 1px solid rgba(255, 255, 255, 0.45);
     border-radius: 0.75rem;
-    box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    transition: box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease;
+    box-shadow:
+      var(--glass-shadow),
+      inset 0 1px 0 rgba(255, 255, 255, 0.85),
+      inset 0 -0.5px 0 rgba(0, 0, 0, 0.03);
+    transition:
+      box-shadow 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+      transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+      background 0.25s ease;
   }
   .glass:hover {
-    box-shadow: var(--glass-shadow-hover), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    background: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.78);
+    box-shadow:
+      var(--glass-shadow-hover),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      inset 0 -0.5px 0 rgba(0, 0, 0, 0.03);
   }
 
-  /* ── Glass card — heavy (headers, toolbars) ──────────────────── */
+  /* ── Glass card — heavy (headers, toolbars, nav bars) ───────── */
   .glass-heavy {
-    background: rgba(255, 255, 255, 0.88);
-    border: var(--glass-border-subtle);
-    box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.85);
-    transition: box-shadow 0.2s ease;
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(28px) saturate(1.35) brightness(1.03);
+    -webkit-backdrop-filter: blur(28px) saturate(1.35) brightness(1.03);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow:
+      var(--glass-shadow),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      inset 0 -0.5px 0 rgba(0, 0, 0, 0.03);
+    transition: box-shadow 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   /* ── Glass card — navy (sidebar, dark surfaces) ──────────────── */
-  /*    This IS where backdrop-filter works — navy has colorful
-        content beneath (the cream page background + gradient).     */
   .glass-navy {
-    background: rgba(15, 27, 45, 0.72);
-    backdrop-filter: blur(24px) saturate(1.4);
-    -webkit-backdrop-filter: blur(24px) saturate(1.4);
-    border: 1px solid rgba(201, 168, 76, 0.12);
-    box-shadow: var(--glass-shadow-navy), inset 0 1px 0 rgba(201, 168, 76, 0.08);
+    background: rgba(15, 27, 45, 0.65);
+    backdrop-filter: blur(28px) saturate(1.5) brightness(0.98);
+    -webkit-backdrop-filter: blur(28px) saturate(1.5) brightness(0.98);
+    border: 1px solid rgba(201, 168, 76, 0.15);
+    box-shadow:
+      var(--glass-shadow-navy),
+      inset 0 1px 0 rgba(201, 168, 76, 0.1),
+      inset 0 -0.5px 0 rgba(0, 0, 0, 0.1);
   }
 
   /* ── Glass card — navy heavy (sidebar solid) ─────────────────── */
   .glass-navy-heavy {
-    background: rgba(15, 27, 45, 0.85);
-    backdrop-filter: blur(24px) saturate(1.3);
-    -webkit-backdrop-filter: blur(24px) saturate(1.3);
-    border: 1px solid rgba(201, 168, 76, 0.15);
-    box-shadow: var(--glass-shadow-navy), inset 0 1px 0 rgba(201, 168, 76, 0.12);
+    background: rgba(15, 27, 45, 0.82);
+    backdrop-filter: blur(28px) saturate(1.4) brightness(0.97);
+    -webkit-backdrop-filter: blur(28px) saturate(1.4) brightness(0.97);
+    border: 1px solid rgba(201, 168, 76, 0.18);
+    box-shadow:
+      var(--glass-shadow-navy),
+      inset 0 1px 0 rgba(201, 168, 76, 0.14),
+      inset 0 -0.5px 0 rgba(0, 0, 0, 0.12);
   }
 
-  /* ── Refraction overlay — subtle light caustic ──────────────── */
+  /* ── Refraction overlay — iOS specular caustic ──────────────── */
   .glass-refraction {
     position: relative;
     overflow: hidden;
@@ -132,7 +152,9 @@
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: radial-gradient(ellipse 40% 30% at 25% 15%, rgba(255,255,255,0.12) 0%, transparent 100%);
+    background:
+      radial-gradient(ellipse 50% 35% at 20% 8%, rgba(255, 255, 255, 0.18) 0%, transparent 100%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 40%);
     pointer-events: none;
   }
 
@@ -140,13 +162,16 @@
   .glass-input {
     @apply w-full rounded-lg px-3 py-2 text-sm text-navy placeholder:text-muted-foreground
            focus:outline-none focus:ring-2 focus:ring-gold;
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px) saturate(1.1);
+    -webkit-backdrop-filter: blur(16px) saturate(1.1);
     border: 1px solid var(--border);
     box-shadow: inset 0 1px 2px rgba(15, 27, 45, 0.04);
-    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
   }
   .glass-input:focus {
-    box-shadow: inset 0 1px 2px rgba(15, 27, 45, 0.04), 0 0 0 3px rgba(201, 168, 76, 0.12);
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: inset 0 1px 2px rgba(15, 27, 45, 0.04), 0 0 0 3px rgba(201, 168, 76, 0.15);
   }
 
   /* ── Glass button variants ────────────────────────────────────── */
@@ -243,9 +268,9 @@
 
   /* ── Glass modal overlay ──────────────────────────────────────── */
   .glass-modal-backdrop {
-    background: rgba(15, 27, 45, 0.3);
-    backdrop-filter: blur(8px) saturate(1.2);
-    -webkit-backdrop-filter: blur(8px) saturate(1.2);
+    background: rgba(15, 27, 45, 0.25);
+    backdrop-filter: blur(12px) saturate(1.3);
+    -webkit-backdrop-filter: blur(12px) saturate(1.3);
   }
 }
 

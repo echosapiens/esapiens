@@ -235,6 +235,15 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  /** Dev-only: auto-login as the seeded dev user. Stores the token. */
+  devLogin: async (): Promise<string> => {
+    const res = await apiFetch<TokenResponse>("/auth/dev-login", {
+      method: "POST",
+    });
+    setAuthToken(res.access_token);
+    return res.access_token;
+  },
+
   // ── Sessions ─────────────────────────────────────────────────────
   listSessions: () => apiFetch<SessionRead[]>("/sessions/"),
 

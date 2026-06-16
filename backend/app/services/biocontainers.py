@@ -92,6 +92,106 @@ _FALLBACK_REGISTRY: dict[str, dict[str, str]] = {
         "description": "MultiQC aggregate quality reports",
         "version": "1.21",
     },
+    "salmon": {
+        "image": "quay.io/biocontainers/salmon:1.10.3--h7e5e0c4_0",
+        "description": "Salmon transcript-level quantification",
+        "version": "1.10.3",
+    },
+    "kallisto": {
+        "image": "quay.io/biocontainers/kallisto:0.51.0--h7d8f6ac_0",
+        "description": "kallisto RNA-seq quantification",
+        "version": "0.51.0",
+    },
+    "bowtie2": {
+        "image": "quay.io/biocontainers/bowtie2:2.5.4--py312hf8f8d0c_0",
+        "description": "Bowtie2 short-read aligner",
+        "version": "2.5.4",
+    },
+    "sra-toolkit": {
+        "image": "quay.io/biocontainers/sra-tools:3.1.1--h430e3d2_0",
+        "description": "SRA Toolkit for downloading from NCBI SRA",
+        "version": "3.1.1",
+    },
+    "trimmomatic": {
+        "image": "quay.io/biocontainers/trimmomatic:0.39--hdfd78af_0",
+        "description": "Trimmomatic read trimming",
+        "version": "0.39",
+    },
+    "cutadapt": {
+        "image": "quay.io/biocontainers/cutadapt:4.9--py312h5a5e30a_0",
+        "description": "Cutadapt adapter trimming",
+        "version": "4.9",
+    },
+    "macs2": {
+        "image": "quay.io/biocontainers/macs2:2.2.9.1--py312h5a5e30a_0",
+        "description": "MACS2 peak calling for ChIP-seq",
+        "version": "2.2.9.1",
+    },
+    "deeptools": {
+        "image": "quay.io/biocontainers/deeptools:3.5.6--py312h5a5e30a_0",
+        "description": "deepTools for BAM/BigWig analysis",
+        "version": "3.5.6",
+    },
+    "snpeff": {
+        "image": "quay.io/biocontainers/snpeff:5.2--hdfd78af_0",
+        "description": "SnpEff variant annotation",
+        "version": "5.2",
+    },
+    "vep": {
+        "image": "quay.io/biocontainers/ensembl-vep:112--h7d8f6ac_0",
+        "description": "Ensembl VEP variant effect predictor",
+        "version": "112",
+    },
+    "igv": {
+        "image": "quay.io/biocontainers/igv:2.17.0--hdfd78af_0",
+        "description": "IGV command-line tools",
+        "version": "2.17.0",
+    },
+    "freebayes": {
+        "image": "quay.io/biocontainers/freebayes:1.3.6--h7d8f6ac_2",
+        "description": "FreeBayes Bayesian variant caller",
+        "version": "1.3.6",
+    },
+    "varscan": {
+        "image": "quay.io/biocontainers/varscan:v2.4.6--hdfd78af_0",
+        "description": "VarScan variant calling",
+        "version": "2.4.6",
+    },
+    "spades": {
+        "image": "quay.io/biocontainers/spades:4.0.0--h7d8f6ac_0",
+        "description": "SPAdes genome assembler",
+        "version": "4.0.0",
+    },
+    "megahit": {
+        "image": "quay.io/biocontainers/megahit:1.2.9--h7d8f6ac_0",
+        "description": "MEGAHIT metagenome assembler",
+        "version": "1.2.9",
+    },
+    "kraken2": {
+        "image": "quay.io/biocontainers/kraken2:2.1.4--pl526h6ef0c6b_0",
+        "description": "Kraken2 taxonomic classifier",
+        "version": "2.1.4",
+    },
+    "kraken2-build": {
+        "image": "quay.io/biocontainers/kraken2:2.1.4--pl526h6ef0c6b_0",
+        "description": "Kraken2 database builder",
+        "version": "2.1.4",
+    },
+    "bracken": {
+        "image": "quay.io/biocontainers/bracken:2.8--py312h5a5e30a_0",
+        "description": "Bracken abundance estimation for Kraken2",
+        "version": "2.8",
+    },
+    "prokka": {
+        "image": "quay.io/biocontainers/prokka:1.14.6--h7d8f6ac_0",
+        "description": "Prokka rapid bacterial annotation",
+        "version": "1.14.6",
+    },
+    "ariba": {
+        "image": "quay.io/biocontainers/ariba:2.14.6--py312h5a5e30a_0",
+        "description": "ARIBA antimicrobial resistance gene detection",
+        "version": "2.14.6",
+    },
 }
 
 # ── Curated list of tools to pre-populate on startup ─────────────────────────
@@ -240,7 +340,7 @@ class BioContainersRegistry:
         resolved = 0
         for name, result in zip(_CURATED_TOOLS, results):
             if isinstance(result, Exception):
-                logger.warning("Failed to resolve '%s': %s", name, result)
+                logger.debug("Failed to resolve '%s': %s", name, result)
                 continue
             if result is not None:
                 self._cache[name] = result

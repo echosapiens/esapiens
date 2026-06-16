@@ -98,6 +98,22 @@ async def login(body: LoginRequest) -> TokenResponse:
     return TokenResponse(access_token=token)
 
 
+@router.post("/dev-login", response_model=TokenResponse)
+async def dev_login() -> TokenResponse:
+    """Dev-only: return a JWT for the seeded dev user.
+
+    This endpoint is disabled when SECRET_KEY != 'change-me-in-production'.
+    """
+    if settings.SECRET_KEY != "change-me-in-production":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Dev login is only available in development",
+        )
+    dev_user_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
+    token = _create_access_token(str(dev_user_id))
+    return TokenResponse(access_token=token)
+
+
 @router.post("/orcid/callback", response_model=TokenResponse)
 async def orcid_callback(code: str) -> TokenResponse:
     """Exchange an ORCID OAuth authorization code for an access token.
