@@ -2,302 +2,669 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #f9f7f4;
-  --foreground: #0f1b2d;
-  --muted: #f3efe8;
-  --muted-foreground: #64748b;
-  --border: #e2ddd5;
-  --card: #ffffff;
-  --card-foreground: #0f1b2d;
-  --primary: #0f1b2d;
-  --primary-foreground: #ffffff;
-  --secondary: #ebe4d7;
-  --secondary-foreground: #0f1b2d;
-  --accent: #c9a84c;
-  --accent-foreground: #0f1b2d;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --success: #22c55e;
-  --warning: #f59e0b;
+/* ══════════════════════════════════════════════════════════════════════════
+   macOS DESIGN SYSTEM — Sequoia-inspired
+   ══════════════════════════════════════════════════════════════════════════
+   Characteristics:
+     • Unified titlebar + toolbar (no separate title bar)
+     • Traffic light window controls (red/yellow/green) top-left
+     • Dark sidebar with vibrancy, source-list style
+     • Rounded-rect cards with subtle shadows
+     • Push buttons with subtle gradient
+     • Pill-shaped segmented controls
+     • Sheet modals that slide up
+     • Thin split-pane dividers
+     • SF-adjacent typography (Inter), 13px body, 11px caption
+   ══════════════════════════════════════════════════════════════════════════ */
 
-  /* ── Liquid Glass tokens (iOS-inspired) ──────────────────────── */
-  --glass-shadow: 0 1px 3px rgba(15, 27, 45, 0.06), 0 4px 12px rgba(15, 27, 45, 0.04);
-  --glass-shadow-hover: 0 2px 6px rgba(15, 27, 45, 0.08), 0 8px 24px rgba(15, 27, 45, 0.08);
-  --glass-shadow-navy: 0 2px 8px rgba(0, 0, 0, 0.2), 0 8px 32px rgba(0, 0, 0, 0.12);
-  --glass-border-light: 1px solid rgba(255, 255, 255, 0.7);
-  --glass-border-subtle: 1px solid rgba(226, 221, 213, 0.6);
+:root {
+  /* ── Brand colors ──────────────────────────────────────────────── */
+  --brand-navy: #0f1b2d;
+  --brand-cream: #f9f7f4;
+  --brand-gold: #c9a84c;
+
+  /* ── macOS system colors ───────────────────────────────────────── */
+  --mac-label: #0f1b2d;
+  --mac-secondary-label: #64748b;
+  --mac-tertiary-label: #9ca3af;
+  --mac-quaternary-label: #d1d5db;
+  --mac-separator: rgba(0, 0, 0, 0.08);
+  --mac-fill: rgba(0, 0, 0, 0.04);
+  --mac-window-bg: #f5f5f7;
+  --mac-sidebar-bg: rgba(15, 27, 45, 0.92);
+  --mac-sidebar-selection: rgba(201, 168, 76, 0.2);
+  --mac-sidebar-separator: rgba(255, 255, 255, 0.08);
+  --mac-accent: #c9a84c;
+  --mac-accent-hover: #d4b35a;
+  --mac-red: #ff3b30;
+  --mac-yellow: #ffcc00;
+  --mac-green: #34c759;
+  --mac-blue: #007aff;
+  --mac-orange: #ff9500;
+  --mac-card-bg: rgba(255, 255, 255, 0.85);
+  --mac-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --mac-card-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --mac-toolbar-bg: rgba(255, 255, 255, 0.72);
+  --mac-toolbar-separator: rgba(0, 0, 0, 0.06);
+  --mac-input-bg: rgba(255, 255, 255, 0.9);
+  --mac-input-border: rgba(0, 0, 0, 0.12);
+  --mac-input-focus-ring: rgba(201, 168, 76, 0.3);
+  --mac-button-primary-bg: #0f1b2d;
+  --mac-button-primary-text: #ffffff;
+  --mac-button-accent-bg: #c9a84c;
+  --mac-button-accent-text: #0f1b2d;
+  --mac-button-ghost-hover: rgba(15, 27, 45, 0.06);
+  --mac-destructive: #ff3b30;
+  --mac-success: #34c759;
+  --mac-warning: #ff9500;
+  --mac-info: #007aff;
 }
 
 @layer base {
   body {
-    @apply bg-cream text-navy font-sans antialiased;
-    /* ── Mesh gradient background — provides color for glass blur ── */
-    background-image:
-      radial-gradient(ellipse 80% 60% at 15% 8%, rgba(201, 168, 76, 0.10) 0%, transparent 60%),
-      radial-gradient(ellipse 50% 40% at 85% 75%, rgba(59, 130, 246, 0.04) 0%, transparent 55%),
-      radial-gradient(ellipse 60% 50% at 50% 50%, rgba(15, 27, 45, 0.02) 0%, transparent 70%);
-    background-attachment: fixed;
+    @apply font-sans antialiased;
+    font-size: 13px;
+    color: var(--mac-label);
+    background: var(--mac-window-bg);
   }
 
   * {
-    @apply border-border;
+    border-color: var(--mac-separator);
   }
 
-  /* ── Scrollbar ──────────────────────────────────────────────── */
+  /* ── macOS scrollbar ────────────────────────────────────────────── */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
-
   ::-webkit-scrollbar-track {
     background: transparent;
   }
-
   ::-webkit-scrollbar-thumb {
-    @apply bg-navy-300/30 rounded-full;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.25);
   }
 
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-navy-400/40;
+  /* ── Selection ──────────────────────────────────────────────────── */
+  ::selection {
+    background: rgba(201, 168, 76, 0.25);
   }
 }
 
 @layer components {
-  /* ── Focus ring ─────────────────────────────────────────────── */
-  .focus-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-cream;
+  /* ══════════════════════════════════════════════════════════════════
+     TRAFFIC LIGHTS — macOS window controls
+     ══════════════════════════════════════════════════════════════════ */
+  .mac-traffic-lights {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 4px;
   }
-
-  /* ══════════════════════════════════════════════════════════════
-     LIQUID GLASS — iOS 26-inspired depth system
-     ══════════════════════════════════════════════════════════════
-     iOS liquid glass is characterized by:
-       1. backdrop-filter blur + saturate (frosted translucency)
-       2. Specular highlight along the top edge (light caustic)
-       3. Multi-layer shadow for depth
-       4. Warm/cool tint shift depending on depth level
-       5. Spring-curve transitions (cubic-bezier overshoot)
-       6. A subtle inner glow that separates glass from background
-  */
-
-  /* ── Glass card (light surface — primary card) ──────────────── */
-  .glass {
-    background: rgba(255, 255, 255, 0.62);
-    backdrop-filter: blur(24px) saturate(1.3) brightness(1.04);
-    -webkit-backdrop-filter: blur(24px) saturate(1.3) brightness(1.04);
-    border: 1px solid rgba(255, 255, 255, 0.45);
-    border-radius: 0.75rem;
-    box-shadow:
-      var(--glass-shadow),
-      inset 0 1px 0 rgba(255, 255, 255, 0.85),
-      inset 0 -0.5px 0 rgba(0, 0, 0, 0.03);
-    transition:
-      box-shadow 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
-      transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
-      background 0.25s ease;
-  }
-  .glass:hover {
-    background: rgba(255, 255, 255, 0.78);
-    box-shadow:
-      var(--glass-shadow-hover),
-      inset 0 1px 0 rgba(255, 255, 255, 0.95),
-      inset 0 -0.5px 0 rgba(0, 0, 0, 0.03);
-  }
-
-  /* ── Glass card — heavy (headers, toolbars, nav bars) ───────── */
-  .glass-heavy {
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(28px) saturate(1.35) brightness(1.03);
-    -webkit-backdrop-filter: blur(28px) saturate(1.35) brightness(1.03);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    box-shadow:
-      var(--glass-shadow),
-      inset 0 1px 0 rgba(255, 255, 255, 0.9),
-      inset 0 -0.5px 0 rgba(0, 0, 0, 0.03);
-    transition: box-shadow 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  /* ── Glass card — navy (sidebar, dark surfaces) ──────────────── */
-  .glass-navy {
-    background: rgba(15, 27, 45, 0.65);
-    backdrop-filter: blur(28px) saturate(1.5) brightness(0.98);
-    -webkit-backdrop-filter: blur(28px) saturate(1.5) brightness(0.98);
-    border: 1px solid rgba(201, 168, 76, 0.15);
-    box-shadow:
-      var(--glass-shadow-navy),
-      inset 0 1px 0 rgba(201, 168, 76, 0.1),
-      inset 0 -0.5px 0 rgba(0, 0, 0, 0.1);
-  }
-
-  /* ── Glass card — navy heavy (sidebar solid) ─────────────────── */
-  .glass-navy-heavy {
-    background: rgba(15, 27, 45, 0.82);
-    backdrop-filter: blur(28px) saturate(1.4) brightness(0.97);
-    -webkit-backdrop-filter: blur(28px) saturate(1.4) brightness(0.97);
-    border: 1px solid rgba(201, 168, 76, 0.18);
-    box-shadow:
-      var(--glass-shadow-navy),
-      inset 0 1px 0 rgba(201, 168, 76, 0.14),
-      inset 0 -0.5px 0 rgba(0, 0, 0, 0.12);
-  }
-
-  /* ── Refraction overlay — iOS specular caustic ──────────────── */
-  .glass-refraction {
+  .mac-traffic-light {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: none;
+    padding: 0;
+    cursor: pointer;
     position: relative;
+    transition: filter 0.15s ease;
+  }
+  .mac-traffic-light:hover {
+    filter: brightness(0.85);
+  }
+  .mac-traffic-light:active {
+    filter: brightness(0.7);
+  }
+  .mac-traffic-close {
+    background: var(--mac-red);
+  }
+  .mac-traffic-minimize {
+    background: var(--mac-yellow);
+  }
+  .mac-traffic-zoom {
+    background: var(--mac-green);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     WINDOW — macOS window chrome
+     ══════════════════════════════════════════════════════════════════ */
+  .mac-window {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--mac-window-bg);
+  }
+
+  /* ── Unified titlebar + toolbar ────────────────────────────────── */
+  .mac-titlebar {
+    display: flex;
+    align-items: center;
+    height: 38px;
+    padding: 0 8px;
+    background: var(--mac-toolbar-bg);
+    border-bottom: 1px solid var(--mac-toolbar-separator);
+    -webkit-app-region: drag;
+    user-select: none;
+  }
+  .mac-titlebar > * {
+    -webkit-app-region: no-drag;
+  }
+  .mac-titlebar-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mac-label);
+    text-align: center;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 8px;
+  }
+
+  /* ── Toolbar (below titlebar in some apps, or unified) ──────────── */
+  .mac-toolbar {
+    display: flex;
+    align-items: center;
+    height: 36px;
+    padding: 0 12px;
+    gap: 4px;
+    background: var(--mac-toolbar-bg);
+    border-bottom: 1px solid var(--mac-toolbar-separator);
+  }
+  .mac-toolbar-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--mac-secondary-label);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    white-space: nowrap;
+  }
+  .mac-toolbar-item:hover {
+    background: var(--mac-button-ghost-hover);
+    color: var(--mac-label);
+  }
+  .mac-toolbar-item:active {
+    background: rgba(15, 27, 45, 0.1);
+  }
+  .mac-toolbar-item.active {
+    color: var(--mac-accent);
+  }
+  .mac-toolbar-separator {
+    width: 1px;
+    height: 18px;
+    background: var(--mac-separator);
+    margin: 0 4px;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     SIDEBAR — macOS source list
+     ══════════════════════════════════════════════════════════════════ */
+  .mac-sidebar {
+    display: flex;
+    flex-direction: column;
+    background: var(--mac-sidebar-bg);
+    color: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(32px) saturate(1.4);
+    -webkit-backdrop-filter: blur(32px) saturate(1.4);
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .mac-sidebar-header {
+    display: flex;
+    align-items: center;
+    height: 38px;
+    padding: 0 12px;
+    gap: 8px;
+    border-bottom: 1px solid var(--mac-sidebar-separator);
+  }
+  .mac-sidebar-section {
+    padding: 8px 0;
+  }
+  .mac-sidebar-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(255, 255, 255, 0.4);
+  }
+  .mac-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.7);
+    border-radius: 0;
+    cursor: pointer;
+    transition: background 0.1s ease, color 0.1s ease;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+  }
+  .mac-sidebar-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.9);
+  }
+  .mac-sidebar-item.active {
+    background: var(--mac-sidebar-selection);
+    color: var(--brand-gold);
+  }
+  .mac-sidebar-item:active {
+    background: rgba(201, 168, 76, 0.3);
+  }
+  .mac-sidebar-footer {
+    border-top: 1px solid var(--mac-sidebar-separator);
+    padding: 4px 0;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     CARDS — macOS rounded-rect cards
+     ══════════════════════════════════════════════════════════════════ */
+  .mac-card {
+    background: var(--mac-card-bg);
+    border-radius: 10px;
+    box-shadow: var(--mac-card-shadow);
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+  .mac-card:hover {
+    box-shadow: var(--mac-card-shadow-hover);
+  }
+  .mac-card-interactive {
+    cursor: pointer;
+  }
+  .mac-card-interactive:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--mac-card-shadow-hover);
+  }
+  .mac-card-interactive:active {
+    transform: translateY(0);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     BUTTONS — macOS push buttons
+     ══════════════════════════════════════════════════════════════════ */
+  .mac-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 4px 12px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+    white-space: nowrap;
+    user-select: none;
+  }
+  .mac-btn:active {
+    transform: scale(0.97);
+  }
+  .mac-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .mac-btn-primary {
+    background: var(--mac-button-primary-bg);
+    color: var(--mac-button-primary-text);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+  .mac-btn-primary:hover {
+    background: #162033;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+  .mac-btn-primary:active {
+    background: #1a2538;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+  }
+
+  .mac-btn-accent {
+    background: var(--mac-button-accent-bg);
+    color: var(--mac-button-accent-text);
+    box-shadow: 0 1px 2px rgba(201, 168, 76, 0.2);
+  }
+  .mac-btn-accent:hover {
+    background: var(--mac-accent-hover);
+    box-shadow: 0 2px 4px rgba(201, 168, 76, 0.25);
+  }
+  .mac-btn-accent:active {
+    background: #be9d3e;
+  }
+
+  .mac-btn-ghost {
+    background: transparent;
+    color: var(--mac-secondary-label);
+  }
+  .mac-btn-ghost:hover {
+    background: var(--mac-button-ghost-hover);
+    color: var(--mac-label);
+  }
+  .mac-btn-ghost:active {
+    background: rgba(15, 27, 45, 0.1);
+  }
+
+  .mac-btn-destructive {
+    background: var(--mac-destructive);
+    color: white;
+    box-shadow: 0 1px 2px rgba(255, 59, 48, 0.2);
+  }
+  .mac-btn-destructive:hover {
+    background: #e6352b;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     SEGMENTED CONTROL — macOS NSSegmentedControl
+     ══════════════════════════════════════════════════════════════════ */
+  .mac-segmented {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 1px;
+  }
+  .mac-segmented-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--mac-secondary-label);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    white-space: nowrap;
+  }
+  .mac-segmented-item:hover {
+    color: var(--mac-label);
+  }
+  .mac-segmented-item.active {
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--mac-label);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     INPUT — macOS text field
+     ══════════════════════════════════════════════════════════════════ */
+  .mac-input {
+    width: 100%;
+    padding: 5px 10px;
+    font-size: 13px;
+    color: var(--mac-label);
+    background: var(--mac-input-bg);
+    border: 1px solid var(--mac-input-border);
+    border-radius: 6px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .mac-input::placeholder {
+    color: var(--mac-tertiary-label);
+  }
+  .mac-input:focus {
+    border-color: var(--mac-accent);
+    box-shadow: 0 0 0 3px var(--mac-input-focus-ring);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     SHEET — macOS modal sheet
+     ══════════════════════════════════════════════════════════════════ */
+  .mac-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .mac-sheet {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(40px) saturate(1.3);
+    -webkit-backdrop-filter: blur(40px) saturate(1.3);
+    border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    max-width: 90vw;
+    animation: mac-sheet-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  @keyframes mac-sheet-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     SPLIT PANE — macOS NSSplitView
+     ══════════════════════════════════════════════════════════════════ */
+  .mac-split-pane {
+    display: flex;
+    flex: 1;
     overflow: hidden;
   }
-  .glass-refraction::after {
+  .mac-split-divider {
+    width: 1px;
+    background: var(--mac-separator);
+    flex-shrink: 0;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     STATUS BADGES — macOS pill badges
+     ══════════════════════════════════════════════════════════════════ */
+  .mac-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+  .mac-badge-running {
+    background: rgba(0, 122, 255, 0.1);
+    color: #007aff;
+  }
+  .mac-badge-completed {
+    background: rgba(52, 199, 89, 0.1);
+    color: #34c759;
+  }
+  .mac-badge-failed {
+    background: rgba(255, 59, 48, 0.1);
+    color: #ff3b30;
+  }
+  .mac-badge-pending {
+    background: rgba(255, 149, 0, 0.1);
+    color: #ff9500;
+  }
+  .mac-badge-draft {
+    background: rgba(142, 142, 147, 0.1);
+    color: #8e8e93;
+  }
+  .mac-badge-submitted {
+    background: rgba(175, 82, 222, 0.1);
+    color: #af52de;
+  }
+  .mac-badge-active {
+    background: rgba(52, 199, 89, 0.1);
+    color: #34c759;
+  }
+  .mac-badge-archived {
+    background: rgba(142, 142, 147, 0.1);
+    color: #8e8e93;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     CHAT — macOS iMessage-style bubbles
+     ══════════════════════════════════════════════════════════════════ */
+  .mac-chat-bubble-agent {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    border-radius: 10px;
+    box-shadow: var(--mac-card-shadow);
+  }
+  .mac-chat-bubble-user {
+    background: var(--mac-button-primary-bg);
+    color: white;
+    border-radius: 10px;
+  }
+  .mac-chat-bubble-system {
+    background: rgba(201, 168, 76, 0.08);
+    border: 1px solid rgba(201, 168, 76, 0.15);
+    border-radius: 8px;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     PROGRESS BAR — macOS-style
+     ══════════════════════════════════════════════════════════════════ */
+  .mac-progress {
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+  }
+  .mac-progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--mac-accent);
+    transition: width 0.5s ease;
+  }
+  .mac-progress-fill-blue {
+    background: var(--mac-blue);
+  }
+  .mac-progress-fill-green {
+    background: var(--mac-green);
+  }
+  .mac-progress-fill-red {
+    background: var(--mac-red);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     TOAST — macOS notification style
+     ══════════════════════════════════════════════════════════════════ */
+  .mac-toast-enter {
+    animation: mac-toast-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  .mac-toast-exit {
+    animation: mac-toast-out 0.25s ease-in forwards;
+  }
+  @keyframes mac-toast-in {
+    from { opacity: 0; transform: translateX(100%) scale(0.95); }
+    to { opacity: 1; transform: translateX(0) scale(1); }
+  }
+  @keyframes mac-toast-out {
+    from { opacity: 1; transform: translateX(0) scale(1); }
+    to { opacity: 0; transform: translateX(100%) scale(0.95); }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     DAG — macOS graph styling
+     ══════════════════════════════════════════════════════════════════ */
+  .mac-dag-node-running {
+    animation: mac-dag-pulse 2s ease-in-out infinite;
+  }
+  @keyframes mac-dag-pulse {
+    0%, 100% { filter: drop-shadow(0 0 0 rgba(0, 122, 255, 0)); }
+    50% { filter: drop-shadow(0 0 6px rgba(0, 122, 255, 0.4)); }
+  }
+  .mac-dag-edge-flow {
+    stroke-dasharray: 6 4;
+    animation: mac-dag-flow 1s linear infinite;
+  }
+  @keyframes mac-dag-flow {
+    to { stroke-dashoffset: -10; }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     SKELETON — macOS shimmer
+     ══════════════════════════════════════════════════════════════════ */
+  .mac-skeleton {
+    position: relative;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 6px;
+  }
+  .mac-skeleton::after {
     content: "";
     position: absolute;
     inset: 0;
-    border-radius: inherit;
-    background:
-      radial-gradient(ellipse 50% 35% at 20% 8%, rgba(255, 255, 255, 0.18) 0%, transparent 100%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 40%);
-    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.5) 50%,
+      transparent 100%
+    );
+    animation: mac-shimmer 1.5s ease-in-out infinite;
+  }
+  @keyframes mac-shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
   }
 
-  /* ── Glass input ──────────────────────────────────────────────── */
-  .glass-input {
-    @apply w-full rounded-lg px-3 py-2 text-sm text-navy placeholder:text-muted-foreground
-           focus:outline-none focus:ring-2 focus:ring-gold;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(16px) saturate(1.1);
-    -webkit-backdrop-filter: blur(16px) saturate(1.1);
-    border: 1px solid var(--border);
-    box-shadow: inset 0 1px 2px rgba(15, 27, 45, 0.04);
-    transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  /* ══════════════════════════════════════════════════════════════════
+     REVEAL — macOS scroll animation
+     ══════════════════════════════════════════════════════════════════ */
+  .mac-reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition:
+      opacity 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+      transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
-  .glass-input:focus {
-    background: rgba(255, 255, 255, 0.95);
-    box-shadow: inset 0 1px 2px rgba(15, 27, 45, 0.04), 0 0 0 3px rgba(201, 168, 76, 0.15);
-  }
-
-  /* ── Glass button variants ────────────────────────────────────── */
-  .btn-primary {
-    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200
-           disabled:opacity-50 disabled:cursor-not-allowed;
-    background: #0f1b2d;
-    color: #fff;
-    box-shadow: 0 1px 3px rgba(15, 27, 45, 0.15), 0 4px 12px rgba(15, 27, 45, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  }
-  .btn-primary:hover {
-    background: #162033;
-    box-shadow: 0 2px 6px rgba(15, 27, 45, 0.2), 0 8px 24px rgba(15, 27, 45, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-    transform: translateY(-1px);
-  }
-  .btn-primary:active {
-    transform: translateY(0);
-    box-shadow: 0 1px 2px rgba(15, 27, 45, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  }
-
-  .btn-accent {
-    @apply px-4 py-2 rounded-lg font-semibold transition-all duration-200
-           disabled:opacity-50 disabled:cursor-not-allowed;
-    background: #c9a84c;
-    color: var(--foreground);
-    box-shadow: 0 1px 3px rgba(201, 168, 76, 0.2), 0 4px 12px rgba(201, 168, 76, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  }
-  .btn-accent:hover {
-    background: #d4b35a;
-    box-shadow: 0 2px 6px rgba(201, 168, 76, 0.25), 0 8px 24px rgba(201, 168, 76, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-    transform: translateY(-1px);
-  }
-  .btn-accent:active {
+  .mac-reveal.is-visible {
+    opacity: 1;
     transform: translateY(0);
   }
 
-  .btn-ghost {
-    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200
-           disabled:opacity-50 disabled:cursor-not-allowed;
-    background: transparent;
-    border: 1px solid transparent;
-    color: var(--foreground);
-  }
-  .btn-ghost:hover {
-    background: rgba(15, 27, 45, 0.05);
-    border-color: rgba(226, 221, 213, 0.5);
-  }
-
-  .btn-destructive {
-    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200
-           disabled:opacity-50 disabled:cursor-not-allowed;
-    background: #ef4444;
-    color: #fff;
-    box-shadow: 0 1px 3px rgba(239, 68, 68, 0.15), 0 4px 12px rgba(239, 68, 68, 0.1);
-  }
-  .btn-destructive:hover {
-    background: #dc2626;
-  }
-
-  /* ── Input base (alias) ──────────────────────────────────────── */
-  .input-base {
-    @apply glass-input;
-  }
-
-  /* ── Monospace text ──────────────────────────────────────────── */
-  .font-code {
-    @apply font-mono text-sm;
-  }
-
-  /* ── Status colors ──────────────────────────────────────────── */
-  .status-pending {
-    @apply text-yellow-600 bg-yellow-50 rounded-full;
-  }
-
-  .status-running {
-    @apply text-blue-600 bg-blue-50 rounded-full;
-  }
-
-  .status-completed {
-    @apply text-green-600 bg-green-50 rounded-full;
-  }
-
-  .status-failed {
-    @apply text-red-600 bg-red-50 rounded-full;
-  }
-
-  .status-draft {
-    @apply text-gray-600 bg-gray-50 rounded-full;
-  }
-
-  .status-submitted {
-    @apply text-purple-600 bg-purple-50 rounded-full;
-  }
-
-  /* ── Glass modal overlay ──────────────────────────────────────── */
-  .glass-modal-backdrop {
-    background: rgba(15, 27, 45, 0.25);
-    backdrop-filter: blur(12px) saturate(1.3);
-    -webkit-backdrop-filter: blur(12px) saturate(1.3);
-  }
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-
-  /* ══════════════════════════════════════════════════════════════════════
-     PROSE-CHAT — Markdown styling for chat message bubbles
-     ══════════════════════════════════════════════════════════════════════ */
-  .prose-chat {
-    font-size: 0.8125rem;
+  /* ══════════════════════════════════════════════════════════════════
+     PROSE — macOS markdown chat styling
+     ══════════════════════════════════════════════════════════════════ */
+  .mac-prose {
+    font-size: 13px;
     line-height: 1.5;
-    color: #0f1b2d;
+    color: var(--mac-label);
     word-break: break-word;
   }
-  .prose-chat p:last-child,
-  .prose-chat ul:last-child,
-  .prose-chat ol:last-child,
-  .prose-chat pre:last-child {
+  .mac-prose p:last-child,
+  .mac-prose ul:last-child,
+  .mac-prose ol:last-child,
+  .mac-prose pre:last-child {
     margin-bottom: 0;
   }
 
-  /* ══════════════════════════════════════════════════════════════════════
-     HIGHLIGHT.JS — Custom dark theme matching navy-900
-     ══════════════════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════════
+     HIGHLIGHT.JS — macOS dark code theme
+     ══════════════════════════════════════════════════════════════════ */
   .hljs {
     color: #c5cdd9;
     background: transparent;
@@ -364,92 +731,10 @@
   .hljs-strong {
     font-weight: 600;
   }
+}
 
-  /* ══════════════════════════════════════════════════════════════════════
-     SKELETON SHIMMER — Loading placeholders
-     ══════════════════════════════════════════════════════════════════════ */
-  .skeleton {
-    position: relative;
-    overflow: hidden;
-    background: rgba(15, 27, 45, 0.06);
-  }
-  .skeleton::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.45) 50%,
-      transparent 100%
-    );
-    animation: skeleton-shimmer 1.5s ease-in-out infinite;
-  }
-  @keyframes skeleton-shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-  }
-
-  /* ══════════════════════════════════════════════════════════════════════
-     SCROLL REVEAL — IntersectionObserver-triggered fade-up
-     ══════════════════════════════════════════════════════════════════════ */
-  .reveal {
-    opacity: 0;
-    transform: translateY(24px);
-    transition:
-      opacity 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
-      transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  .reveal.is-visible {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  /* ══════════════════════════════════════════════════════════════════════
-     TOAST — Slide-in notifications
-     ══════════════════════════════════════════════════════════════════════ */
-  .toast-enter {
-    animation: toast-slide-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  }
-  .toast-exit {
-    animation: toast-slide-out 0.3s ease-in forwards;
-  }
-  @keyframes toast-slide-in {
-    from {
-      opacity: 0;
-      transform: translateX(100%) scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0) scale(1);
-    }
-  }
-  @keyframes toast-slide-out {
-    from {
-      opacity: 1;
-      transform: translateX(0) scale(1);
-    }
-    to {
-      opacity: 0;
-      transform: translateX(100%) scale(0.95);
-    }
-  }
-
-  /* ── DAG node pulse for running steps ─────────────────────────────── */
-  .dag-node-running {
-    animation: dag-pulse 2s ease-in-out infinite;
-  }
-  @keyframes dag-pulse {
-    0%, 100% { filter: drop-shadow(0 0 0 rgba(59, 130, 246, 0)); }
-    50% { filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.5)); }
-  }
-
-  /* ── DAG edge flow animation ──────────────────────────────────────── */
-  .dag-edge-flow {
-    stroke-dasharray: 6 4;
-    animation: dag-flow 1s linear infinite;
-  }
-  @keyframes dag-flow {
-    to { stroke-dashoffset: -10; }
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
   }
 }

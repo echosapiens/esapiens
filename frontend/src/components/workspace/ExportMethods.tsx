@@ -59,7 +59,7 @@ export function ExportMethods({ sessionId }: ExportMethodsProps) {
   }, [methodsText, activePipeline?.name]);
 
   return (
-    <div className="glass rounded-xl p-4">
+    <div className="mac-card p-4">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5 text-gold" />
@@ -68,7 +68,7 @@ export function ExportMethods({ sessionId }: ExportMethodsProps) {
         <div className="flex items-center gap-2">
           <button
             onClick={handleCopy}
-            className="btn-ghost inline-flex items-center gap-1.5 text-sm"
+            className="mac-btn-ghost inline-flex items-center gap-1.5 text-sm"
           >
             {copied ? (
               <>
@@ -84,7 +84,7 @@ export function ExportMethods({ sessionId }: ExportMethodsProps) {
           </button>
           <button
             onClick={handleDownload}
-            className="btn-primary inline-flex items-center gap-1.5 text-sm"
+            className="mac-btn-primary inline-flex items-center gap-1.5 text-sm"
           >
             <Download className="h-4 w-4" />
             Download .txt

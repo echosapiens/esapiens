@@ -14,12 +14,11 @@ import {
   ChevronLeft,
   ChevronRight,
   LayoutDashboard,
-  LogOut,
   Settings,
   Activity,
 } from "lucide-react";
 
-// ── Dashboard layout with sidebar ───────────────────────────────────────
+// ── Dashboard layout with macOS sidebar ─────────────────────────────────
 
 export default function DashboardLayout({
   children,
@@ -29,25 +28,19 @@ export default function DashboardLayout({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pathname = usePathname();
 
-  // ── Active route helpers ───────────────────────────────────────────
   const isDashboard = pathname === "/dashboard";
   const isJobs = pathname === "/dashboard/jobs";
-  const isSessionPage = pathname.startsWith("/dashboard/session/");
 
-  // ── Fetch sessions for sidebar ───────────────────────────────────
   const { data: sessions = [] } = useQuery({
     queryKey: ["sessions"],
     queryFn: () => api.listSessions(),
   });
 
-  // ── Fetch grants for sidebar ─────────────────────────────────────
   const { data: grants = [] } = useQuery({
     queryKey: ["grants"],
     queryFn: () => api.listGrants(),
   });
 
-  // ── Fetch live pipeline + run counts for the status overview ──────
-  // Uses the cross-session /jobs endpoint to count active/recent runs.
   const { data: jobsData } = useQuery({
     queryKey: ["jobs", "sidebar"],
     queryFn: () => api.listJobs(false),
@@ -56,73 +49,65 @@ export default function DashboardLayout({
   const activeRuns = jobsData?.total_active ?? 0;
   const completedRecent = jobsData?.recent?.filter((j) => j.status === "completed").length ?? 0;
   const failedRecent = jobsData?.recent?.filter((j) => j.status === "failed").length ?? 0;
-  // Count unique draft pipelines across all sessions
-  const draftPipelines = (jobsData?.recent?.length ?? 0) === 0 && activeRuns === 0 ? 0 : 0;
   const runningPipelines = activeRuns;
 
   return (
-    <div className="flex h-screen bg-cream">
-      {/* ── Sidebar ─────────────────────────────────────────────────── */}
+    <div className="flex h-screen" style={{ background: "var(--mac-window-bg)" }}>
+      {/* ── macOS Sidebar ──────────────────────────────────────────── */}
       <aside
         className={cn(
-          "flex flex-col bg-navy text-white transition-all duration-200",
-          sidebarCollapsed ? "w-16" : "w-64"
+          "mac-sidebar flex flex-col transition-all duration-200",
+          sidebarCollapsed ? "w-14" : "w-56"
         )}
       >
-        {/* ── Logo ──────────────────────────────────────────────── */}
-        <div className="flex h-16 items-center gap-2 border-b border-navy-700 px-4">
-          <FlaskConical className="h-6 w-6 shrink-0 text-gold" />
+        {/* ── Sidebar header with traffic lights ──────────────────── */}
+        <div className="mac-sidebar-header">
+          <div className="mac-traffic-lights">
+            <div className="mac-traffic-light mac-traffic-close" title="Close" />
+            <div className="mac-traffic-light mac-traffic-minimize" title="Minimize" />
+            <div className="mac-traffic-light mac-traffic-zoom" title="Zoom" />
+          </div>
           {!sidebarCollapsed && (
-            <span className="text-lg font-bold">E.sapiens</span>
+            <div className="flex items-center gap-1.5 ml-1">
+              <FlaskConical className="h-4 w-4 text-gold" />
+              <span className="text-sm font-semibold text-white/90">E.sapiens</span>
+            </div>
           )}
         </div>
 
-        {/* ── Navigation ────────────────────────────────────────── */}
-        <nav className="flex-1 overflow-y-auto py-4">
-          <div className="px-3 mb-2">
-            <Link
-              href="/dashboard"
+        {/* ── Navigation ──────────────────────────────────────────── */}
+        <nav className="flex-1 overflow-y-auto mac-sidebar-section">
+          <div>
+            <button
+              onClick={() => {}}
               className={cn(
-                "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                isDashboard
-                  ? "bg-navy-700 text-white"
-                  : "hover:bg-navy-700 text-navy-200 hover:text-white"
+                "mac-sidebar-item",
+                isDashboard && "active"
               )}
             >
               <LayoutDashboard className="h-4 w-4 shrink-0" />
               {!sidebarCollapsed && "Dashboard"}
-            </Link>
+            </button>
           </div>
-
-          <div className="px-3 mb-2">
-            <Link
-              href="/dashboard/jobs"
+          <div>
+            <button
+              onClick={() => {}}
               className={cn(
-                "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                isJobs
-                  ? "bg-navy-700 text-white"
-                  : "hover:bg-navy-700 text-navy-200 hover:text-white"
+                "mac-sidebar-item",
+                isJobs && "active"
               )}
             >
               <Activity className="h-4 w-4 shrink-0" />
               {!sidebarCollapsed && "Job Monitor"}
-            </Link>
+            </button>
           </div>
 
-          {/* ── Sessions list ───────────────────────────────────── */}
-          <div className="px-3 mt-4">
-            <div className="flex items-center justify-between mb-1">
-              {!sidebarCollapsed && (
-                <span className="text-xs font-medium uppercase tracking-wider text-navy-400">
-                  Sessions
-                </span>
-              )}
-              <Link
-                href="/dashboard"
-                className="text-navy-400 hover:text-gold"
-                title="New session"
-              >
-                <Plus className="h-4 w-4" />
+          {/* ── Sessions list ─────────────────────────────────────── */}
+          <div className="mt-4">
+            <div className="mac-sidebar-section-header">
+              {!sidebarCollapsed && <span>Sessions</span>}
+              <Link href="/dashboard" className="text-white/40 hover:text-gold transition-colors">
+                <Plus className="h-3.5 w-3.5" />
               </Link>
             </div>
             <div className="space-y-0.5">
@@ -136,54 +121,41 @@ export default function DashboardLayout({
             </div>
           </div>
 
-          {/* ── Active pipelines ────────────────────────────────── */}
+          {/* ── Pipeline status ────────────────────────────────────── */}
           {!sidebarCollapsed && (
-            <div className="px-3 mt-6">
-              <span className="text-xs font-medium uppercase tracking-wider text-navy-400">
-                Pipeline Status
-              </span>
-              <div className="mt-2 space-y-1">
-                <PipelineStatusItem
-                  label="Running"
-                  count={runningPipelines}
-                  color="bg-blue-500"
-                />
-                <PipelineStatusItem
-                  label="Completed"
-                  count={completedRecent}
-                  color="bg-green-500"
-                />
-                <PipelineStatusItem
-                  label="Failed"
-                  count={failedRecent}
-                  color="bg-red-500"
-                />
+            <div className="mt-4">
+              <div className="mac-sidebar-section-header">
+                <span>Pipeline Status</span>
+              </div>
+              <div className="space-y-0.5">
+                <PipelineStatusItem label="Running" count={runningPipelines} color="bg-system-blue" />
+                <PipelineStatusItem label="Completed" count={completedRecent} color="bg-system-green" />
+                <PipelineStatusItem label="Failed" count={failedRecent} color="bg-system-red" />
               </div>
             </div>
           )}
 
-          {/* ── Grants overview ──────────────────────────────────── */}
+          {/* ── Grants overview ────────────────────────────────────── */}
           {!sidebarCollapsed && grants.length > 0 && (
-            <div className="px-3 mt-6">
-              <span className="text-xs font-medium uppercase tracking-wider text-navy-400">
-                Grants
-              </span>
-              <div className="mt-2 space-y-1">
+            <div className="mt-4">
+              <div className="mac-sidebar-section-header">
+                <span>Grants</span>
+              </div>
+              <div className="space-y-0.5">
                 {grants.slice(0, 3).map((grant) => (
                   <div
                     key={grant.id}
-                    className="flex items-center justify-between rounded-md px-2 py-1.5 text-xs hover:bg-navy-700"
+                    className="mac-sidebar-item flex items-center justify-between"
+                    style={{ cursor: "default" }}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <Wallet className="h-3.5 w-3.5 shrink-0 text-gold" />
-                      <span className="truncate text-navy-200">{grant.name}</span>
+                      <span className="truncate text-xs text-white/60">{grant.name}</span>
                     </div>
                     <span
                       className={cn(
-                        "text-xs font-medium",
-                        grant.status === "active"
-                          ? "text-green-400"
-                          : "text-red-400"
+                        "text-[10px] font-medium",
+                        grant.status === "active" ? "text-system-green" : "text-system-red"
                       )}
                     >
                       {formatCurrency(grant.spent_budget)} / {formatCurrency(grant.total_budget)}
@@ -195,28 +167,28 @@ export default function DashboardLayout({
           )}
         </nav>
 
-        {/* ── Footer ─────────────────────────────────────────────── */}
-        <div className="border-t border-navy-700 px-3 py-3">
-          <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-navy-300 hover:bg-navy-700 hover:text-white">
+        {/* ── Sidebar footer ───────────────────────────────────────── */}
+        <div className="mac-sidebar-footer">
+          <button className="mac-sidebar-item">
             <Settings className="h-4 w-4 shrink-0" />
             {!sidebarCollapsed && "Settings"}
           </button>
         </div>
 
-        {/* ── Collapse toggle ────────────────────────────────────── */}
+        {/* ── Collapse toggle ─────────────────────────────────────── */}
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="flex h-10 items-center justify-center border-t border-navy-700 text-navy-400 hover:bg-navy-700 hover:text-white"
+          className="flex h-7 items-center justify-center border-t border-white/10 text-white/40 hover:text-white/80 transition-colors"
         >
           {sidebarCollapsed ? (
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-3.5 w-3.5" />
           ) : (
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-3.5 w-3.5" />
           )}
         </button>
       </aside>
 
-      {/* ── Main content ────────────────────────────────────────────── */}
+      {/* ── Main content ──────────────────────────────────────────────── */}
       <main className="flex-1 overflow-hidden">{children}</main>
     </div>
   );
@@ -236,19 +208,14 @@ function SessionNavItem({
   return (
     <Link
       href={`/dashboard/session/${session.id}`}
-      className={cn(
-        "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
-        isActive
-          ? "bg-navy-700 text-white"
-          : "text-navy-300 hover:bg-navy-700 hover:text-white"
-      )}
+      className={cn("mac-sidebar-item", isActive && "active")}
       title={session.title}
     >
       <GitBranch className="h-3.5 w-3.5 shrink-0" />
       {!collapsed && (
-        <span className="truncate">
-          {session.title.length > 20
-            ? session.title.slice(0, 20) + "…"
+        <span className="truncate text-xs">
+          {session.title.length > 22
+            ? session.title.slice(0, 22) + "\u2026"
             : session.title}
         </span>
       )}
@@ -268,12 +235,12 @@ function PipelineStatusItem({
   color: string;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-md px-2 py-1.5 text-xs">
+    <div className="flex items-center justify-between px-3 py-1 text-xs">
       <div className="flex items-center gap-2">
-        <span className={cn("h-2 w-2 rounded-full", color)} />
-        <span className="text-navy-300">{label}</span>
+        <span className={cn("h-1.5 w-1.5 rounded-full", color)} />
+        <span className="text-white/50">{label}</span>
       </div>
-      <span className="font-medium text-white">{count}</span>
+      <span className="font-medium text-white/80">{count}</span>
     </div>
   );
 }

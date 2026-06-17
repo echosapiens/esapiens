@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useToastStore, type ToastVariant } from "@/store/toastStore";
 import { cn } from "@/lib/utils";
 import {
@@ -11,16 +11,21 @@ import {
   X,
 } from "lucide-react";
 
-// ── Toast container (renders fixed top-right, portal-free) ──────────────
-
 const VARIANT_CONFIG: Record<
   ToastVariant,
-  { icon: React.ComponentType<{ className?: string }>; border: string; iconColor: string }
+  { icon: React.ComponentType<{ className?: string }>; variant: string }
 > = {
-  success: { icon: CheckCircle2, border: "border-green-400/50", iconColor: "text-green-500" },
-  error: { icon: XCircle, border: "border-red-400/50", iconColor: "text-red-500" },
-  info: { icon: Info, border: "border-blue-400/50", iconColor: "text-blue-500" },
-  warning: { icon: AlertTriangle, border: "border-amber-400/50", iconColor: "text-amber-500" },
+  success: { icon: CheckCircle2, variant: "success" },
+  error: { icon: XCircle, variant: "error" },
+  info: { icon: Info, variant: "info" },
+  warning: { icon: AlertTriangle, variant: "warning" },
+};
+
+const TOAST_COLORS: Record<string, { border: string; icon: string }> = {
+  success: { border: "border-system-green/30", icon: "text-system-green" },
+  error: { border: "border-system-red/30", icon: "text-system-red" },
+  info: { border: "border-system-blue/30", icon: "text-system-blue" },
+  warning: { border: "border-system-orange/30", icon: "text-system-orange" },
 };
 
 export function ToastContainer() {
@@ -31,13 +36,14 @@ export function ToastContainer() {
       {toasts.map((t) => {
         const cfg = VARIANT_CONFIG[t.variant];
         const Icon = cfg.icon;
+        const colors = TOAST_COLORS[cfg.variant] ?? TOAST_COLORS.info;
         return (
           <ToastCard
             key={t.id}
             toast={t}
             icon={Icon}
-            iconColor={cfg.iconColor}
-            borderClass={cfg.border}
+            borderClass={colors.border}
+            iconColor={colors.icon}
             onDismiss={() => dismiss(t.id)}
           />
         );
@@ -46,46 +52,46 @@ export function ToastContainer() {
   );
 }
 
-// ── Toast card with enter/exit animation ─────────────────────────────────
-
 function ToastCard({
   toast,
   icon: Icon,
-  iconColor,
   borderClass,
+  iconColor,
   onDismiss,
 }: {
   toast: { id: string; title: string; message?: string; variant: string };
   icon: React.ComponentType<{ className?: string }>;
-  iconColor: string;
   borderClass: string;
+  iconColor: string;
   onDismiss: () => void;
 }) {
   const [exiting, setExiting] = useState(false);
 
   const handleDismiss = () => {
     setExiting(true);
-    setTimeout(onDismiss, 280);
+    setTimeout(onDismiss, 230);
   };
 
   return (
     <div
       className={cn(
-        "pointer-events-auto flex max-w-sm items-start gap-3 rounded-xl border glass-heavy px-4 py-3 shadow-lg",
+        "pointer-events-auto flex max-w-sm items-start gap-3 rounded-xl px-4 py-3 shadow-lg",
+        "bg-white/90 backdrop-blur-2xl border",
         borderClass,
-        exiting ? "toast-exit" : "toast-enter"
+        exiting ? "mac-toast-exit" : "mac-toast-enter"
       )}
     >
       <Icon className={cn("mt-0.5 h-5 w-5 shrink-0", iconColor)} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-navy">{toast.title}</p>
+        <p className="text-sm font-semibold" style={{ color: "var(--mac-label)" }}>{toast.title}</p>
         {toast.message && (
-          <p className="mt-0.5 text-xs text-muted-foreground">{toast.message}</p>
+          <p className="mt-0.5 text-xs" style={{ color: "var(--mac-secondary-label)" }}>{toast.message}</p>
         )}
       </div>
       <button
         onClick={handleDismiss}
-        className="shrink-0 text-muted-foreground hover:text-navy transition-colors"
+        className="shrink-0 transition-colors"
+        style={{ color: "var(--mac-tertiary-label)" }}
         aria-label="Dismiss"
       >
         <X className="h-4 w-4" />

@@ -9,40 +9,35 @@ import { ChatPanel } from "@/components/chat/ChatPanel";
 import { WorkspaceCanvas } from "@/components/workspace/WorkspaceCanvas";
 import { SessionSkeleton } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/utils";
-import { Loader2, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
-// ── Session detail page ─────────────────────────────────────────────────
-// Full split-pane IDE layout: ChatPanel on left, WorkspaceCanvas on right
+// ── Session detail page — macOS split pane ──────────────────────────────
 
 export default function SessionDetailPage() {
   const params = useParams();
   const sessionId = params.id as string;
 
-  // ── Sync state via REST + WebSocket ──────────────────────────────
   const { state, isLoading, error } = useStateSync(sessionId);
   const connectionStatus = useSessionStore((s) => s.connectionStatus);
 
-  // ── Fetch session details ────────────────────────────────────────
   const { data: session } = useQuery({
     queryKey: ["session", sessionId],
     queryFn: () => api.getSession(sessionId),
   });
 
-  // ── Loading state ────────────────────────────────────────────────
   if (isLoading && !session) {
     return <SessionSkeleton />;
   }
 
-  // ── Error state ──────────────────────────────────────────────────
   if (error && !session) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-center glass rounded-xl p-8">
-          <AlertCircle className="h-8 w-8 text-red-500" />
-          <p className="text-sm text-red-600">{error}</p>
+        <div className="mac-card flex flex-col items-center gap-3 p-8 text-center">
+          <AlertCircle className="h-8 w-8" style={{ color: "var(--mac-red)" }} />
+          <p className="text-sm" style={{ color: "var(--mac-red)" }}>{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="btn-ghost text-sm"
+            className="mac-btn mac-btn-ghost"
           >
             Retry
           </button>
@@ -52,21 +47,26 @@ export default function SessionDetailPage() {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      {/* ── Session header ─────────────────────────────────────────── */}
-      <div className="flex items-center justify-between border-b border-border glass-heavy px-4 py-2">
-        <div className="flex items-center gap-3">
-          <h1 className="text-sm font-semibold text-navy">
-            {session?.title ?? "Session"}
-          </h1>
+    <div className="mac-window">
+      {/* ── macOS Unified Titlebar ──────────────────────────────────── */}
+      <div className="mac-titlebar">
+        <div className="mac-traffic-lights">
+          <div className="mac-traffic-light mac-traffic-close" title="Close" />
+          <div className="mac-traffic-light mac-traffic-minimize" title="Minimize" />
+          <div className="mac-traffic-light mac-traffic-zoom" title="Zoom" />
+        </div>
+        <div className="mac-titlebar-title">
+          {session?.title ?? "Session"}
+        </div>
+        <div className="flex items-center gap-2 pr-2">
           <span
             className={cn(
-              "rounded-full px-2 py-0.5 text-[10px] font-medium",
+              "mac-badge",
               connectionStatus === "connected"
-                ? "bg-green-50 text-green-700"
+                ? "mac-badge-active"
                 : connectionStatus === "reconnecting"
-                ? "bg-yellow-50 text-yellow-700"
-                : "bg-red-50 text-red-700"
+                ? "mac-badge-pending"
+                : "mac-badge-failed"
             )}
           >
             {connectionStatus === "connected"
@@ -75,23 +75,24 @@ export default function SessionDetailPage() {
               ? "Reconnecting..."
               : "Offline"}
           </span>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>ID: {sessionId.slice(0, 8)}…</span>
           {state && (
-            <span>• {state.pipelines.length} pipelines • {state.runs.length} runs</span>
+            <span className="text-[11px]" style={{ color: "var(--mac-tertiary-label)" }}>
+              {state.pipelines.length} pipelines · {state.runs.length} runs
+            </span>
           )}
         </div>
       </div>
 
-      {/* ── Split-pane IDE layout ──────────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* ── Left pane: Chat (40%) ──────────────────────────────── */}
-        <div className="w-2/5 min-w-[320px] border-r border-border">
+      {/* ── macOS Split Pane ──────────────────────────────────────────── */}
+      <div className="mac-split-pane">
+        {/* ── Left pane: Chat (40%) ────────────────────────────────── */}
+        <div className="w-2/5 min-w-[320px]">
           <ChatPanel />
         </div>
 
-        {/* ── Right pane: Workspace (60%) ────────────────────────── */}
+        <div className="mac-split-divider" />
+
+        {/* ── Right pane: Workspace (60%) ──────────────────────────── */}
         <div className="flex-1">
           <WorkspaceCanvas sessionId={sessionId} />
         </div>

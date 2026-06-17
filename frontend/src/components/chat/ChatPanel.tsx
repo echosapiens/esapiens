@@ -69,7 +69,6 @@ function loadChatFromStorage(sessionId: string | null): ChatMessage[] {
 function saveChatToStorage(sessionId: string | null, messages: ChatMessage[]): void {
   if (typeof window === "undefined" || !sessionId) return;
   try {
-    // Cap at 200 messages to avoid localStorage bloat
     const capped = messages.slice(-200);
     localStorage.setItem(CHAT_STORAGE_PREFIX + sessionId, JSON.stringify(capped));
   } catch {
@@ -80,7 +79,6 @@ function saveChatToStorage(sessionId: string | null, messages: ChatMessage[]): v
 // ── ChatPanel ────────────────────────────────────────────────────────────
 
 export function ChatPanel() {
-  // Load the current session id at mount time (we read from the store via getState)
   const currentSessionId = useSessionStore.getState().currentSessionId;
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     const stored = loadChatFromStorage(currentSessionId);
@@ -104,13 +102,11 @@ export function ChatPanel() {
   const agentState = useSessionStore((s) => s.agentState);
   const logs = useSessionStore((s) => s.logs);
 
-  // Persist messages to localStorage on every change so chat survives navigation
   useEffect(() => {
     const sid = useSessionStore.getState().currentSessionId;
     saveChatToStorage(sid, messages);
   }, [messages]);
 
-  // When the active session changes, reload the chat from storage
   useEffect(() => {
     const unsub = useSessionStore.subscribe((state, prev) => {
       if (state.currentSessionId !== prev.currentSessionId) {
@@ -118,7 +114,6 @@ export function ChatPanel() {
         if (stored.length > 0) {
           setMessages(stored);
         } else {
-          // New session — show welcome
           setMessages([
             {
               id: "welcome-" + Date.now(),
@@ -133,20 +128,15 @@ export function ChatPanel() {
     return unsub;
   }, []);
 
-  // ── Auto-scroll on new messages ────────────────────────────────────
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, logs]);
 
-  // ── When agent plan is generated, add a message ──────────────────
-  // Track which plans we've already announced so the "awaiting review" badge
-  // resets between plans. We key by the plan's content hash, not a static id.
   const lastPlanRef = useRef<string | null>(null);
   useEffect(() => {
     const plan = agentState.last_plan as Record<string, unknown> | null;
     if (!plan || agentState.approval_status !== "pending") return;
 
-    // Use a stable key derived from the plan to detect "new plan arrived"
     const planKey = JSON.stringify({
       name: plan.name ?? plan.title,
       steps: (plan.steps as unknown[])?.length ?? 0,
@@ -156,7 +146,6 @@ export function ChatPanel() {
 
     const planName = (plan.name as string) ?? (plan.title as string) ?? "Pipeline Plan";
     setMessages((prev) => {
-      // Remove any prior "plan-pending" badge from a previous plan
       const filtered = prev.filter((m) => m.id !== "plan-pending");
       return [
         ...filtered,
@@ -174,7 +163,6 @@ export function ChatPanel() {
     });
   }, [agentState.last_plan, agentState.approval_status]);
 
-  // ── Add log messages as system traces ──────────────────────────────
   useEffect(() => {
     if (logs.length === 0) return;
     const lastLog = logs[logs.length - 1];
@@ -185,7 +173,6 @@ export function ChatPanel() {
         content: `[${lastLog.step_name}] ${lastLog.stream === "stderr" ? "⚠ " : ""}${lastLog.text}`,
         timestamp: lastLog.timestamp,
       };
-      // Avoid duplicate log messages
       if (prev.length > 0 && prev[prev.length - 1].id === logMsg.id) {
         return prev;
       }
@@ -193,7 +180,6 @@ export function ChatPanel() {
     });
   }, [logs]);
 
-  // ── Send message handler ──────────────────────────────────────────
   const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || isSending) return;
@@ -261,10 +247,9 @@ export function ChatPanel() {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to get response from agent";
-      // Detect "no LLM configured" style errors and lock out supervisor mode gracefully
       if (
         mode === "supervisor" &&
-        /llm|api[_\s-]?key|openai|anthropic|model/i.test(message)
+        /llm|api[_\\s-]?key|openai|anthropic|model/i.test(message)
       ) {
         setSupervisorDisabled(true);
         toast.warning("Supervisor mode unavailable", "No LLM is configured on the backend");
@@ -285,11 +270,9 @@ export function ChatPanel() {
     }
   }, [input, isSending, mode, supervisorDisabled]);
 
-  // ── Mode toggle handler ──────────────────────────────────────────
   const handleModeChange = useCallback((next: ChatMode) => {
     if (next === mode) return;
     setMode(next);
-    // Clear messages so each mode has a clean transcript
     setMessages([
       {
         id: "welcome",
@@ -303,7 +286,6 @@ export function ChatPanel() {
     ]);
   }, [mode]);
 
-  // ── Approval handlers ─────────────────────────────────────────────
   const handleApprove = useCallback(async () => {
     const pipelineId = agentState.last_plan
       ? (agentState.last_plan as Record<string, unknown>).id as string | undefined
@@ -320,7 +302,6 @@ export function ChatPanel() {
       ]);
       return;
     }
-    // Optimistic UI update
     setMessages((prev) => [
       ...prev,
       {
@@ -342,7 +323,6 @@ export function ChatPanel() {
         },
       ]);
       toast.success("Pipeline approved", "Compute dispatched to Modal sandboxes");
-      // Mark approval as completed in the store
       useSessionStore.setState((s) => ({
         agentState: { ...s.agentState, approval_status: "approved" },
       }));
@@ -375,27 +355,27 @@ export function ChatPanel() {
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
-    <div className="flex h-full flex-col glass">
+    <div className="flex h-full flex-col" style={{ background: "var(--mac-window-bg)" }}>
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3 glass-heavy">
+      <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: "var(--mac-toolbar-separator)", background: "var(--mac-toolbar-bg)" }}>
         <div className="flex items-center gap-2">
-          <Bot className="h-5 w-5 text-gold" />
-          <h2 className="text-sm font-semibold text-navy">Agent Chat</h2>
+          <Bot className="h-4 w-4" style={{ color: "var(--brand-gold)" }} />
+          <h2 className="text-xs font-semibold" style={{ color: "var(--mac-label)" }}>Agent Chat</h2>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <ModeToggle mode={mode} onChange={handleModeChange} disabled={supervisorDisabled} />
           <ConnectionIndicator />
         </div>
       </div>
 
       {/* ── Messages ────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
         {messages.map((msg) => (
           <MessageBubble key={msg.id} message={msg} />
         ))}
         {isSending && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
+          <div className="flex items-center gap-2 text-xs" style={{ color: "var(--mac-tertiary-label)" }}>
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Thinking...
           </div>
         )}
@@ -404,36 +384,35 @@ export function ChatPanel() {
 
       {/* ── Approval buttons (when plan is pending) ────────────────── */}
       {agentState.approval_status === "pending" && (
-        <div className="border-t border-border glass-heavy px-4 py-3">
-          <p className="mb-2 text-xs font-medium text-navy">
+        <div className="px-3 py-2 border-t" style={{ borderColor: "var(--mac-toolbar-separator)", background: "var(--mac-toolbar-bg)" }}>
+          <p className="mb-2 text-[11px] font-medium" style={{ color: "var(--mac-label)" }}>
             Pipeline plan awaiting your approval:
           </p>
           <div className="flex gap-2">
             <button
               onClick={handleApprove}
-              className="btn-accent inline-flex items-center gap-1.5 text-sm"
+              className="mac-btn mac-btn-accent text-xs"
             >
-              <CheckCircle2 className="h-4 w-4" />
+              <CheckCircle2 className="h-3.5 w-3.5" />
               Approve Plan
             </button>
             <button
               onClick={handleModify}
-              className="btn-ghost inline-flex items-center gap-1.5 text-sm"
+              className="mac-btn mac-btn-ghost text-xs"
             >
-              <AlertCircle className="h-4 w-4" />
+              <AlertCircle className="h-3.5 w-3.5" />
               Modify Parameters
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Input bar ──────────────────────────────────────────────── */}
-      <div className="border-t border-border glass-heavy px-4 py-3">
+      {/* ── macOS Input bar ──────────────────────────────────────────── */}
+      <div className="px-3 py-2 border-t" style={{ borderColor: "var(--mac-toolbar-separator)", background: "var(--mac-toolbar-bg)" }}>
         {mode === "supervisor" && supervisorDisabled && (
-          <div className="mb-2 flex items-center gap-2 rounded-lg border border-amber-300/60 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
-            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-            Supervisor mode is unavailable — no LLM is configured on the backend.
-            Switch back to Pipeline mode to continue.
+          <div className="mb-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px]" style={{ background: "rgba(255,149,0,0.08)", color: "var(--mac-orange)" }}>
+            <AlertCircle className="h-3 w-3 shrink-0" />
+            Supervisor mode is unavailable — no LLM configured.
           </div>
         )}
         <form
@@ -450,11 +429,11 @@ export function ChatPanel() {
             placeholder={
               mode === "supervisor"
                 ? supervisorDisabled
-                  ? "Supervisor unavailable — see note above"
-                  : "Ask the supervisor to research, analyse, or plan…"
+                  ? "Supervisor unavailable"
+                  : "Ask the supervisor to research…"
                 : "Describe your analysis goal..."
             }
-            className="input-base flex-1"
+            className="mac-input flex-1"
             disabled={isSending || (mode === "supervisor" && supervisorDisabled)}
           />
           <button
@@ -464,10 +443,9 @@ export function ChatPanel() {
               !input.trim() ||
               (mode === "supervisor" && supervisorDisabled)
             }
-            className="btn-primary inline-flex items-center gap-1.5"
+            className="mac-btn mac-btn-primary"
           >
-            <Send className="h-4 w-4" />
-            Send
+            <Send className="h-3.5 w-3.5" />
           </button>
         </form>
       </div>
@@ -480,10 +458,10 @@ export function ChatPanel() {
 function ConnectionIndicator() {
   const status = useSessionStore((s) => s.connectionStatus);
   const colors: Record<string, string> = {
-    connected: "bg-green-500",
-    connecting: "bg-yellow-500 animate-pulse",
-    disconnected: "bg-red-500",
-    reconnecting: "bg-yellow-500 animate-pulse",
+    connected: "bg-system-green",
+    connecting: "bg-system-yellow animate-pulse",
+    disconnected: "bg-system-red",
+    reconnecting: "bg-system-yellow animate-pulse",
   };
   const labels: Record<string, string> = {
     connected: "Connected",
@@ -493,8 +471,8 @@ function ConnectionIndicator() {
   };
   return (
     <div className="flex items-center gap-1.5">
-      <span className={cn("h-2 w-2 rounded-full", colors[status] ?? "bg-gray-400")} />
-      <span className="text-xs text-muted-foreground">{labels[status] ?? status}</span>
+      <span className={cn("h-1.5 w-1.5 rounded-full", colors[status] ?? "bg-system-gray")} />
+      <span className="text-[11px]" style={{ color: "var(--mac-tertiary-label)" }}>{labels[status] ?? status}</span>
     </div>
   );
 }
@@ -506,7 +484,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
   if (message.role === "system") {
     return (
-      <div className="glass rounded-xl border border-gold/20 px-3 py-2 text-xs text-navy-700">
+      <div className="mac-chat-bubble-system px-3 py-2 text-xs">
         <MarkdownRenderer content={message.content} />
       </div>
     );
@@ -517,52 +495,47 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     isAgent && message.supervisor && message.supervisor.subagent_results.length > 0;
 
   return (
-    <div
-      className={cn("flex gap-3", isAgent ? "flex-row" : "flex-row-reverse")}
-    >
+    <div className={cn("flex gap-2", isAgent ? "flex-row" : "flex-row-reverse")}>
       <div
         className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-          isAgent ? "bg-navy rounded-full text-white" : "bg-gold text-navy"
+          "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+          isAgent ? "bg-navy text-white" : "bg-gold text-navy"
         )}
       >
-        {isAgent ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}
+        {isAgent ? <Bot className="h-3.5 w-3.5" /> : <User className="h-3.5 w-3.5" />}
       </div>
       <div
         className={cn(
-          "max-w-[80%] rounded-lg px-3 py-2 text-sm",
+          "max-w-[85%] px-3 py-2 text-sm",
           isAgent
             ? hasSupervisor
-              ? "glass-heavy rounded-xl text-navy w-full max-w-full"
-              : "glass rounded-xl text-navy"
-            : "bg-navy text-white"
+              ? "mac-chat-bubble-agent w-full max-w-full"
+              : "mac-chat-bubble-agent"
+            : "mac-chat-bubble-user"
         )}
       >
         {hasSupervisor && message.supervisor && (
-          <div className="mb-2 flex items-center gap-2 border-b border-border pb-2 text-xs text-muted-foreground">
-            <Sparkles className="h-3.5 w-3.5 text-gold" />
-            <span className="font-semibold text-navy">Supervisor</span>
+          <div className="mb-2 flex items-center gap-2 border-b pb-2 text-[11px]" style={{ borderColor: "var(--mac-separator)", color: "var(--mac-tertiary-label)" }}>
+            <Sparkles className="h-3 w-3" style={{ color: "var(--brand-gold)" }} />
+            <span className="font-semibold" style={{ color: "var(--mac-label)" }}>Supervisor</span>
             <span>·</span>
             <span>phase: {message.supervisor.phase}</span>
-            <span>·</span>
-            <span>iterations: {message.supervisor.iterations}</span>
             <span>·</span>
             <span>{message.supervisor.subagent_results.length} subagent(s)</span>
           </div>
         )}
-        <p className="whitespace-pre-wrap">
+        <div className="mac-prose">
           <MarkdownRenderer content={message.content} />
-        </p>
+        </div>
         {hasSupervisor && message.supervisor && (
-          <SupervisorTrace
-            results={message.supervisor.subagent_results}
-          />
+          <SupervisorTrace results={message.supervisor.subagent_results} />
         )}
         {message.traces && message.traces.length > 0 && (
-          <div className="mt-2 border-t border-border pt-2">
+          <div className="mt-2 border-t pt-2" style={{ borderColor: "var(--mac-separator)" }}>
             <button
               onClick={() => setExpanded(!expanded)}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-navy"
+              className="flex items-center gap-1 text-[11px]"
+              style={{ color: "var(--mac-tertiary-label)" }}
             >
               {expanded ? (
                 <ChevronDown className="h-3 w-3" />
@@ -580,7 +553,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             )}
           </div>
         )}
-        <div className="mt-1 text-right text-[10px] opacity-50">
+        <div className="mt-1 text-right text-[10px] opacity-50" style={{ color: "var(--mac-tertiary-label)" }}>
           {formatTimestamp(new Date(message.timestamp))}
         </div>
       </div>
@@ -592,23 +565,23 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
 function TraceLine({ trace }: { trace: ActionTrace }) {
   const icons: Record<string, React.ReactNode> = {
-    completed: <CheckCircle2 className="h-3 w-3 text-green-500" />,
-    running: <Loader2 className="h-3 w-3 animate-spin text-blue-500" />,
+    completed: <CheckCircle2 className="h-3 w-3" style={{ color: "var(--mac-green)" }} />,
+    running: <Loader2 className="h-3 w-3 animate-spin" style={{ color: "var(--mac-blue)" }} />,
     pending: <div className="h-3 w-3 rounded-full border border-gray-400" />,
-    failed: <XCircle className="h-3 w-3 text-red-500" />,
+    failed: <XCircle className="h-3 w-3" style={{ color: "var(--mac-red)" }} />,
   };
   return (
     <div className="flex items-center gap-1.5 text-xs">
       {icons[trace.status] ?? icons.pending}
       <span className="font-medium">{trace.label}</span>
       {trace.detail && (
-        <span className="text-muted-foreground">— {trace.detail}</span>
+        <span style={{ color: "var(--mac-tertiary-label)" }}>— {trace.detail}</span>
       )}
     </div>
   );
 }
 
-// ── Mode toggle (Pipeline / Supervisor) ─────────────────────────────────
+// ── Mode toggle (macOS NSSegmentedControl style) ────────────────────────
 
 function ModeToggle({
   mode,
@@ -620,43 +593,20 @@ function ModeToggle({
   disabled?: boolean;
 }) {
   return (
-    <div
-      role="tablist"
-      aria-label="Chat mode"
-      className="inline-flex items-center rounded-full border border-border bg-white/40 p-0.5 text-xs shadow-sm backdrop-blur"
-    >
+    <div className="mac-segmented">
       <button
         type="button"
-        role="tab"
-        aria-selected={mode === "pipeline"}
         onClick={() => onChange("pipeline")}
-        className={cn(
-          "inline-flex items-center gap-1 rounded-full px-2.5 py-1 transition-colors",
-          mode === "pipeline"
-            ? "bg-navy text-white shadow-sm"
-            : "text-navy/70 hover:text-navy"
-        )}
+        className={cn("mac-segmented-item", mode === "pipeline" && "active")}
       >
         <Network className="h-3 w-3" />
         Pipeline
       </button>
       <button
         type="button"
-        role="tab"
-        aria-selected={mode === "supervisor"}
         onClick={() => !disabled && onChange("supervisor")}
-        title={
-          disabled
-            ? "Supervisor mode unavailable — no LLM configured"
-            : "Supervisor mode"
-        }
-        className={cn(
-          "inline-flex items-center gap-1 rounded-full px-2.5 py-1 transition-colors",
-          mode === "supervisor"
-            ? "bg-gold text-navy shadow-sm"
-            : "text-navy/70 hover:text-navy",
-          disabled && "cursor-not-allowed opacity-50"
-        )}
+        className={cn("mac-segmented-item", mode === "supervisor" && "active")}
+        disabled={disabled}
       >
         <Sparkles className="h-3 w-3" />
         Supervisor
@@ -703,17 +653,17 @@ function subagentMeta(role: SubagentRole) {
   );
 }
 
-// ── Supervisor trace (timeline of subagent cards) ───────────────────────
+// ── Supervisor trace ───────────────────────────────────────────
 
 function SupervisorTrace({ results }: { results: SubagentSummary[] }) {
   if (!results || results.length === 0) return null;
   return (
     <div className="mt-3">
-      <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mac-tertiary-label)" }}>
         <Network className="h-3 w-3" />
         Subagent trace
       </div>
-      <div className="relative space-y-2 border-l-2 border-dashed border-gold/40 pl-4">
+      <div className="relative space-y-2 border-l-2 border-dashed pl-4" style={{ borderColor: "rgba(201, 168, 76, 0.3)" }}>
         {results.map((r, idx) => (
           <SubagentCard key={`${r.role}-${idx}`} result={r} index={idx} />
         ))}
@@ -737,38 +687,33 @@ function SubagentCard({
   const confidencePct = Math.max(0, Math.min(100, Math.round(result.confidence * 100)));
   const confidenceColor =
     confidencePct >= 80
-      ? "bg-emerald-500"
+      ? "bg-system-green"
       : confidencePct >= 50
-        ? "bg-amber-500"
-        : "bg-rose-500";
+        ? "bg-system-orange"
+        : "bg-system-red";
 
   return (
-    <div className="glass relative -ml-7 rounded-xl border border-border/60 px-3 py-2.5 text-xs shadow-sm">
+    <div className="mac-card relative -ml-7 px-3 py-2.5 text-xs">
       {/* Node marker on the timeline */}
-      <div
-        className={cn(
-          "absolute -left-[26px] top-3 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow ring-2 ring-gold/40",
-          meta.accent
-        )}
-      >
+      <div className="absolute -left-[26px] top-3 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm" style={{ boxShadow: "0 0 0 2px rgba(201, 168, 76, 0.3)" }}>
         {meta.icon}
       </div>
 
       {/* Header: role • confidence */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 font-semibold text-navy">
+        <div className="flex items-center gap-1.5 font-semibold" style={{ color: "var(--mac-label)" }}>
           <span className={meta.accent}>{meta.icon}</span>
           <span>{meta.label}</span>
-          <span className="text-muted-foreground">·</span>
-          <span className="text-muted-foreground">step {index + 1}</span>
+          <span style={{ color: "var(--mac-tertiary-label)" }}>·</span>
+          <span style={{ color: "var(--mac-tertiary-label)" }}>step {index + 1}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-medium text-muted-foreground">
+          <span className="text-[10px] font-medium" style={{ color: "var(--mac-tertiary-label)" }}>
             {confidencePct}%
           </span>
-          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-navy/10">
+          <div className="mac-progress w-16">
             <div
-              className={cn("h-full", confidenceColor)}
+              className={cn("mac-progress-fill", confidenceColor)}
               style={{ width: `${confidencePct}%` }}
             />
           </div>
@@ -777,26 +722,27 @@ function SubagentCard({
 
       {/* Task */}
       {result.task && (
-        <p className="mt-1 text-[11px] italic text-muted-foreground">
+        <p className="mt-1 text-[11px] italic" style={{ color: "var(--mac-tertiary-label)" }}>
           {result.task}
         </p>
       )}
 
       {/* Findings */}
       {result.findings && (
-        <p className="mt-1.5 whitespace-pre-wrap text-xs text-navy/90">
+        <p className="mt-1.5 whitespace-pre-wrap text-xs" style={{ color: "var(--mac-label)" }}>
           {result.findings}
         </p>
       )}
 
-      {/* Structured data toggle */}
+      {/* Structured data */}
       {result.structured_data &&
         Object.keys(result.structured_data).length > 0 && (
           <div className="mt-2">
             <button
               type="button"
               onClick={() => setShowData((s) => !s)}
-              className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-navy"
+              className="flex items-center gap-1 text-[10px] font-medium"
+              style={{ color: "var(--mac-tertiary-label)" }}
             >
               {showData ? (
                 <ChevronDown className="h-3 w-3" />
@@ -806,20 +752,21 @@ function SubagentCard({
               Structured data
             </button>
             {showData && (
-              <pre className="mt-1 max-h-48 overflow-auto rounded-md bg-navy/5 p-2 text-[10px] leading-snug text-navy/90">
+              <pre className="mt-1 max-h-48 overflow-auto rounded-md p-2 text-[10px] leading-snug" style={{ background: "rgba(0,0,0,0.04)" }}>
                 <code>{JSON.stringify(result.structured_data, null, 2)}</code>
               </pre>
             )}
           </div>
         )}
 
-      {/* Citations toggle */}
+      {/* Citations */}
       {result.citations && result.citations.length > 0 && (
         <div className="mt-2">
           <button
             type="button"
             onClick={() => setShowCitations((s) => !s)}
-            className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-navy"
+            className="flex items-center gap-1 text-[10px] font-medium"
+            style={{ color: "var(--mac-tertiary-label)" }}
           >
             {showCitations ? (
               <ChevronDown className="h-3 w-3" />
@@ -827,15 +774,15 @@ function SubagentCard({
               <ChevronRight className="h-3 w-3" />
             )}
             <Quote className="h-3 w-3" />
-            {result.citations.length} citation
-            {result.citations.length === 1 ? "" : "s"}
+            {result.citations.length} citation{result.citations.length === 1 ? "" : "s"}
           </button>
           {showCitations && (
             <ul className="mt-1 space-y-0.5 pl-1">
               {result.citations.map((c, i) => (
                 <li
                   key={`${c}-${i}`}
-                  className="break-all font-mono text-[10px] text-navy/80"
+                  className="break-all font-mono text-[10px]"
+                  style={{ color: "var(--mac-secondary-label)" }}
                 >
                   • {c}
                 </li>

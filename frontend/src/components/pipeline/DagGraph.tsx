@@ -205,7 +205,7 @@ export function DagGraph({ steps, selectedStep, onSelectStep }: DagGraphProps) {
   }
 
   return (
-    <div className="w-full overflow-auto rounded-xl glass p-2">
+    <div className="w-full overflow-auto mac-card p-2">
       <svg
         width={Math.max(svgWidth, 200)}
         height={Math.max(svgHeight, 100)}
@@ -225,7 +225,7 @@ export function DagGraph({ steps, selectedStep, onSelectStep }: DagGraphProps) {
               fill="none"
               stroke={isFlowing ? "#3b82f6" : "#9dabbe"}
               strokeWidth={1.5}
-              className={cn(isFlowing && "dag-edge-flow")}
+              className={cn(isFlowing && "mac-dag-edge-flow")}
               opacity={0.5}
             />
           );
@@ -256,7 +256,7 @@ export function DagGraph({ steps, selectedStep, onSelectStep }: DagGraphProps) {
                 fill={colors.fill}
                 stroke={isSelected ? "#c9a84c" : colors.stroke}
                 strokeWidth={isSelected ? 2 : 1}
-                className={cn(isRunning && "dag-node-running")}
+                className={cn(isRunning && "mac-dag-node-running")}
                 style={{
                   filter: isHovered || isSelected
                     ? "drop-shadow(0 2px 8px rgba(15, 27, 45, 0.12))"

@@ -18,7 +18,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
   return (
     <div
       className={cn(
-        "prose-chat",
+        "mac-prose",
         className
       )}
     >

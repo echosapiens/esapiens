@@ -103,14 +103,12 @@ export function PipelineGantt({ sessionId }: { sessionId: string }) {
           </div>
           <div className="flex items-center gap-3">
             {/* ── View toggle ─────────────────────────────────────────── */}
-            <div className="inline-flex items-center rounded-lg border border-border bg-white/40 p-0.5 text-xs backdrop-blur">
+            <div className="mac-segmented">
               <button
                 onClick={() => setViewMode("graph")}
                 className={cn(
-                  "inline-flex items-center gap-1 rounded-md px-2.5 py-1 transition-colors",
-                  viewMode === "graph"
-                    ? "bg-navy text-white shadow-sm"
-                    : "text-navy/70 hover:text-navy"
+                  "mac-segmented-item",
+                  viewMode === "graph" && "active"
                 )}
               >
                 <GitGraph className="h-3.5 w-3.5" />
@@ -119,10 +117,8 @@ export function PipelineGantt({ sessionId }: { sessionId: string }) {
               <button
                 onClick={() => setViewMode("list")}
                 className={cn(
-                  "inline-flex items-center gap-1 rounded-md px-2.5 py-1 transition-colors",
-                  viewMode === "list"
-                    ? "bg-navy text-white shadow-sm"
-                    : "text-navy/70 hover:text-navy"
+                  "mac-segmented-item",
+                  viewMode === "list" && "active"
                 )}
               >
                 <List className="h-3.5 w-3.5" />
@@ -223,7 +219,7 @@ function StepRow({
     <div>
       <button
         onClick={onToggle}
-        className="flex w-full items-center gap-3 glass rounded-lg px-3 py-2 text-left hover:shadow-md transition-all"
+        className="flex w-full items-center gap-3 mac-card px-3 py-2 text-left hover:shadow-md transition-all"
       >
         {isExpanded ? (
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -247,7 +243,7 @@ function StepRow({
         <span className="text-xs text-muted-foreground">{progress}%</span>
       </button>
       {isExpanded && (
-        <div className="ml-8 mt-1 space-y-1 glass rounded-lg p-3 text-xs">
+        <div className="ml-8 mt-1 space-y-1 mac-card p-3 text-xs">
           <div>
             <span className="font-medium text-navy">Image: </span>
             <span className="font-mono text-muted-foreground">

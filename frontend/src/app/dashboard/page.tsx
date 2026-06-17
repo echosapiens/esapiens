@@ -13,18 +13,16 @@ import {
   FlaskConical,
   Clock,
   ArrowRight,
-  Loader2,
   Trash2,
 } from "lucide-react";
 
-// ── Dashboard home page ─────────────────────────────────────────────────
+// ── Dashboard home page — macOS style ────────────────────────────────────
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
   const [newSessionTitle, setNewSessionTitle] = useState("");
 
-  // ── Fetch sessions ───────────────────────────────────────────────
   const {
     data: sessions = [],
     isLoading: sessionsLoading,
@@ -33,13 +31,11 @@ export default function DashboardPage() {
     queryFn: () => api.listSessions(),
   });
 
-  // ── Fetch grants ─────────────────────────────────────────────────
   const { data: grants = [] } = useQuery({
     queryKey: ["grants"],
     queryFn: () => api.listGrants(),
   });
 
-  // ── Create session mutation ──────────────────────────────────────
   const createSessionMutation = useMutation({
     mutationFn: (title: string) => api.createSession({ title }),
     onSuccess: () => {
@@ -53,7 +49,6 @@ export default function DashboardPage() {
     },
   });
 
-  // ── Delete session mutation ──────────────────────────────────────
   const deleteSessionMutation = useMutation({
     mutationFn: (id: string) => api.deleteSession(id),
     onSuccess: () => {
@@ -74,115 +69,125 @@ export default function DashboardPage() {
         <DashboardSkeleton />
       ) : (
         <>
-      {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="glass-heavy flex items-center justify-between border-b border-border px-6 py-4">
-        <div>
-          <h1 className="text-2xl font-bold text-navy">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage your research sessions and pipelines
-          </p>
-        </div>
-        <button
-          onClick={() => setIsNewSessionModalOpen(true)}
-          className="btn-accent inline-flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          New Session
-        </button>
-      </div>
-
-      {/* ── Quick stats ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-4 border-b border-border px-6 py-4">
-        <StatCard
-          label="Active Sessions"
-          value={sessions.filter((s) => s.status === "active").length}
-          icon={<FlaskConical className="h-5 w-5 text-gold" />}
-        />
-        <StatCard
-          label="Total Pipelines"
-          value={0}
-          icon={<GitBranch className="h-5 w-5 text-blue-500" />}
-        />
-        <StatCard
-          label="Active Grants"
-          value={grants.filter((g) => g.status === "active").length}
-          icon={<Clock className="h-5 w-5 text-green-500" />}
-        />
-      </div>
-
-      {/* ── Sessions grid ──────────────────────────────────────────── */}
-      <div className="flex-1 overflow-auto p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-navy">Research Sessions</h2>
-        </div>
-
-        {sessions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-cream-200">
-              <FlaskConical className="h-8 w-8 text-muted-foreground" />
+          {/* ── macOS Toolbar ──────────────────────────────────────────── */}
+          <div className="mac-toolbar">
+            <div className="flex items-center gap-2 flex-1">
+              <h1 className="text-sm font-semibold" style={{ color: "var(--mac-label)" }}>
+                Dashboard
+              </h1>
+              <span className="text-xs" style={{ color: "var(--mac-tertiary-label)" }}>
+                {sessions.length} session{sessions.length !== 1 ? "s" : ""}
+              </span>
             </div>
-            <h3 className="mb-2 text-lg font-medium text-navy">
-              No sessions yet
-            </h3>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Create your first research session to get started.
-            </p>
             <button
               onClick={() => setIsNewSessionModalOpen(true)}
-              className="btn-accent inline-flex items-center gap-2"
+              className="mac-btn mac-btn-accent"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-3.5 w-3.5" />
               New Session
             </button>
           </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {sessions.map((session) => (
-              <SessionCard key={session.id} session={session} />
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* ── New session modal ───────────────────────────────────────── */}
-      {isNewSessionModalOpen && (
-        <div className="glass-modal-backdrop fixed inset-0 z-50 flex items-center justify-center">
-          <div className="glass-heavy w-full max-w-md p-6 rounded-2xl">
-            <h3 className="mb-4 text-lg font-semibold text-navy">
-              Create New Session
-            </h3>
-            <input
-              type="text"
-              value={newSessionTitle}
-              onChange={(e) => setNewSessionTitle(e.target.value)}
-              placeholder="Session title..."
-              className="input-base mb-4"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreateSession();
-              }}
+          {/* ── Quick stats ────────────────────────────────────────────── */}
+          <div className="grid grid-cols-3 gap-3 px-4 py-3">
+            <StatCard
+              label="Active Sessions"
+              value={sessions.filter((s) => s.status === "active").length}
+              icon={<FlaskConical className="h-4 w-4" />}
+              color="var(--brand-gold)"
             />
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => {
-                  setIsNewSessionModalOpen(false);
-                  setNewSessionTitle("");
-                }}
-                className="btn-ghost"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateSession}
-                disabled={!newSessionTitle.trim() || createSessionMutation.isPending}
-                className="btn-accent"
-              >
-                {createSessionMutation.isPending ? "Creating..." : "Create"}
-              </button>
-            </div>
+            <StatCard
+              label="Total Pipelines"
+              value={0}
+              icon={<GitBranch className="h-4 w-4" />}
+              color="var(--mac-blue)"
+            />
+            <StatCard
+              label="Active Grants"
+              value={grants.filter((g) => g.status === "active").length}
+              icon={<Clock className="h-4 w-4" />}
+              color="var(--mac-green)"
+            />
           </div>
-        </div>
-      )}
+
+          {/* ── Sessions grid ──────────────────────────────────────────── */}
+          <div className="flex-1 overflow-auto px-4 pb-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--mac-secondary-label)" }}>
+                Research Sessions
+              </h2>
+            </div>
+
+            {sessions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full" style={{ background: "rgba(201, 168, 76, 0.1)" }}>
+                  <FlaskConical className="h-6 w-6" style={{ color: "var(--brand-gold)" }} />
+                </div>
+                <h3 className="mb-1 text-sm font-medium" style={{ color: "var(--mac-label)" }}>
+                  No sessions yet
+                </h3>
+                <p className="mb-4 text-xs" style={{ color: "var(--mac-secondary-label)" }}>
+                  Create your first research session to get started.
+                </p>
+                <button
+                  onClick={() => setIsNewSessionModalOpen(true)}
+                  className="mac-btn mac-btn-accent"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  New Session
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {sessions.map((session) => (
+                  <SessionCard key={session.id} session={session} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── macOS Sheet modal ─────────────────────────────────────── */}
+          {isNewSessionModalOpen && (
+            <div className="mac-sheet-backdrop" onClick={() => setIsNewSessionModalOpen(false)}>
+              <div className="mac-sheet w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+                <h3 className="mb-1 text-sm font-semibold" style={{ color: "var(--mac-label)" }}>
+                  Create New Session
+                </h3>
+                <p className="mb-4 text-xs" style={{ color: "var(--mac-secondary-label)" }}>
+                  Give your research session a descriptive title.
+                </p>
+                <input
+                  type="text"
+                  value={newSessionTitle}
+                  onChange={(e) => setNewSessionTitle(e.target.value)}
+                  placeholder="e.g. RNA-seq differential expression"
+                  className="mac-input mb-4"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleCreateSession();
+                  }}
+                />
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => {
+                      setIsNewSessionModalOpen(false);
+                      setNewSessionTitle("");
+                    }}
+                    className="mac-btn mac-btn-ghost"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreateSession}
+                    disabled={!newSessionTitle.trim() || createSessionMutation.isPending}
+                    className="mac-btn mac-btn-accent"
+                  >
+                    {createSessionMutation.isPending ? "Creating..." : "Create"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -195,19 +200,24 @@ function StatCard({
   label,
   value,
   icon,
+  color,
 }: {
   label: string;
   value: number;
   icon: React.ReactNode;
+  color: string;
 }) {
   return (
-    <div className="glass flex items-center gap-3 px-4 py-3 rounded-xl">
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cream-200">
-        {icon}
+    <div className="mac-card flex items-center gap-3 px-4 py-3">
+      <div
+        className="flex h-9 w-9 items-center justify-center rounded-lg"
+        style={{ background: `${color}12` }}
+      >
+        <div style={{ color }}>{icon}</div>
       </div>
       <div>
-        <p className="text-2xl font-bold text-navy">{value}</p>
-        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-lg font-bold" style={{ color: "var(--mac-label)" }}>{value}</p>
+        <p className="text-[11px]" style={{ color: "var(--mac-secondary-label)" }}>{label}</p>
       </div>
     </div>
   );
@@ -226,39 +236,48 @@ function SessionCard({ session }: { session: SessionRead }) {
   });
 
   return (
-    <div className="glass group flex flex-col justify-between p-5 rounded-xl transition-all hover:shadow-lg hover:-translate-y-0.5">
+    <div className="mac-card mac-card-interactive flex flex-col justify-between p-4">
       <div>
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-navy truncate">
+        <div className="mb-1 flex items-center justify-between">
+          <h3 className="text-sm font-semibold truncate" style={{ color: "var(--mac-label)" }}>
             {session.title}
           </h3>
           <span
             className={cn(
-              "rounded-full px-2 py-0.5 text-[10px] font-medium",
+              "mac-badge",
               statusColorClass(session.status)
+                .replace("status-draft", "mac-badge-draft")
+                .replace("status-submitted", "mac-badge-submitted")
+                .replace("status-pending", "mac-badge-pending")
+                .replace("status-running", "mac-badge-running")
+                .replace("status-completed", "mac-badge-completed")
+                .replace("status-failed", "mac-badge-failed")
+                .replace("status-active", "mac-badge-active")
+                .replace("status-archived", "mac-badge-archived")
             )}
           >
             {session.status}
           </span>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[11px]" style={{ color: "var(--mac-tertiary-label)" }}>
           Created {formatRelativeDate(session.created_at)}
         </p>
       </div>
-      <div className="mt-4 flex items-center justify-between">
+      <div className="mt-3 flex items-center justify-between">
         <Link
           href={`/dashboard/session/${session.id}`}
-          className="btn-primary inline-flex items-center gap-1 text-sm"
+          className="mac-btn mac-btn-primary text-xs"
         >
           Open
-          <ArrowRight className="h-3.5 w-3.5" />
+          <ArrowRight className="h-3 w-3" />
         </Link>
         <button
           onClick={() => deleteMutation.mutate()}
-          className="text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ color: "var(--mac-tertiary-label)" }}
           title="Delete session"
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
     </div>

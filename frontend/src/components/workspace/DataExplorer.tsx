@@ -59,7 +59,7 @@ export function DataExplorer({ sessionId }: DataExplorerProps) {
       </div>
 
       {/* ── Empty state ────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-auto glass rounded-xl">
+      <div className="flex-1 overflow-auto mac-card">
         <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
           <div className="rounded-full bg-gold/10 p-3">
             <Folder className="h-8 w-8 text-gold" />
@@ -72,7 +72,7 @@ export function DataExplorer({ sessionId }: DataExplorerProps) {
           </div>
           <button
             disabled
-            className="btn-ghost mt-2 inline-flex items-center gap-1.5 text-xs opacity-50"
+            className="mac-btn-ghost mt-2 inline-flex items-center gap-1.5 text-xs opacity-50"
             title="Upload coming soon"
           >
             <Upload className="h-3.5 w-3.5" />
@@ -177,12 +177,12 @@ function FileDetails({ path }: { path: string }) {
   const fileName = path.split("/").pop() || path;
 
   return (
-    <div className="mt-3 glass rounded-xl p-3">
+    <div className="mt-3 mac-card p-3">
       <div className="mb-2 flex items-center justify-between">
         <h4 className="text-sm font-medium text-navy">{fileName}</h4>
         <button
           disabled
-          className="btn-ghost inline-flex items-center gap-1 text-xs opacity-50"
+          className="mac-btn-ghost inline-flex items-center gap-1 text-xs opacity-50"
           title="Download coming soon"
         >
           <Download className="h-3.5 w-3.5" />

@@ -54,86 +54,105 @@ const features = [
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-cream">
-      {/* ── Navigation ──────────────────────────────────────────── */}
-      <nav className="sticky top-0 z-50 border-b border-border glass-heavy">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+    <div className="min-h-screen" style={{ background: "var(--mac-window-bg)" }}>
+      {/* ── macOS-style Navigation ─────────────────────────────────── */}
+      <nav
+        className="sticky top-0 z-50 border-b backdrop-blur-2xl"
+        style={{
+          background: "var(--mac-toolbar-bg)",
+          borderColor: "var(--mac-toolbar-separator)",
+        }}
+      >
+        <div className="mx-auto flex h-10 max-w-7xl items-center justify-between px-4">
           <div className="flex items-center gap-2">
-            <FlaskConical className="h-7 w-7 text-gold" />
-            <span className="text-xl font-bold text-navy">
+            <div className="mac-traffic-lights">
+              <div className="mac-traffic-light mac-traffic-close" />
+              <div className="mac-traffic-light mac-traffic-minimize" />
+              <div className="mac-traffic-light mac-traffic-zoom" />
+            </div>
+            <FlaskConical className="h-4 w-4 ml-2" style={{ color: "var(--brand-gold)" }} />
+            <span className="text-sm font-semibold" style={{ color: "var(--mac-label)" }}>
               E.sapiens
             </span>
           </div>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard"
-              className="btn-primary inline-flex items-center gap-2 text-sm"
-            >
-              Open Dashboard
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
+          <Link
+            href="/dashboard"
+            className="mac-btn mac-btn-primary text-xs"
+          >
+            Open Dashboard
+            <ArrowRight className="h-3 w-3" />
+          </Link>
         </div>
       </nav>
 
-      {/* ── Hero ────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-navy py-24 text-white">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute left-1/4 top-1/4 h-96 w-96 rounded-full bg-gold blur-3xl" />
-          <div className="absolute right-1/4 bottom-1/4 h-64 w-64 rounded-full bg-blue-500 blur-3xl" />
+      {/* ── macOS-style Hero ───────────────────────────────────────── */}
+      <section className="relative overflow-hidden py-20" style={{ background: "var(--mac-sidebar-bg)" }}>
+        <div className="absolute inset-0 opacity-[0.07]">
+          <div className="absolute left-1/4 top-1/4 h-96 w-96 rounded-full" style={{ background: "var(--brand-gold)" }} />
+          <div className="absolute right-1/4 bottom-1/4 h-64 w-64 rounded-full bg-system-blue" />
         </div>
         <div className="relative mx-auto max-w-4xl px-6 text-center">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-gold/30 bg-navy-800/60 px-4 py-1.5 text-sm text-gold">
-            <FlaskConical className="h-4 w-4" />
-            Academic Bioinformatics IDE
-          </div>
-          <h1 className="mb-6 text-5xl font-bold leading-tight tracking-tight">
-            Reproducible Pipelines,{" "}
-            <span className="text-gold">Publication-Ready</span> Results
-          </h1>
-          <p className="mx-auto mb-10 max-w-2xl text-lg text-navy-200">
-            Plan, execute, and document bioinformatics analyses with
-            AI-assisted pipeline design. Every container is pinned to an
-            immutable SHA256 digest — because science must be reproducible.
-          </p>
-          <div className="flex items-center justify-center gap-4">
-            <Link
-              href="/dashboard"
-              className="btn-accent inline-flex items-center gap-2 text-base"
+          <Reveal>
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs"
+              style={{ background: "rgba(201, 168, 76, 0.1)", color: "var(--brand-gold)", border: "1px solid rgba(201, 168, 76, 0.2)" }}
             >
-              Get Started
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              href="#features"
-              className="btn-ghost inline-flex items-center gap-2 text-base text-white hover:bg-navy-700"
-            >
-              Learn More
-            </Link>
-          </div>
+              <FlaskConical className="h-3.5 w-3.5" />
+              Academic Bioinformatics IDE
+            </div>
+          </Reveal>
+          <Reveal delay={100}>
+            <h1 className="mb-4 text-4xl font-bold leading-tight tracking-tight text-white">
+              Reproducible Pipelines,{" "}
+              <span style={{ color: "var(--brand-gold)" }}>Publication-Ready</span> Results
+            </h1>
+          </Reveal>
+          <Reveal delay={200}>
+            <p className="mx-auto mb-8 max-w-2xl text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
+              Plan, execute, and document bioinformatics analyses with
+              AI-assisted pipeline design. Every container is pinned to an
+              immutable SHA256 digest — because science must be reproducible.
+            </p>
+          </Reveal>
+          <Reveal delay={300}>
+            <div className="flex items-center justify-center gap-3">
+              <Link
+                href="/dashboard"
+                className="mac-btn mac-btn-accent"
+              >
+                Get Started
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+              <Link
+                href="#features"
+                className="mac-btn mac-btn-ghost text-white/80 hover:text-white hover:bg-white/10"
+              >
+                Learn More
+              </Link>
+            </div>
+          </Reveal>
         </div>
       </section>
 
-      {/* ── Features ────────────────────────────────────────────── */}
-      <section id="features" className="mx-auto max-w-7xl px-6 py-24">
-        <Reveal className="mb-16 text-center">
-          <h2 className="mb-4 text-3xl font-bold text-navy">
+      {/* ── macOS-style Features ─────────────────────────────────── */}
+      <section id="features" className="mx-auto max-w-7xl px-6 py-16">
+        <Reveal className="mb-12 text-center">
+          <h2 className="mb-2 text-2xl font-bold" style={{ color: "var(--mac-label)" }}>
             Built for Rigorous Research
           </h2>
-          <p className="mx-auto max-w-2xl text-muted-foreground">
+          <p className="mx-auto max-w-2xl text-sm" style={{ color: "var(--mac-secondary-label)" }}>
             E.sapiens combines AI pipeline planning, container execution, and
             automatic documentation into a single academic IDE.
           </p>
         </Reveal>
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {features.map((feature, i) => (
             <Reveal key={feature.title} delay={i * 80}>
-              <div className="glass group h-full p-6 transition-all hover:-translate-y-0.5">
-                <feature.icon className="mb-4 h-8 w-8 text-gold" />
-                <h3 className="mb-2 text-lg font-semibold text-navy">
+              <div className="mac-card mac-card-interactive h-full p-4">
+                <feature.icon className="mb-3 h-6 w-6" style={{ color: "var(--brand-gold)" }} />
+                <h3 className="mb-1 text-sm font-semibold" style={{ color: "var(--mac-label)" }}>
                   {feature.title}
                 </h3>
-                <p className="text-sm leading-relaxed text-muted-foreground">
+                <p className="text-xs leading-relaxed" style={{ color: "var(--mac-secondary-label)" }}>
                   {feature.description}
                 </p>
               </div>
@@ -142,34 +161,38 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── CTA ──────────────────────────────────────────────────── */}
+      {/* ── macOS-style CTA ──────────────────────────────────────── */}
       <Reveal>
-        <section className="border-t border-border bg-navy py-20 text-white">
+        <section className="py-16" style={{ background: "var(--mac-sidebar-bg)" }}>
           <div className="mx-auto max-w-3xl px-6 text-center">
-          <h2 className="mb-4 text-3xl font-bold">
-            Ready to make your analyses reproducible?
-          </h2>
-          <p className="mb-8 text-navy-200">
-            Start a research session, let the AI plan your pipeline, and
-            export publication-ready methods in minutes.
-          </p>
-          <Link
-            href="/dashboard"
-            className="btn-accent inline-flex items-center gap-2 text-lg"
-          >
-            Launch E.sapiens
-            <ArrowRight className="h-5 w-5" />
-          </Link>
+            <h2 className="mb-2 text-2xl font-bold text-white">
+              Ready to make your analyses reproducible?
+            </h2>
+            <p className="mb-6 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
+              Start a research session, let the AI plan your pipeline, and
+              export publication-ready methods in minutes.
+            </p>
+            <Link
+              href="/dashboard"
+              className="mac-btn mac-btn-accent"
+            >
+              Launch E.sapiens
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </section>
       </Reveal>
 
-      {/* ── Footer ───────────────────────────────────────────────── */}
-      <footer className="border-t border-border glass-heavy py-8">
-        <div className="mx-auto max-w-7xl px-6 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} E.sapiens — Reproducible
-          bioinformatics for academic research
-        </div>
+      {/* ── macOS-style Footer ────────────────────────────────────── */}
+      <footer
+        className="py-6 text-center text-xs border-t"
+        style={{
+          background: "var(--mac-toolbar-bg)",
+          borderColor: "var(--mac-toolbar-separator)",
+          color: "var(--mac-tertiary-label)",
+        }}
+      >
+        © {new Date().getFullYear()} E.sapiens — Reproducible bioinformatics for academic research
       </footer>
     </div>
   );
