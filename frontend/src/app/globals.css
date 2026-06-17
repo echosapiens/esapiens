@@ -3,76 +3,88 @@
 @tailwind utilities;
 
 /* ══════════════════════════════════════════════════════════════════════════
-   macOS DESIGN SYSTEM — Sequoia-inspired
+   E.SAPIENS DESIGN SYSTEM — Dark Research IDE
    ══════════════════════════════════════════════════════════════════════════
-   Characteristics:
-     • Unified titlebar + toolbar (no separate title bar)
-     • Traffic light window controls (red/yellow/green) top-left
-     • Dark sidebar with vibrancy, source-list style
-     • Rounded-rect cards with subtle shadows
-     • Push buttons with subtle gradient
-     • Pill-shaped segmented controls
-     • Sheet modals that slide up
-     • Thin split-pane dividers
-     • SF-adjacent typography (Inter), 13px body, 11px caption
+   Principles:
+     • Dark, sophisticated — reduces eye strain during long research sessions
+     • Data-dense — show more information per pixel
+     • Visual hierarchy — clear what's interactive vs static
+     • Professional — this is a research tool, not a consumer app
+     • Coherent — every surface feels like the same system
    ══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Brand colors ──────────────────────────────────────────────── */
-  --brand-navy: #0f1b2d;
-  --brand-cream: #f9f7f4;
+  /* ── Brand ──────────────────────────────────────────────────────── */
   --brand-gold: #c9a84c;
+  --brand-gold-dim: rgba(201, 168, 76, 0.15);
+  --brand-gold-glow: rgba(201, 168, 76, 0.25);
 
-  /* ── macOS system colors ───────────────────────────────────────── */
-  --mac-label: #0f1b2d;
-  --mac-secondary-label: #64748b;
-  --mac-tertiary-label: #9ca3af;
-  --mac-quaternary-label: #d1d5db;
-  --mac-separator: rgba(0, 0, 0, 0.08);
-  --mac-fill: rgba(0, 0, 0, 0.04);
-  --mac-window-bg: #f5f5f7;
-  --mac-sidebar-bg: rgba(15, 27, 45, 0.92);
-  --mac-sidebar-selection: rgba(201, 168, 76, 0.2);
-  --mac-sidebar-separator: rgba(255, 255, 255, 0.08);
-  --mac-accent: #c9a84c;
-  --mac-accent-hover: #d4b35a;
-  --mac-red: #ff3b30;
-  --mac-yellow: #ffcc00;
-  --mac-green: #34c759;
-  --mac-blue: #007aff;
-  --mac-orange: #ff9500;
-  --mac-card-bg: rgba(255, 255, 255, 0.85);
-  --mac-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --mac-card-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
-  --mac-toolbar-bg: rgba(255, 255, 255, 0.72);
-  --mac-toolbar-separator: rgba(0, 0, 0, 0.06);
-  --mac-input-bg: rgba(255, 255, 255, 0.9);
-  --mac-input-border: rgba(0, 0, 0, 0.12);
-  --mac-input-focus-ring: rgba(201, 168, 76, 0.3);
-  --mac-button-primary-bg: #0f1b2d;
-  --mac-button-primary-text: #ffffff;
-  --mac-button-accent-bg: #c9a84c;
-  --mac-button-accent-text: #0f1b2d;
-  --mac-button-ghost-hover: rgba(15, 27, 45, 0.06);
-  --mac-destructive: #ff3b30;
-  --mac-success: #34c759;
-  --mac-warning: #ff9500;
-  --mac-info: #007aff;
+  /* ── Backgrounds ─────────────────────────────────────────────────── */
+  --bg-base: #080c14;
+  --bg-surface: #0f1522;
+  --bg-raised: #18202f;
+  --bg-hover: #1e2840;
+  --bg-active: #25304a;
+
+  /* ── Borders ────────────────────────────────────────────────────── */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.10);
+  --border-raised: rgba(255, 255, 255, 0.14);
+
+  /* ── Text ────────────────────────────────────────────────────────── */
+  --text-primary: #e8eaed;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  --text-inverse: #080c14;
+
+  /* ── Accents ─────────────────────────────────────────────────────── */
+  --accent-gold: #c9a84c;
+  --accent-blue: #3b82f6;
+  --accent-green: #22c55e;
+  --accent-red: #ef4444;
+  --accent-purple: #a855f7;
+  --accent-orange: #f59e0b;
+  --accent-cyan: #06b6d4;
+
+  /* ── Shadows ─────────────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-gold: 0 0 12px rgba(201, 168, 76, 0.15);
+
+  /* ── Sidebar ─────────────────────────────────────────────────────── */
+  --sidebar-width: 220px;
+  --sidebar-collapsed-width: 52px;
+
+  /* ── Top bar ─────────────────────────────────────────────────────── */
+  --topbar-height: 40px;
+
+  /* ── Font ────────────────────────────────────────────────────────── */
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "Roboto Mono", "SF Mono", "Fira Code", monospace;
 }
 
 @layer base {
   body {
-    @apply font-sans antialiased;
+    font-family: var(--font-sans);
     font-size: 13px;
-    color: var(--mac-label);
-    background: var(--mac-window-bg);
+    line-height: 1.5;
+    color: var(--text-primary);
+    background: var(--bg-base);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   * {
-    border-color: var(--mac-separator);
+    border-color: var(--border-default);
   }
 
-  /* ── macOS scrollbar ────────────────────────────────────────────── */
+  ::selection {
+    background: var(--brand-gold-dim);
+    color: var(--text-primary);
+  }
+
+  /* ── Scrollbar ──────────────────────────────────────────────────── */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -81,309 +93,237 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.15);
+    background: rgba(255, 255, 255, 0.08);
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.25);
-  }
-
-  /* ── Selection ──────────────────────────────────────────────────── */
-  ::selection {
-    background: rgba(201, 168, 76, 0.25);
+    background: rgba(255, 255, 255, 0.15);
   }
 }
 
 @layer components {
   /* ══════════════════════════════════════════════════════════════════
-     TRAFFIC LIGHTS — macOS window controls
+     SIDEBAR
      ══════════════════════════════════════════════════════════════════ */
-  .mac-traffic-lights {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 0 4px;
-  }
-  .mac-traffic-light {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    position: relative;
-    transition: filter 0.15s ease;
-  }
-  .mac-traffic-light:hover {
-    filter: brightness(0.85);
-  }
-  .mac-traffic-light:active {
-    filter: brightness(0.7);
-  }
-  .mac-traffic-close {
-    background: var(--mac-red);
-  }
-  .mac-traffic-minimize {
-    background: var(--mac-yellow);
-  }
-  .mac-traffic-zoom {
-    background: var(--mac-green);
-  }
-
-  /* ══════════════════════════════════════════════════════════════════
-     WINDOW — macOS window chrome
-     ══════════════════════════════════════════════════════════════════ */
-  .mac-window {
+  .sidebar {
     display: flex;
     flex-direction: column;
-    height: 100%;
-    background: var(--mac-window-bg);
-  }
-
-  /* ── Unified titlebar + toolbar ────────────────────────────────── */
-  .mac-titlebar {
-    display: flex;
-    align-items: center;
-    height: 38px;
-    padding: 0 8px;
-    background: var(--mac-toolbar-bg);
-    border-bottom: 1px solid var(--mac-toolbar-separator);
-    -webkit-app-region: drag;
-    user-select: none;
-  }
-  .mac-titlebar > * {
-    -webkit-app-region: no-drag;
-  }
-  .mac-titlebar-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--mac-label);
-    text-align: center;
-    flex: 1;
-    white-space: nowrap;
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border-default);
+    flex-shrink: 0;
+    transition: width 0.2s ease;
     overflow: hidden;
-    text-overflow: ellipsis;
-    padding: 0 8px;
   }
-
-  /* ── Toolbar (below titlebar in some apps, or unified) ──────────── */
-  .mac-toolbar {
+  .sidebar-header {
     display: flex;
     align-items: center;
-    height: 36px;
-    padding: 0 12px;
-    gap: 4px;
-    background: var(--mac-toolbar-bg);
-    border-bottom: 1px solid var(--mac-toolbar-separator);
-  }
-  .mac-toolbar-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--mac-secondary-label);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    transition: background 0.15s ease;
-    white-space: nowrap;
-  }
-  .mac-toolbar-item:hover {
-    background: var(--mac-button-ghost-hover);
-    color: var(--mac-label);
-  }
-  .mac-toolbar-item:active {
-    background: rgba(15, 27, 45, 0.1);
-  }
-  .mac-toolbar-item.active {
-    color: var(--mac-accent);
-  }
-  .mac-toolbar-separator {
-    width: 1px;
-    height: 18px;
-    background: var(--mac-separator);
-    margin: 0 4px;
-  }
-
-  /* ══════════════════════════════════════════════════════════════════
-     SIDEBAR — macOS source list
-     ══════════════════════════════════════════════════════════════════ */
-  .mac-sidebar {
-    display: flex;
-    flex-direction: column;
-    background: var(--mac-sidebar-bg);
-    color: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(32px) saturate(1.4);
-    -webkit-backdrop-filter: blur(32px) saturate(1.4);
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
-  }
-  .mac-sidebar-header {
-    display: flex;
-    align-items: center;
-    height: 38px;
+    height: var(--topbar-height);
     padding: 0 12px;
     gap: 8px;
-    border-bottom: 1px solid var(--mac-sidebar-separator);
+    border-bottom: 1px solid var(--border-default);
   }
-  .mac-sidebar-section {
+  .sidebar-section {
     padding: 8px 0;
   }
-  .mac-sidebar-section-header {
+  .sidebar-section-title {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 4px 12px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
   }
-  .mac-sidebar-item {
+  .sidebar-item {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 4px 12px;
+    padding: 5px 12px;
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.7);
-    border-radius: 0;
+    color: var(--text-secondary);
     cursor: pointer;
     transition: background 0.1s ease, color 0.1s ease;
     border: none;
     background: transparent;
     width: 100%;
     text-align: left;
+    border-radius: 0;
   }
-  .mac-sidebar-item:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: rgba(255, 255, 255, 0.9);
+  .sidebar-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
-  .mac-sidebar-item.active {
-    background: var(--mac-sidebar-selection);
-    color: var(--brand-gold);
+  .sidebar-item.active {
+    background: var(--brand-gold-dim);
+    color: var(--accent-gold);
   }
-  .mac-sidebar-item:active {
-    background: rgba(201, 168, 76, 0.3);
+  .sidebar-item:active {
+    background: var(--bg-active);
   }
-  .mac-sidebar-footer {
-    border-top: 1px solid var(--mac-sidebar-separator);
+  .sidebar-footer {
+    border-top: 1px solid var(--border-default);
     padding: 4px 0;
   }
 
   /* ══════════════════════════════════════════════════════════════════
-     CARDS — macOS rounded-rect cards
+     TOP BAR
      ══════════════════════════════════════════════════════════════════ */
-  .mac-card {
-    background: var(--mac-card-bg);
-    border-radius: 10px;
-    box-shadow: var(--mac-card-shadow);
-    border: 1px solid rgba(0, 0, 0, 0.04);
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  .topbar {
+    display: flex;
+    align-items: center;
+    height: var(--topbar-height);
+    padding: 0 12px;
+    gap: 8px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-default);
+    flex-shrink: 0;
   }
-  .mac-card:hover {
-    box-shadow: var(--mac-card-shadow-hover);
+  .topbar-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .mac-card-interactive {
-    cursor: pointer;
-  }
-  .mac-card-interactive:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--mac-card-shadow-hover);
-  }
-  .mac-card-interactive:active {
-    transform: translateY(0);
+  .topbar-subtitle {
+    font-size: 11px;
+    color: var(--text-muted);
   }
 
   /* ══════════════════════════════════════════════════════════════════
-     BUTTONS — macOS push buttons
+     CARDS
      ══════════════════════════════════════════════════════════════════ */
-  .mac-btn {
+  .card {
+    background: var(--bg-raised);
+    border: 1px solid var(--border-default);
+    border-radius: 8px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .card-hover:hover {
+    border-color: var(--border-raised);
+    box-shadow: var(--shadow-sm);
+  }
+  .card-interactive {
+    cursor: pointer;
+  }
+  .card-interactive:hover {
+    border-color: var(--brand-gold-dim);
+    box-shadow: var(--shadow-gold);
+  }
+  .card-interactive:active {
+    transform: translateY(1px);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     BUTTONS
+     ══════════════════════════════════════════════════════════════════ */
+  .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    padding: 4px 12px;
-    border-radius: 5px;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 6px;
     font-size: 12px;
     font-weight: 500;
     border: none;
     cursor: pointer;
-    transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+    transition: background 0.12s ease, box-shadow 0.12s ease, transform 0.08s ease;
     white-space: nowrap;
     user-select: none;
+    line-height: 1;
   }
-  .mac-btn:active {
+  .btn:active {
     transform: scale(0.97);
   }
-  .mac-btn:disabled {
-    opacity: 0.4;
+  .btn:disabled {
+    opacity: 0.35;
     cursor: not-allowed;
     transform: none;
   }
 
-  .mac-btn-primary {
-    background: var(--mac-button-primary-bg);
-    color: var(--mac-button-primary-text);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  .btn-primary {
+    background: var(--accent-gold);
+    color: var(--text-inverse);
   }
-  .mac-btn-primary:hover {
-    background: #162033;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  .btn-primary:hover {
+    background: #d4b35a;
   }
-  .mac-btn-primary:active {
-    background: #1a2538;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
-  }
-
-  .mac-btn-accent {
-    background: var(--mac-button-accent-bg);
-    color: var(--mac-button-accent-text);
-    box-shadow: 0 1px 2px rgba(201, 168, 76, 0.2);
-  }
-  .mac-btn-accent:hover {
-    background: var(--mac-accent-hover);
-    box-shadow: 0 2px 4px rgba(201, 168, 76, 0.25);
-  }
-  .mac-btn-accent:active {
+  .btn-primary:active {
     background: #be9d3e;
   }
 
-  .mac-btn-ghost {
-    background: transparent;
-    color: var(--mac-secondary-label);
+  .btn-secondary {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border: 1px solid var(--border-default);
   }
-  .mac-btn-ghost:hover {
-    background: var(--mac-button-ghost-hover);
-    color: var(--mac-label);
+  .btn-secondary:hover {
+    background: var(--bg-active);
+    border-color: var(--border-raised);
   }
-  .mac-btn-ghost:active {
-    background: rgba(15, 27, 45, 0.1);
+  .btn-secondary:active {
+    background: #2d3a58;
   }
 
-  .mac-btn-destructive {
-    background: var(--mac-destructive);
-    color: white;
-    box-shadow: 0 1px 2px rgba(255, 59, 48, 0.2);
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
   }
-  .mac-btn-destructive:hover {
-    background: #e6352b;
+  .btn-ghost:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+  .btn-ghost:active {
+    background: var(--bg-active);
+  }
+
+  .btn-danger {
+    background: var(--accent-red);
+    color: white;
+  }
+  .btn-danger:hover {
+    background: #dc2626;
   }
 
   /* ══════════════════════════════════════════════════════════════════
-     SEGMENTED CONTROL — macOS NSSegmentedControl
+     INPUT
      ══════════════════════════════════════════════════════════════════ */
-  .mac-segmented {
+  .input {
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: var(--text-primary);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: 6px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .input::placeholder {
+    color: var(--text-muted);
+  }
+  .input:focus {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 0 2px var(--brand-gold-dim);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     SEGMENTED CONTROL
+     ══════════════════════════════════════════════════════════════════ */
+  .segmented {
     display: inline-flex;
     align-items: center;
-    background: rgba(0, 0, 0, 0.06);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
     border-radius: 6px;
     padding: 2px;
     gap: 1px;
   }
-  .mac-segmented-item {
+  .segmented-item {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -391,97 +331,26 @@
     border-radius: 4px;
     font-size: 11px;
     font-weight: 500;
-    color: var(--mac-secondary-label);
+    color: var(--text-muted);
     background: transparent;
     border: none;
     cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    transition: background 0.12s ease, color 0.12s ease;
     white-space: nowrap;
   }
-  .mac-segmented-item:hover {
-    color: var(--mac-label);
+  .segmented-item:hover {
+    color: var(--text-primary);
   }
-  .mac-segmented-item.active {
-    background: rgba(255, 255, 255, 0.9);
-    color: var(--mac-label);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-  }
-
-  /* ══════════════════════════════════════════════════════════════════
-     INPUT — macOS text field
-     ══════════════════════════════════════════════════════════════════ */
-  .mac-input {
-    width: 100%;
-    padding: 5px 10px;
-    font-size: 13px;
-    color: var(--mac-label);
-    background: var(--mac-input-bg);
-    border: 1px solid var(--mac-input-border);
-    border-radius: 6px;
-    outline: none;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  }
-  .mac-input::placeholder {
-    color: var(--mac-tertiary-label);
-  }
-  .mac-input:focus {
-    border-color: var(--mac-accent);
-    box-shadow: 0 0 0 3px var(--mac-input-focus-ring);
+  .segmented-item.active {
+    background: var(--bg-raised);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
   }
 
   /* ══════════════════════════════════════════════════════════════════
-     SHEET — macOS modal sheet
+     BADGES
      ══════════════════════════════════════════════════════════════════ */
-  .mac-sheet-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 50;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-  }
-  .mac-sheet {
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(40px) saturate(1.3);
-    -webkit-backdrop-filter: blur(40px) saturate(1.3);
-    border-radius: 12px;
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    max-width: 90vw;
-    animation: mac-sheet-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  }
-  @keyframes mac-sheet-in {
-    from {
-      opacity: 0;
-      transform: translateY(12px) scale(0.97);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-
-  /* ══════════════════════════════════════════════════════════════════
-     SPLIT PANE — macOS NSSplitView
-     ══════════════════════════════════════════════════════════════════ */
-  .mac-split-pane {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-  }
-  .mac-split-divider {
-    width: 1px;
-    background: var(--mac-separator);
-    flex-shrink: 0;
-  }
-
-  /* ══════════════════════════════════════════════════════════════════
-     STATUS BADGES — macOS pill badges
-     ══════════════════════════════════════════════════════════════════ */
-  .mac-badge {
+  .badge {
     display: inline-flex;
     align-items: center;
     gap: 3px;
@@ -491,187 +360,221 @@
     font-weight: 600;
     letter-spacing: 0.2px;
   }
-  .mac-badge-running {
-    background: rgba(0, 122, 255, 0.1);
-    color: #007aff;
+  .badge-running {
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--accent-blue);
   }
-  .mac-badge-completed {
-    background: rgba(52, 199, 89, 0.1);
-    color: #34c759;
+  .badge-completed {
+    background: rgba(34, 197, 94, 0.12);
+    color: var(--accent-green);
   }
-  .mac-badge-failed {
-    background: rgba(255, 59, 48, 0.1);
-    color: #ff3b30;
+  .badge-failed {
+    background: rgba(239, 68, 68, 0.12);
+    color: var(--accent-red);
   }
-  .mac-badge-pending {
-    background: rgba(255, 149, 0, 0.1);
-    color: #ff9500;
+  .badge-pending {
+    background: rgba(245, 158, 11, 0.12);
+    color: var(--accent-orange);
   }
-  .mac-badge-draft {
-    background: rgba(142, 142, 147, 0.1);
-    color: #8e8e93;
+  .badge-draft {
+    background: rgba(107, 114, 128, 0.12);
+    color: var(--text-muted);
   }
-  .mac-badge-submitted {
-    background: rgba(175, 82, 222, 0.1);
-    color: #af52de;
+  .badge-submitted {
+    background: rgba(168, 85, 247, 0.12);
+    color: var(--accent-purple);
   }
-  .mac-badge-active {
-    background: rgba(52, 199, 89, 0.1);
-    color: #34c759;
+  .badge-active {
+    background: rgba(34, 197, 94, 0.12);
+    color: var(--accent-green);
   }
-  .mac-badge-archived {
-    background: rgba(142, 142, 147, 0.1);
-    color: #8e8e93;
+  .badge-archived {
+    background: rgba(107, 114, 128, 0.12);
+    color: var(--text-muted);
   }
 
   /* ══════════════════════════════════════════════════════════════════
-     CHAT — macOS iMessage-style bubbles
+     CHAT BUBBLES
      ══════════════════════════════════════════════════════════════════ */
-  .mac-chat-bubble-agent {
-    background: rgba(255, 255, 255, 0.85);
-    border: 1px solid rgba(0, 0, 0, 0.04);
-    border-radius: 10px;
-    box-shadow: var(--mac-card-shadow);
-  }
-  .mac-chat-bubble-user {
-    background: var(--mac-button-primary-bg);
-    color: white;
-    border-radius: 10px;
-  }
-  .mac-chat-bubble-system {
-    background: rgba(201, 168, 76, 0.08);
-    border: 1px solid rgba(201, 168, 76, 0.15);
+  .chat-agent {
+    background: var(--bg-raised);
+    border: 1px solid var(--border-default);
     border-radius: 8px;
   }
+  .chat-user {
+    background: var(--accent-gold);
+    color: var(--text-inverse);
+    border-radius: 8px;
+  }
+  .chat-system {
+    background: var(--brand-gold-dim);
+    border: 1px solid rgba(201, 168, 76, 0.2);
+    border-radius: 6px;
+  }
 
   /* ══════════════════════════════════════════════════════════════════
-     PROGRESS BAR — macOS-style
+     PROGRESS BAR
      ══════════════════════════════════════════════════════════════════ */
-  .mac-progress {
+  .progress {
     height: 4px;
     border-radius: 2px;
-    background: rgba(0, 0, 0, 0.06);
+    background: rgba(255, 255, 255, 0.06);
     overflow: hidden;
   }
-  .mac-progress-fill {
+  .progress-fill {
     height: 100%;
     border-radius: 2px;
-    background: var(--mac-accent);
-    transition: width 0.5s ease;
+    transition: width 0.4s ease;
   }
-  .mac-progress-fill-blue {
-    background: var(--mac-blue);
+  .progress-fill-gold {
+    background: var(--accent-gold);
   }
-  .mac-progress-fill-green {
-    background: var(--mac-green);
+  .progress-fill-blue {
+    background: var(--accent-blue);
   }
-  .mac-progress-fill-red {
-    background: var(--mac-red);
+  .progress-fill-green {
+    background: var(--accent-green);
+  }
+  .progress-fill-red {
+    background: var(--accent-red);
   }
 
   /* ══════════════════════════════════════════════════════════════════
-     TOAST — macOS notification style
+     MODAL / SHEET
      ══════════════════════════════════════════════════════════════════ */
-  .mac-toast-enter {
-    animation: mac-toast-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
-  .mac-toast-exit {
-    animation: mac-toast-out 0.25s ease-in forwards;
+  .modal {
+    background: var(--bg-raised);
+    border: 1px solid var(--border-raised);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    max-width: 90vw;
+    animation: modal-in 0.2s ease-out forwards;
   }
-  @keyframes mac-toast-in {
+  @keyframes modal-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     TOAST
+     ══════════════════════════════════════════════════════════════════ */
+  .toast-enter {
+    animation: toast-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  .toast-exit {
+    animation: toast-out 0.2s ease-in forwards;
+  }
+  @keyframes toast-in {
     from { opacity: 0; transform: translateX(100%) scale(0.95); }
     to { opacity: 1; transform: translateX(0) scale(1); }
   }
-  @keyframes mac-toast-out {
+  @keyframes toast-out {
     from { opacity: 1; transform: translateX(0) scale(1); }
     to { opacity: 0; transform: translateX(100%) scale(0.95); }
   }
 
   /* ══════════════════════════════════════════════════════════════════
-     DAG — macOS graph styling
+     DAG GRAPH
      ══════════════════════════════════════════════════════════════════ */
-  .mac-dag-node-running {
-    animation: mac-dag-pulse 2s ease-in-out infinite;
+  .dag-node-running {
+    animation: dag-pulse 2s ease-in-out infinite;
   }
-  @keyframes mac-dag-pulse {
-    0%, 100% { filter: drop-shadow(0 0 0 rgba(0, 122, 255, 0)); }
-    50% { filter: drop-shadow(0 0 6px rgba(0, 122, 255, 0.4)); }
+  @keyframes dag-pulse {
+    0%, 100% { filter: drop-shadow(0 0 0 rgba(59, 130, 246, 0)); }
+    50% { filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.4)); }
   }
-  .mac-dag-edge-flow {
+  .dag-edge-flow {
     stroke-dasharray: 6 4;
-    animation: mac-dag-flow 1s linear infinite;
+    animation: dag-flow 1s linear infinite;
   }
-  @keyframes mac-dag-flow {
+  @keyframes dag-flow {
     to { stroke-dashoffset: -10; }
   }
 
   /* ══════════════════════════════════════════════════════════════════
-     SKELETON — macOS shimmer
+     SKELETON
      ══════════════════════════════════════════════════════════════════ */
-  .mac-skeleton {
+  .skeleton {
     position: relative;
     overflow: hidden;
-    background: rgba(0, 0, 0, 0.04);
-    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 4px;
   }
-  .mac-skeleton::after {
+  .skeleton::after {
     content: "";
     position: absolute;
     inset: 0;
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(255, 255, 255, 0.5) 50%,
+      rgba(255, 255, 255, 0.06) 50%,
       transparent 100%
     );
-    animation: mac-shimmer 1.5s ease-in-out infinite;
+    animation: shimmer 1.5s ease-in-out infinite;
   }
-  @keyframes mac-shimmer {
+  @keyframes shimmer {
     0% { transform: translateX(-100%); }
     100% { transform: translateX(100%); }
   }
 
   /* ══════════════════════════════════════════════════════════════════
-     REVEAL — macOS scroll animation
+     REVEAL
      ══════════════════════════════════════════════════════════════════ */
-  .mac-reveal {
+  .reveal {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(12px);
     transition:
-      opacity 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
-      transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      opacity 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+      transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
-  .mac-reveal.is-visible {
+  .reveal.is-visible {
     opacity: 1;
     transform: translateY(0);
   }
 
   /* ══════════════════════════════════════════════════════════════════
-     PROSE — macOS markdown chat styling
+     PROSE — Markdown in chat
      ══════════════════════════════════════════════════════════════════ */
-  .mac-prose {
+  .prose-chat {
     font-size: 13px;
-    line-height: 1.5;
-    color: var(--mac-label);
+    line-height: 1.6;
+    color: var(--text-primary);
     word-break: break-word;
   }
-  .mac-prose p:last-child,
-  .mac-prose ul:last-child,
-  .mac-prose ol:last-child,
-  .mac-prose pre:last-child {
+  .prose-chat p:last-child,
+  .prose-chat ul:last-child,
+  .prose-chat ol:last-child,
+  .prose-chat pre:last-child {
     margin-bottom: 0;
   }
 
   /* ══════════════════════════════════════════════════════════════════
-     HIGHLIGHT.JS — macOS dark code theme
+     HIGHLIGHT.JS — Dark code theme
      ══════════════════════════════════════════════════════════════════ */
   .hljs {
-    color: #c5cdd9;
+    color: #d1d5db;
     background: transparent;
   }
   .hljs-comment,
   .hljs-quote {
-    color: #7589a4;
+    color: #6b7280;
     font-style: italic;
   }
   .hljs-keyword,
@@ -679,13 +582,13 @@
   .hljs-literal,
   .hljs-section,
   .hljs-link {
-    color: #c9a84c;
+    color: var(--accent-gold);
   }
   .hljs-function .hljs-keyword {
-    color: #c9a84c;
+    color: var(--accent-gold);
   }
   .hljs-subst {
-    color: #c5cdd9;
+    color: #d1d5db;
   }
   .hljs-string,
   .hljs-attr,
@@ -693,20 +596,20 @@
   .hljs-attribute,
   .hljs-addition,
   .hljs-bullet {
-    color: #98c379;
+    color: var(--accent-green);
   }
   .hljs-title,
   .hljs-type,
   .hljs-name,
   .hljs-selector-id,
   .hljs-selector-class {
-    color: #61afef;
+    color: var(--accent-blue);
   }
   .hljs-built_in,
   .hljs-builtin-name,
   .hljs-class .hljs-title,
   .hljs-title.class_ {
-    color: #56b6c2;
+    color: var(--accent-cyan);
   }
   .hljs-number,
   .hljs-meta,
@@ -716,14 +619,14 @@
   .hljs-variable,
   .hljs-template-variable,
   .hljs-template-tag {
-    color: #e06c75;
+    color: var(--accent-red);
   }
   .hljs-deletion {
-    color: #e06c75;
+    color: var(--accent-red);
   }
   .hljs-regexp,
   .hljs-params {
-    color: #c678dd;
+    color: var(--accent-purple);
   }
   .hljs-emphasis {
     font-style: italic;

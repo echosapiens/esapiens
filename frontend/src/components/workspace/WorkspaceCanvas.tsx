@@ -15,27 +15,18 @@ const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "inspector", label: "Inspector", icon: Search },
 ];
 
-// ── WorkspaceCanvas — macOS segmented tab bar ────────────────────────────
-
 export function WorkspaceCanvas({ sessionId }: { sessionId: string }) {
   const [activeTab, setActiveTab] = useState<Tab>("pipeline");
 
   return (
-    <div className="flex h-full flex-col" style={{ background: "var(--mac-window-bg)" }}>
-      {/* ── macOS segmented tab bar ──────────────────────────────────── */}
-      <div className="flex items-center justify-center py-2 border-b" style={{ borderColor: "var(--mac-toolbar-separator)", background: "var(--mac-toolbar-bg)" }}>
-        <div className="mac-segmented">
+    <div className="flex h-full flex-col" style={{ background: "var(--bg-base)" }}>
+      {/* ── Tab bar ──────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-center py-2 border-b" style={{ borderColor: "var(--border-default)", background: "var(--bg-surface)" }}>
+        <div className="segmented">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "mac-segmented-item",
-                  activeTab === tab.id && "active"
-                )}
-              >
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("segmented-item", activeTab === tab.id && "active")}>
                 <Icon className="h-3.5 w-3.5" />
                 {tab.label}
               </button>
@@ -44,7 +35,6 @@ export function WorkspaceCanvas({ sessionId }: { sessionId: string }) {
         </div>
       </div>
 
-      {/* ── Tab content ─────────────────────────────────────────────── */}
       <div className="flex-1 overflow-hidden">
         {activeTab === "pipeline" && <PipelineTab sessionId={sessionId} />}
         {activeTab === "files" && <FilesTab sessionId={sessionId} />}
@@ -55,25 +45,13 @@ export function WorkspaceCanvas({ sessionId }: { sessionId: string }) {
 }
 
 function PipelineTab({ sessionId }: { sessionId: string }) {
-  return (
-    <div className="flex h-full flex-col" style={{ background: "var(--mac-window-bg)" }}>
-      <PipelineGantt sessionId={sessionId} />
-    </div>
-  );
+  return <div className="flex h-full flex-col"><PipelineGantt sessionId={sessionId} /></div>;
 }
 
 function FilesTab({ sessionId }: { sessionId: string }) {
-  return (
-    <div className="h-full overflow-auto p-4" style={{ background: "var(--mac-window-bg)" }}>
-      <DataExplorer sessionId={sessionId} />
-    </div>
-  );
+  return <div className="h-full overflow-auto p-4"><DataExplorer sessionId={sessionId} /></div>;
 }
 
 function InspectorTab({ sessionId }: { sessionId: string }) {
-  return (
-    <div className="flex h-full flex-col gap-4 overflow-auto p-4" style={{ background: "var(--mac-window-bg)" }}>
-      <ExportMethods sessionId={sessionId} />
-    </div>
-  );
+  return <div className="flex h-full flex-col gap-4 overflow-auto p-4"><ExportMethods sessionId={sessionId} /></div>;
 }

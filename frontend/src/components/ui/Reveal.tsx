@@ -13,11 +13,7 @@ export function Reveal({ children, className, delay = 0, as = "div" }: {
   const { ref } = useScrollReveal<HTMLElement>();
   const Tag = as as React.ElementType;
   return (
-    <Tag
-      ref={ref as React.RefObject<HTMLElement>}
-      className={cn("mac-reveal", className)}
-      style={{ transitionDelay: `${delay}ms` }}
-    >
+    <Tag ref={ref as React.RefObject<HTMLElement>} className={cn("reveal", className)} style={{ transitionDelay: `${delay}ms` }}>
       {children}
     </Tag>
   );
