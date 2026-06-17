@@ -1,1 +1,0 @@
-"""E.sapiens integration test package."""

@@ -1,0 +1,49 @@
+[project]
+name = "echosapiens"
+version = "7.0.0"
+description = "EchoSapiens — Serverless Multi-Agent Orchestration Backend for Bioinformatics IaaS"
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=0.2.0",
+    "openai>=1.50.0",
+    "google-cloud-storage>=2.18.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.2.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "structlog>=24.0.0",
+    "modal>=0.64.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.27.0",
+    "ruff>=0.6.0",
+    "mypy>=1.11.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["echosapiens*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
