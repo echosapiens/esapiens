@@ -2,7 +2,7 @@
 
 A production-grade, modular, serverless multi-agent orchestration backend tailored for a **Bioinformatics + Infrastructure-as-a-Service (IaaS)** platform.
 
-This system runs natively within **Modal.com**, leveraging **LangGraph** for structured conversation, workflow planning, and error routing. Heavy biological datasets never touch the orchestrator's state; instead, ephemeral **Modal Sandboxes** stream data directly to and from **Google Cloud Storage (GCS)** via pre-signed URLs. The execution layer uses OpenAI-compatible clients configured for budget reasoning models (such as Tencent HY3 / DeepSeek V4 Flash).
+This system runs natively within **Modal.com**, leveraging **LangGraph** for structured conversation, workflow planning, and error routing. Heavy biological datasets never touch the orchestrator's state; instead, ephemeral **Modal Sandboxes** stream data directly to and from **Google Cloud Storage (GCS)** via pre-signed URLs. The execution layer uses an OpenAI-compatible client routed through **OpenRouter** for budget reasoning models (such as DeepSeek V3.1).
 
 ---
 
@@ -52,7 +52,7 @@ This system runs natively within **Modal.com**, leveraging **LangGraph** for str
 | `echosapiens/config.py` | Global settings & secrets via `pydantic-settings` — LLM endpoints, GCS config, sandbox limits, error-handling prefs. |
 | `echosapiens/state.py` | LangGraph `EchoSapiensState` TypedDict, reducers (`append_logs`, `merge_metadata`), and structured metadata types (`GCSFileMetadata`, `PlanStep`, `ExecutionResult`). |
 | `echosapiens/gcs_manager.py` | `GCSManager` — signed URL generation, upload/download orchestration, bucket lifecycle. |
-| `echosapiens/llm_client.py` | `BudgetLLMClient` — OpenAI-compatible client wrapping Tencent HY3 / DeepSeek with token-budget tracking. |
+| `echosapiens/llm_client.py` | `BudgetLLMClient` — OpenAI-compatible client routed through OpenRouter with structured JSON validation. |
 | `echosapiens/sandbox_manager.py` | `SandboxManager` — creates ephemeral Modal Sandboxes with CPU/memory limits, streams I/O to/from GCS. |
 | `echosapiens/agents.py` | `EchoSapiensAgents` — LangGraph node functions: hypothesis formulation, workflow planning, isolated execution. |
 | `echosapiens/error_handler.py` | `ErrorInterventionRouter` — static methods for routing errors: self-correction, human checkpoint, fail-fast. |
@@ -68,7 +68,7 @@ This system runs natively within **Modal.com**, leveraging **LangGraph** for str
 - Python ≥ 3.11
 - A Modal.com account (for serverless deployment)
 - A GCP project with a Cloud Storage bucket and a service account JSON (Storage Object Admin)
-- An LLM API key for an OpenAI-compatible endpoint (DeepSeek / Tencent HY3 / OpenRouter)
+- An OpenRouter API key (`sk-or-v1-...`)
 
 ### 1. Clone & install locally
 
@@ -87,10 +87,10 @@ pip install -e ".[dev]"
 Create a `.env` file in the project root for local development:
 
 ```bash
-# LLM settings
-LLM_API_KEY="sk-..."
-LLM_BASE_URL="https://api.lkeap.cloud.tencent.com/v1"
-LLM_MODEL="deepseek-v4-flash"
+# LLM settings (OpenRouter)
+LLM_API_KEY="sk-or-v1-..."
+LLM_BASE_URL="https://openrouter.ai/api/v1"
+LLM_MODEL="deepseek/deepseek-chat-v3.1"
 
 # GCS settings
 GCP_PROJECT_ID="your-gcp-project-id"
@@ -117,11 +117,11 @@ export GOOGLE_APPLICATION_CREDENTIALS="/path/to/sa_key.json"
 Create the required secrets in your Modal account:
 
 ```bash
-# Register LLM keys (DeepSeek / Tencent)
+# Register LLM keys (OpenRouter)
 modal secret create echosapiens-llm-keys \
-  LLM_API_KEY="sk-..." \
-  LLM_BASE_URL="https://api.lkeap.cloud.tencent.com/v1" \
-  LLM_MODEL="deepseek-v4-flash"
+  LLM_API_KEY="sk-or-v1-..." \
+  LLM_BASE_URL="https://openrouter.ai/api/v1" \
+  LLM_MODEL="deepseek/deepseek-chat-v3.1"
 
 # Register GCP service account credentials (Storage Object Admin on target bucket)
 modal secret create echosapiens-gcp-creds \

@@ -20,13 +20,13 @@ ErrorHandlingPreference = Literal[
 class Settings(BaseSettings):
     """Global settings for the EchoSapiens execution engine."""
 
-    # ── LLM Settings (OpenAI-compatible: Tencent HY3 / DeepSeek / OpenRouter) ──
+    # ── LLM Settings (OpenRouter) ──
     llm_api_key: str = Field(..., validation_alias="LLM_API_KEY")
     llm_base_url: str = Field(
-        "https://api.lkeap.cloud.tencent.com/v1",
+        "https://openrouter.ai/api/v1",
         validation_alias="LLM_BASE_URL",
     )
-    llm_model: str = Field("deepseek-v4-flash", validation_alias="LLM_MODEL")
+    llm_model: str = Field("deepseek/deepseek-chat-v3.1", validation_alias="LLM_MODEL")
     llm_temperature: float = 0.1
     llm_max_tokens: int = 16384
 
