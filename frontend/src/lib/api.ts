@@ -6,7 +6,7 @@ import type {
   SessionWithMessages,
 } from "@/types";
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "http://187.77.199.72:8000"; // Replace with your actual API base URL
 
 class ApiError extends Error {
   status: number;
