@@ -69,23 +69,19 @@ def _build_command(research_output: dict) -> str:
 
 
 def _build_download_command(research_output: dict) -> str:
-    """Build the download-only command (runs in Ubuntu sandbox).
+    """Build the download command from resolved data sources.
 
+    Uses deterministic download commands from data_resolver instead of
+    extracting from the LLM-generated command (which may hallucinate URLs).
     Returns empty string if no downloads needed.
     """
-    generated = research_output.get("generated_command", "")
-
-    if not generated:
+    download_commands = research_output.get("download_commands", [])
+    if not download_commands:
         return ""
 
-    generated = sanitize_cli_command(generated)
-    download_cmd, _ = _extract_download_steps(generated)
-
-    if not download_cmd:
-        return ""
-
-    # Ensure input dir exists before downloads
-    return f"mkdir -p /data/input && {download_cmd}"
+    # Join all download commands with &&
+    download_str = " && ".join(download_commands)
+    return f"mkdir -p /data/input && {download_str}"
 
 
 class ContractAgent:

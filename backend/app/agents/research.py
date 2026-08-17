@@ -11,6 +11,7 @@ from typing import Optional
 from app.openrouter import OpenRouterClient
 from app.biocontainers import resolve_tool_image
 from app.tool_search import search_tool_docs
+from app.data_resolver import resolve_download_commands
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +165,12 @@ class ResearchAgent:
                 "search_findings": None,
             }
 
+        # --- Step 2a: Resolve data downloads deterministically ---
+        # The LLM generates tool commands only. Data is resolved here.
+        download_commands, data_description = resolve_download_commands(user_prompt, tool_name)
+        if download_commands:
+            logger.info("Resolved %d data downloads: %s", len(download_commands), data_description)
+
         # --- Step 2: Web search for real documentation ---
         search_result = search_tool_docs(tool_name, user_prompt)
         search_docs = search_result.get("usage_summary", "")
@@ -206,6 +213,8 @@ class ResearchAgent:
             "expected_outputs": tool["outputs"],
             "pipeline_steps": [generated_command],
             "generated_command": generated_command,
+            "download_commands": download_commands,
+            "data_description": data_description,
             "search_findings": search_findings,
         }
 
@@ -239,20 +248,12 @@ class ResearchAgent:
             "that runs the specified bioinformatics tool inside a BioContainer.\n\n"
             "STRICT RULES:\n"
             "- Output ONLY the bash command. No JSON, no markdown, no explanation, no backticks.\n"
-            "- Use ACTUAL tool syntax from the provided documentation — do NOT guess or invent flags.\n"
-            "- ALL input file paths MUST be under /data/input/ (e.g. /data/input/reads.fastq).\n"
-            "- ALL output file paths MUST be under /data/output/ (e.g. /data/output/alignment.sam).\n"
-            "- The container starts EMPTY — no data files exist. You MUST download input data first.\n"
-            "  Use this exact syntax for downloads (the download runs in Ubuntu which has python3):\n"
-            "  python3 -c \"import urllib.request; urllib.request.urlretrieve('URL', '/data/input/filename')\"\n"
-            "  Chain all downloads with && before the main tool command.\n"
-            "- For small FASTA sequences, use printf to write them inline:\n"
-            "  printf '>seq1\\\\nACGTACGT\\\\n>seq2\\\\nTGCATGCA\\\\n' > /data/input/sequences.fasta\n"
-            "- Download real test data from these VERIFIED URLs:\n"
-            "  * Protein FASTA: https://rest.uniprot.org/uniprotkb/P62988.fasta (RBL_HUMAN)\n"
-            "  * Protein FASTA: https://rest.uniprot.org/uniprotkb/P31946.fasta (14-3-3 protein)\n"
-            "  * Nucleotide FASTA: https://www.ebi.ac.uk/ena/browser/api/fasta/AY445571.1\n"
-            "  * Nucleotide FASTA: https://www.ebi.ac.uk/ena/browser/api/fasta/X17216.1\n"
+            "- Use ACTUAL tool syntax from the provided documentation - do NOT guess or invent flags.\n"
+            "- ALL input file paths MUST be under /data/input/ (e.g. /data/input/combined.fasta).\n"
+            "- ALL output file paths MUST be under /data/output/ (e.g. /data/output/alignment.aln).\n"
+            "- Input data ALREADY EXISTS in /data/input/. Do NOT download anything.\n"
+            "  The orchestration layer handles downloading before your tool runs.\n"
+            "- Do NOT include curl, wget, python3 -c, or printf commands.\n"
             "- If the tool requires an index/database (makeblastdb, bwa index, bowtie2-build, "
             "hisat2-build, salmon index, STAR --runMode genomeGenerate), build it BEFORE the main "
             "command using &&. The index output must live under /data/input/.\n"

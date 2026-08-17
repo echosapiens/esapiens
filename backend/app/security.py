@@ -11,7 +11,11 @@ security_scheme = HTTPBearer(auto_error=False)
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
 ):
-    """Validate JWT token. Returns user info dict or raises 403."""
+    """Validate JWT token. Returns user info dict or raises 403.
+
+    When DISABLE_AUTH is True (dev mode), allows all requests through."""
+    if settings.DISABLE_AUTH:
+        return {"sub": "dev-user", "role": "admin"}
     if credentials is None:
         raise HTTPException(status_code=403, detail="Not authenticated")
     payload = decode_access_token(credentials.credentials)

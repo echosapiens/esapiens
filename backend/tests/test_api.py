@@ -1,11 +1,13 @@
 """Tests for API endpoints — real TestClient, no mocks.
 
 Tests health, auth enforcement, and job CRUD with real dependencies.
+DISABLE_AUTH defaults to true (dev mode); auth enforcement tests
+set it to false explicitly to verify JWT blocking.
 """
-
 from fastapi.testclient import TestClient
 from app.main import app
 from app.security import create_access_token
+from app.config import settings
 
 client = TestClient(app)
 
@@ -27,7 +29,16 @@ class TestHealth:
 
 
 class TestAuthEnforcement:
-    """All /api/v1/ routes require JWT authentication."""
+    """All /api/v1/ routes require JWT when DISABLE_AUTH=false."""
+
+    def setup_method(self):
+        """Toggle auth enforcement for this test class."""
+        self._orig = settings.DISABLE_AUTH
+        settings.DISABLE_AUTH = False
+
+    def teardown_method(self):
+        """Restore original auth setting."""
+        settings.DISABLE_AUTH = self._orig
 
     def test_jobs_list_requires_auth(self):
         resp = client.get("/api/v1/jobs")
@@ -56,7 +67,7 @@ class TestAuthEnforcement:
 
 
 class TestJobsCRUD:
-    """Job CRUD endpoints with valid auth."""
+    """Job CRUD endpoints with valid auth (dev mode)."""
 
     def test_list_jobs_empty(self):
         token = _valid_token()
@@ -76,7 +87,7 @@ class TestJobsCRUD:
 
 
 class TestSessions:
-    """Session CRUD endpoints with valid auth."""
+    """Session CRUD endpoints with valid auth (dev mode)."""
 
     def test_list_sessions_empty(self):
         token = _valid_token()

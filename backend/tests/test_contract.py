@@ -120,16 +120,15 @@ class TestBuildDownloadCommand:
 
     def test_with_download(self):
         output = {
-            "generated_command": (
+            "download_commands": [
                 "python3 -c \"import urllib.request; urllib.request.urlretrieve('https://example.com/r.fastq', '/data/input/r.fastq')\""
-                " && "
-                "samtools flagstat /data/input/r.fastq > /data/output/flagstat.txt"
-            )
+            ],
+            "generated_command": "samtools flagstat /data/input/r.fastq > /data/output/flagstat.txt",
         }
         cmd = _build_download_command(output)
         assert cmd.startswith("mkdir -p /data/input &&")
         assert "python3 -c" in cmd
-        assert "samtools flagstat" not in cmd
+        assert "flagstat" not in cmd
 
     def test_no_download(self):
         output = {"generated_command": "samtools flagstat /data/input/input.bam > /data/output/flagstat.txt"}
